@@ -6,6 +6,51 @@ from typing import Any
 
 import httpx
 
+# Independent expectations: never derive regression cases from production capabilities.
+DOCUMENTED_CHAT_REJECTIONS = {
+    "groq": frozenset(
+        {"logprobs", "top_logprobs", "logit_bias", "frequency_penalty", "presence_penalty"}
+    ),
+    "deepseek": frozenset({"frequency_penalty", "presence_penalty"}),
+    "gemini": frozenset[str](),
+    "openai": frozenset[str](),
+}
+CANONICAL_CHAT_VALUES: dict[str, Any] = {
+    "model": "model",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": True,
+    "stream_options": {"include_usage": True},
+    "temperature": 0.2,
+    "top_p": 0.5,
+    "max_tokens": 10,
+    "max_completion_tokens": 10,
+    "n": 1,
+    "stop": "END",
+    "seed": 42,
+    "presence_penalty": 0.1,
+    "frequency_penalty": 0.1,
+    "logprobs": True,
+    "top_logprobs": 1,
+    "logit_bias": {"1": 1},
+    "tools": [{"type": "function", "function": {"name": "lookup"}}],
+    "tool_choice": "auto",
+    "parallel_tool_calls": True,
+    "response_format": {"type": "json_object"},
+    "reasoning_effort": "low",
+    "service_tier": "auto",
+    "user": "opaque-user",
+    "safety_identifier": "opaque-user",
+    "provider_options": {name: {"extension": name} for name in DOCUMENTED_CHAT_REJECTIONS},
+}
+CANONICAL_EMBEDDING_VALUES: dict[str, Any] = {
+    "model": "embedding",
+    "input": [[1, 2]],
+    "encoding_format": "base64",
+    "dimensions": 2,
+    "user": "opaque-user",
+    "provider_options": {name: {"extension": name} for name in ("gemini", "openai")},
+}
+
 CHAT_REQUEST: dict[str, Any] = {
     "model": "groq/llama-3.3-70b-versatile",
     "messages": [{"role": "user", "content": "Say hi"}],

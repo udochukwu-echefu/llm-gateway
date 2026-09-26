@@ -39,7 +39,18 @@ async def test_undocumented_embedding_options_are_forwarded(
     assert all(sent[key] == value for key, value in extra.items())
 
 
-@pytest.mark.parametrize("extra", [{"max_tokens": 10}, {"max_completion_tokens": 10}, {"n": 2}])
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"max_tokens": 10},
+        {"max_completion_tokens": 10},
+        {"n": 2},
+        {"temperature": 0.2},
+        {"top_p": 0.5},
+        {"stop": "END"},
+    ],
+    ids=["max_tokens", "max_completion_tokens", "n", "temperature", "top_p", "stop"],
+)
 async def test_undocumented_limits_are_forwarded(
     client: httpx.AsyncClient,
     upstream: respx.MockRouter,

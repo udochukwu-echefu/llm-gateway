@@ -38,6 +38,13 @@ class CompatibleChatStream:
                     yield chunk
         except httpx.HTTPError as exc:
             raise transport_error(exc) from exc
+        except UnicodeDecodeError:
+            raise GatewayError(
+                502,
+                "The model provider returned invalid stream text.",
+                type="upstream_error",
+                code="upstream_invalid_response",
+            ) from None
         if not finished:
             raise GatewayError(
                 502,

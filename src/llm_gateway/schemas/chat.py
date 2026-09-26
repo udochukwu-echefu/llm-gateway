@@ -250,7 +250,10 @@ class ChatCompletionRequest(ProxiedRequest):
         if self.stream:
             # Always ask for token usage: the gateway needs it for cost tracking even when
             # the client didn't ask. The relay removes it again if the client didn't want it.
-            payload["stream_options"] = {**payload.get("stream_options", {}), "include_usage": True}
+            payload["stream_options"] = {
+                **(payload.get("stream_options") or {}),
+                "include_usage": True,
+            }
         return payload
 
 

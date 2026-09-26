@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator, Iterator
 
 import httpx
@@ -10,6 +11,21 @@ from llm_gateway.main import create_app
 
 UPSTREAM_URL = "https://upstream.test/v1"
 UPSTREAM_KEY = "sk-upstream-test"
+
+
+@pytest.fixture(autouse=True)
+def offline_by_default(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """Ordinary tests cannot use developer credentials or accidentally reach the network."""
+    if "live" in request.keywords:
+        yield
+        return
+    for name in os.environ:
+        if name.startswith("GATEWAY_PROVIDERS"):
+            monkeypatch.delenv(name)
+    with respx.mock(assert_all_called=False):
+        yield
 
 
 @pytest.fixture

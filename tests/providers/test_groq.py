@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 import respx
@@ -5,6 +7,64 @@ import respx
 from tests.fixtures import COMPLETION, chunk, parse_events, sse
 
 pytestmark = pytest.mark.parametrize("provider_name", ["groq"])
+
+
+async def test_supported_token_limit_and_single_choice_are_preserved(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+) -> None:
+    route = upstream.post("/chat/completions").respond(200, json=COMPLETION)
+
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "groq/model",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_completion_tokens": 10,
+            "n": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["max_completion_tokens"] == 10
+    assert sent["n"] == 1
+    assert "max_tokens" not in sent
+
+
+async def test_canonical_reasoning_takes_precedence_and_raw_tags_are_kept(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+) -> None:
+    upstream.post("/chat/completions").respond(
+        200,
+        json={
+            **COMPLETION,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "content": "<think>quoted</think>",
+                        "reasoning": "provider",
+                        "reasoning_content": "canonical",
+                    },
+                }
+            ],
+        },
+    )
+
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "groq/model",
+            "messages": [{"role": "user", "content": "Hi"}],
+        },
+    )
+
+    message = response.json()["choices"][0]["message"]
+    assert message["reasoning_content"] == "canonical"
+    assert message["content"] == "<think>quoted</think>"
+    assert "reasoning" not in message
 
 
 @pytest.mark.parametrize("stream", [False, True])

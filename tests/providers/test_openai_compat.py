@@ -8,6 +8,7 @@ import structlog
 from structlog.testing import capture_logs
 
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
+from llm_gateway.providers.registry import ADAPTER_TYPES
 from llm_gateway.schemas.chat import ChatCompletionRequest
 from llm_gateway.schemas.common import ProviderName
 from tests.fixtures import COMPLETION, EMBEDDINGS, STREAM, USAGE_CHUNK, parse_events, prefixed, sse
@@ -141,7 +142,7 @@ async def test_only_serving_provider_options_are_sent(
     provider_name: ProviderName,
 ) -> None:
     route = upstream.post("/chat/completions").respond(200, json=COMPLETION)
-    options = {name: {f"option_{name}": True} for name in ("groq", "deepseek", "gemini", "openai")}
+    options = {name: {f"option_{name}": True} for name in ADAPTER_TYPES}
 
     await client.post(
         "/v1/chat/completions",

@@ -6,6 +6,7 @@ reasoning_effort and service_tier. System instructions are documented; developer
 so translate to system. Token-limit spellings and other parameters below were not
 verified in this guide: reject rather than assume a safe token-limit translation.
 Embedding token IDs, dimensions, encoding_format and user were not verified: reject.
+Only n=1 is exemplified; multiple choices are conservatively rejected.
 No request-ID header or separate reasoning output representation was verified: no mapping.
 """
 
@@ -22,6 +23,7 @@ class GeminiAdapter(OpenAICompatibleAdapter):
         supports_stream_usage=True,
         supports_developer=False,
         supports_max_completion_tokens=False,
+        supports_multiple_choices=False,
         supports_token_inputs=False,
         unsupported_parameters=frozenset(
             {

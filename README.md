@@ -3,7 +3,8 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 1 of 12.** A streaming pass-through proxy to one provider. There is no
+> **Status: step 2 of 12.** Chat completions (streaming, tools, images, structured output)
+> and embeddings in OpenAI's format, validated end to end, against one provider. There is no
 > client authentication yet, so run it only on your own machine. See the
 > [roadmap](docs/roadmap.md).
 
@@ -34,6 +35,24 @@ from openai import OpenAI
 client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key="unused-until-step-4")
 ```
 
+Provider-only options go in `provider_options`, and only the serving provider's are sent:
+
+```python
+client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[{"role": "user", "content": "hi"}],
+    extra_body={"provider_options": {"groq": {"reasoning_format": "hidden"}}},
+)
+```
+
+## Endpoints
+
+| Endpoint | Notes |
+|---|---|
+| `POST /v1/chat/completions` | Streaming and non-streaming, tools, images, audio, files, JSON schema output |
+| `POST /v1/embeddings` | Needs a provider that offers embeddings (Gemini or OpenAI; Groq and DeepSeek don't) |
+| `GET /healthz` | Liveness |
+
 ## Development
 
 ```bash
@@ -52,6 +71,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | Variable | Default | Meaning |
 |---|---|---|
 | `GATEWAY_UPSTREAM_API_KEY` | required | Provider API key |
+| `GATEWAY_UPSTREAM_PROVIDER` | `groq` | `groq`, `gemini`, `deepseek` or `openai`; selects `provider_options` |
 | `GATEWAY_UPSTREAM_BASE_URL` | Groq | Any OpenAI-compatible base URL |
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
@@ -62,4 +82,5 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 - [Architecture, in plain language](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
 - Decisions: [ADR 0001: OpenAI-compatible API](docs/adr/0001-openai-compatible-api.md),
-  [ADR 0002: error mapping](docs/adr/0002-upstream-error-mapping.md)
+  [ADR 0002: error mapping](docs/adr/0002-upstream-error-mapping.md),
+  [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md)

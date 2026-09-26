@@ -46,7 +46,7 @@ any of that.
   tenants?" and "what did team X spend in March?"
 - **Secrets manager** is a locked box for the provider keys, so they never sit in code.
 
-## Step 1: what exists today
+## Step 1: the pass-through proxy
 
 Step 1 is a **pass-through proxy** to one provider:
 
@@ -142,11 +142,85 @@ provider. That's faster for the client, costs us nothing, and shields the provid
 The size limit is checked **while reading**, because a client can lie about the size in
 its headers.
 
-## What step 1 deliberately does NOT do yet
+## Step 2: the gateway now understands what it carries
+
+In step 1 the gateway was a **postman**: it passed envelopes along without opening them.
+In step 2 it became a **translator's assistant**: it opens every letter, checks that it's
+written correctly, and understands what's inside.
+
+```
+ Client JSON ──► schemas/chat.py checks it ──► to_upstream() builds the provider's body
+                                                        │
+ Client ◄── clean, checked chunks ◄── relay_chat_stream ◄── provider's stream
+```
+
+### New files
+
+| File | Job in one sentence |
+|---|---|
+| `schemas/common.py` | The two base "rulebooks" (strict for requests, tolerant for responses) and `provider_options`. |
+| `schemas/chat.py` | Exactly what a chat request, response and streamed chunk may contain. |
+| `schemas/embeddings.py` | The same for embeddings (turning text into numbers for search and RAG). |
+| `sse.py` | Reads the provider's stream and cuts it back into whole events. |
+| `context.py` | Collects facts about a request (model, tokens) for its log line. |
+| `api/chat.py`, `api/embeddings.py`, `api/health.py` | One file per endpoint group. |
+
+### Key ideas, explained
+
+**A schema is a contract.** It says "a chat request must have a `model` (text) and at
+least one message; `temperature` is a number from 0 to 2". Pydantic turns that contract
+into code that checks every request automatically.
+
+**Strict in, tolerant out.** This follows an old rule: *be strict in what you send, and
+forgiving in what you accept.* We control what clients may send us, so we're strict and
+`temprature` (typo) gets a clear 400. We don't control providers, and they add new fields
+all the time. If we were strict with them, our gateway would break every time Groq shipped
+a feature. So for responses we only check the fields we actually use, and keep the rest.
+
+**Discriminated unions.** A message can be a system, user, assistant or tool message, and
+each has different rules. Instead of trying every rule and reporting four confusing
+errors, the schema looks at one field (`role`) and picks the right rulebook. Same for
+content parts (`type`: text, image, audio, file).
+
+**`provider_options`.** Some features exist only on one provider. They go in a labelled box:
+
+```json
+{"model": "...", "messages": [...],
+ "provider_options": {"groq": {"reasoning_format": "parsed"},
+                      "deepseek": {"thinking": {"type": "enabled"}}}}
+```
+
+The gateway opens only the box of the provider that serves the request. That will matter
+in step 7: if Groq is down and we fall back to DeepSeek, Groq's options won't confuse
+DeepSeek. The box can't contain standard fields like `messages`. Otherwise someone could
+hide messages there and get around guardrails we add in step 11.
+
+**Why the stream is now parsed.** A streamed answer arrives as bytes cut at random places,
+sometimes even in the middle of an emoji (one emoji = 4 bytes). `SSEDecoder` glues pieces
+back into whole events before we read them. Then each event is checked like a mini
+response. Parsing costs microseconds, while the model takes seconds.
+
+**Usage and cost.** To know what a request cost, we need its token counts. Providers only
+send them in a stream if you ask (`stream_options.include_usage`). So the gateway **always
+asks**, records the numbers, and removes that extra chunk if the client didn't ask for it.
+The client sees exactly what it expected, and we still get our numbers.
+
+**Every stream ends clearly.** A stream now ends either with `[DONE]` or with an error
+event. A provider that simply stops mid-answer is reported as
+`upstream_stream_truncated`, so the client knows the answer is incomplete.
+
+**Echoed history.** In a chat loop, apps send the model's last answer back as history.
+That answer can contain output-only fields (`annotations`, DeepSeek's
+`reasoning_content`). The assistant-message rulebook quietly drops those instead of
+rejecting the request. It's the one deliberate exception to "strict in".
+
+Full reasoning: [ADR 0003](adr/0003-canonical-schema.md).
+
+## What the gateway deliberately does NOT do yet
 
 - **No authentication of clients.** Anyone who can reach it can use our key. Only run it
   on your own machine until step 4.
-- One provider only (step 3 adds more).
+- One provider at a time (step 3 adds more, chosen per request).
 - No limits, cost tracking, retries, or caching (steps 5–10).
 
 See [roadmap.md](roadmap.md) for the order.

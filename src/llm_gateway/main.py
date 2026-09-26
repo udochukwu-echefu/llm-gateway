@@ -7,11 +7,11 @@ from fastapi import FastAPI
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
+from llm_gateway.api import chat, embeddings, health
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
-from llm_gateway.routes import router
 from llm_gateway.upstream import UpstreamClient
 
 log = structlog.get_logger("llm_gateway")
@@ -47,7 +47,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="LLM Gateway", version=__version__, lifespan=lifespan)
     app.state.settings = settings
-    app.include_router(router)
+    for module in (health, chat, embeddings):
+        app.include_router(module.router)
     app.add_exception_handler(GatewayError, gateway_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_middleware(RequestContextMiddleware)

@@ -16,16 +16,61 @@ CHAT_REQUEST: dict[str, Any] = {
     "messages": [{"role": "user", "content": "Say hi"}],
     "temperature": 0.2,
 }
-COMPLETION = {
+COMPLETION: dict[str, Any] = {
     "id": "chatcmpl-1",
     "object": "chat.completion",
-    "choices": [{"index": 0, "message": {"role": "assistant", "content": "hi"}}],
+    "created": 1790000000,
+    "model": "llama-3.3-70b-versatile",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hi"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 9, "completion_tokens": 1, "total_tokens": 10},
 }
-SSE_CHUNKS = [
-    b'data: {"id":"chatcmpl-1","choices":[{"delta":{"content":"h"}}]}\n\n',
-    b'data: {"id":"chatcmpl-1","choices":[{"delta":{"content":"i"}}]}\n\n',
-    b"data: [DONE]\n\n",
+
+
+def chunk(delta: dict[str, Any], finish_reason: str | None = None) -> dict[str, Any]:
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion.chunk",
+        "created": 1790000000,
+        "model": "llama-3.3-70b-versatile",
+        "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+    }
+
+
+USAGE_CHUNK: dict[str, Any] = {
+    **chunk({}),
+    "choices": [],
+    "usage": {"prompt_tokens": 9, "completion_tokens": 2, "total_tokens": 11},
+}
+STREAM: list[dict[str, Any]] = [
+    chunk({"role": "assistant", "content": "h"}),
+    chunk({"content": "i"}, finish_reason="stop"),
 ]
+
+
+def sse(*events: dict[str, Any] | str) -> list[bytes]:
+    return [
+        f"data: {event if isinstance(event, str) else json.dumps(event)}\n\n".encode()
+        for event in events
+    ]
+
+
+SSE_CHUNKS = sse(*STREAM, "[DONE]")
+
+
+def parse_events(body: str) -> list[Any]:
+    """The data of every SSE event, JSON-decoded ([DONE] stays a string)."""
+    events: list[Any] = []
+    for line in body.splitlines():
+        if line.startswith("data: "):
+            data = line.removeprefix("data: ")
+            events.append(data if data == "[DONE]" else json.loads(data))
+    return events
 
 
 def sse_response(chunks: list[bytes]) -> httpx.Response:
@@ -36,7 +81,7 @@ def sse_response(chunks: list[bytes]) -> httpx.Response:
     return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream())
 
 
-async def test_non_streaming_request_is_forwarded_untouched(
+async def test_non_streaming_request_is_forwarded_as_sent(
     client: httpx.AsyncClient, upstream: respx.MockRouter
 ) -> None:
     route = upstream.post("/chat/completions").respond(
@@ -53,7 +98,8 @@ async def test_non_streaming_request_is_forwarded_untouched(
     assert response.status_code == 200
     assert response.json() == COMPLETION
     sent = route.calls.last.request
-    assert sent.content == body  # unknown fields such as temperature survive
+    # Exactly what the client set: no defaults added, nothing dropped.
+    assert json.loads(sent.content) == CHAT_REQUEST
     # The provider sees our key, never the client's.
     assert sent.headers["authorization"] == f"Bearer {UPSTREAM_KEY}"
 
@@ -66,12 +112,12 @@ async def test_streaming_request_relays_every_chunk(
     async with client.stream(
         "POST", "/v1/chat/completions", json={**CHAT_REQUEST, "stream": True}
     ) as response:
-        received = b"".join([chunk async for chunk in response.aiter_bytes()])
+        received = (await response.aread()).decode()
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert response.headers["cache-control"] == "no-cache"
-    assert received == b"".join(SSE_CHUNKS)
+    assert parse_events(received) == [*STREAM, "[DONE]"]
 
 
 @pytest.mark.parametrize(
@@ -241,7 +287,7 @@ async def test_stream_interrupted_mid_way_ends_with_an_error_event(
 
     assert response.status_code == 200
     assert len(events) == 2
-    error = json.loads(events[-1].removeprefix("data: "))["error"]
+    error = json.loads(events[-1].removeprefix("data: "))["error"]  # after the first chunk
     assert error["code"] == "upstream_timeout"
 
 

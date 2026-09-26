@@ -148,6 +148,52 @@ async def test_upstream_status_error_records_zero_not_billed(
     )
 
 
+@pytest.mark.parametrize(
+    ("failure", "status"),
+    [
+        (httpx.ConnectError("connection refused"), 502),
+        (httpx.ConnectTimeout("connect timed out"), 504),
+        (httpx.PoolTimeout("pool exhausted"), 503),
+    ],
+)
+async def test_connect_phase_failure_is_not_billed(
+    recorded_client: httpx.AsyncClient,
+    recorded_app: tuple[FastAPI, list[UsageRecord]],
+    upstream: respx.MockRouter,
+    failure: httpx.HTTPError,
+    status: int,
+) -> None:
+    upstream.post("/chat/completions").mock(side_effect=failure)
+
+    response = await recorded_client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    record = await wait_for_record(recorded_app[1])
+
+    assert response.status_code == status
+    assert (record.outcome, record.cost_status, record.cost_usd) == (
+        "upstream_error",
+        "not_billed",
+        Decimal(0),
+    )
+
+
+async def test_read_timeout_keeps_unknown_billable_cost(
+    recorded_client: httpx.AsyncClient,
+    recorded_app: tuple[FastAPI, list[UsageRecord]],
+    upstream: respx.MockRouter,
+) -> None:
+    upstream.post("/chat/completions").mock(side_effect=httpx.ReadTimeout("after send"))
+
+    response = await recorded_client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    record = await wait_for_record(recorded_app[1])
+
+    assert response.status_code == 504
+    assert (record.outcome, record.cost_status, record.cost_usd) == (
+        "upstream_error",
+        "usage_missing",
+        None,
+    )
+
+
 async def test_missing_embedding_usage_keeps_null_cost(
     recorded_client: httpx.AsyncClient,
     recorded_app: tuple[FastAPI, list[UsageRecord]],

@@ -344,7 +344,11 @@ loses receipts still in memory. This is not a durable invoice ledger.
 
 Each provider-bound call has one metadata-only record: tenant IDs, model, tokens,
 cost, outcome and timing, never prompts or vectors. Even provider error statuses
-get a zero-cost `not_billed` record. A client may disconnect mid-stream before
+get a zero-cost `not_billed` record. If a connection was refused, timed out
+during connection, or no pool slot was available, the provider never received
+the request: these also get `not_billed` with zero cost. Once a request might
+have reached the provider, a read timeout has unknown cost (`usage_missing`).
+A client may disconnect mid-stream before
 the usage chunk arrives. The provider **probably still billed us**, but we have
 no final token count: `stream_incomplete` stores a NULL cost. This is a known
 accounting gap, not free usage. A stream error without usage is similarly visible

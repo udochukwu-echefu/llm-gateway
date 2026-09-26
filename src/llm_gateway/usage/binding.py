@@ -25,3 +25,9 @@ def mark_rejected() -> None:
     event = _current.get()
     if event is not None:
         event.provider_rejected = True
+
+
+def mark_connect_failed() -> None:
+    event = _current.get()
+    if event is not None:
+        event.connect_failed = True

@@ -75,6 +75,7 @@ class UsageEvent:
         self.finished = False
         self.sent = False
         self.provider_rejected = False
+        self.connect_failed = False
 
     def finish(self, duration_ms: float | None, ttfb_ms: float | None) -> UsageRecord:
         usage = self.usage
@@ -99,7 +100,7 @@ class UsageEvent:
                 cost_status = "usage_missing"
         if self.outcome == "client_disconnected" and usage is None:
             cost_status, cost = "stream_incomplete", None
-        elif self.outcome == "upstream_error" and self.provider_rejected:
+        elif self.outcome == "upstream_error" and (self.provider_rejected or self.connect_failed):
             cost_status, cost = "not_billed", Decimal(0)
         return UsageRecord(
             uuid.uuid4(),

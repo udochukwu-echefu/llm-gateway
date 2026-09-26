@@ -8,8 +8,8 @@ Each step ends with tests, docs and a working gateway.
 | 2 | Canonical OpenAI-compatible schema (chat, tools, structured output, embeddings), pass-through for provider-only fields | ✅ Done |
 | 3 | Provider adapters: Groq, Gemini, DeepSeek, OpenAI | ✅ Done |
 | 4 | Tenants and virtual API keys (inbound), secret store for provider keys (outbound) | ✅ Done |
-| 5 | Model catalog with prices; token and cost tracking, written to Postgres off the request path | Next |
-| 6 | Rate limits (requests and tokens per minute), concurrency limits, budgets, all in Redis | |
+| 5 | Model catalog with effective-dated prices; token and cost tracking, written to Postgres off the request path | ✅ Done |
+| 6 | Rate limits (requests and tokens per minute), concurrency limits, budgets, all in Redis | Next |
 | 7 | Retries, circuit breakers, provider fallback | |
 | 8 | Metrics (Prometheus), tracing (OpenTelemetry), audit log | |
 | 9 | Model routing and per-team model access policies | |

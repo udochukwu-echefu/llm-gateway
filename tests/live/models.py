@@ -16,7 +16,7 @@ class LiveProvider:
 PROVIDERS = (
     LiveProvider("groq", "openai/gpt-oss-20b", None),
     LiveProvider("deepseek", "deepseek-flash", None),
-    LiveProvider("gemini", "gemini-3.8-flash", "gemini-embedding-001"),
+    LiveProvider("gemini", "gemini-3.8-flash", "gemini-embedding-2"),
     LiveProvider("openai", "gpt-4.1-nano", "text-embedding-3-small"),
 )
 

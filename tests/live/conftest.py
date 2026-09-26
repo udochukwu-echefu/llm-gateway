@@ -1,6 +1,6 @@
 import os
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import cast
 
 import httpx
@@ -11,6 +11,7 @@ from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import KeyRecord
+from llm_gateway.usage.record import UsageRecord
 from tests.conftest import MemoryKeyRepository
 from tests.live.models import PROVIDERS, LiveProvider, resolve_live_models
 
@@ -24,7 +25,14 @@ def live_provider(request: pytest.FixtureRequest) -> LiveProvider:
 
 
 @pytest.fixture
-async def live_client(live_provider: LiveProvider) -> AsyncIterator[httpx.AsyncClient]:
+def live_records() -> list[UsageRecord]:
+    return []
+
+
+@pytest.fixture
+async def live_client(
+    live_provider: LiveProvider, live_records: list[UsageRecord]
+) -> AsyncIterator[httpx.AsyncClient]:
     prefix = f"GATEWAY_PROVIDERS__{live_provider.name.upper()}__"
     block = {"api_key": os.environ[prefix + "API_KEY"]}
     if prefix + "BASE_URL" in os.environ:
@@ -32,6 +40,7 @@ async def live_client(live_provider: LiveProvider) -> AsyncIterator[httpx.AsyncC
     settings = Settings(
         _env_file=None,  # pyright: ignore[reportCallIssue]  # live tests use environment only
         providers=ProvidersSettings.model_validate({live_provider.name: block}),
+        usage_batch_size=1,
     )
     pepper = b"fake-live-test-pepper-32-bytes-minimum"
     issued = issue_key(pepper)
@@ -50,7 +59,10 @@ async def live_client(live_provider: LiveProvider) -> AsyncIterator[httpx.AsyncC
                 return SecretStr(block["api_key"])
             return None
 
-    app = create_app(settings, key_repository=repo, secret_store=LiveStore())
+    async def sink(records: Sequence[UsageRecord]) -> None:
+        live_records.extend(records)
+
+    app = create_app(settings, key_repository=repo, secret_store=LiveStore(), usage_sink=sink)
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(

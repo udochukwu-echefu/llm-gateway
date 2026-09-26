@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     key_cache_ttl_s: float = Field(default=30, ge=0)
     key_cache_max_size: int = Field(default=10_000, ge=0)
+    usage_queue_size: int = Field(default=10_000, gt=0)
+    usage_batch_size: int = Field(default=500, gt=0)
+    usage_flush_interval_s: float = Field(default=1.0, gt=0)
+    usage_shutdown_timeout_s: float = Field(default=10.0, gt=0)
 
     @model_validator(mode="after")
     def _has_provider(self) -> Self:

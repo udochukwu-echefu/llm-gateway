@@ -46,16 +46,19 @@ def routes(app: FastAPI) -> list[str]:
     return [path for path in collect(app.router) if path.startswith("/v1/")]
 
 
-@pytest.mark.parametrize("endpoint", ["/v1/chat/completions", "/v1/embeddings"])
+@pytest.mark.parametrize("endpoint", ["/v1/chat/completions", "/v1/embeddings", "/v1/models"])
 async def test_every_v1_route_requires_authentication(app: FastAPI, endpoint: str) -> None:
-    assert set(routes(app)) == {"/v1/chat/completions", "/v1/embeddings"}
+    assert set(routes(app)) == {"/v1/chat/completions", "/v1/embeddings", "/v1/models"}
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://gateway.test"
         ) as anonymous,
     ):
-        response = await anonymous.post(endpoint, content=b"x" * (2 * 1024 * 1024))
+        if endpoint == "/v1/models":
+            response = await anonymous.get(endpoint)
+        else:
+            response = await anonymous.post(endpoint, content=b"x" * (2 * 1024 * 1024))
 
     assert response.status_code == 401
     assert response.json() == error_body(

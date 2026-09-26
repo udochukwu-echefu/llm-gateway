@@ -35,6 +35,8 @@ class RequestContextMiddleware:
 
         incoming = Headers(scope=scope).get(REQUEST_ID_HEADER, "")
         request_id = incoming if _VALID_REQUEST_ID.match(incoming) else uuid.uuid4().hex
+        state = scope.setdefault("state", {})
+        state["gateway_request_id"] = request_id
         started = time.perf_counter()
         status: int | None = None
         first_byte_at: float | None = None

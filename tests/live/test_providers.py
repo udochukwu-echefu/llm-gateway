@@ -1,13 +1,27 @@
+import asyncio
+
 import httpx
 import pytest
 
+from llm_gateway.usage.record import UsageRecord
 from tests.fixtures import parse_events
 from tests.live.models import LiveProvider
 
 pytestmark = pytest.mark.live
 
 
-async def test_live_chat(live_provider: LiveProvider, live_client: httpx.AsyncClient) -> None:
+async def _record(records: list[UsageRecord]) -> UsageRecord:
+    async with asyncio.timeout(2):
+        for _ in range(2000):
+            if records:
+                break
+            await asyncio.sleep(0.001)
+    return records[0]
+
+
+async def test_live_chat(
+    live_provider: LiveProvider, live_client: httpx.AsyncClient, live_records: list[UsageRecord]
+) -> None:
     response = await live_client.post(
         "/v1/chat/completions",
         json={
@@ -20,11 +34,17 @@ async def test_live_chat(live_provider: LiveProvider, live_client: httpx.AsyncCl
     body = response.json()
     assert body["model"].startswith(f"{live_provider.name}/")
     assert body["choices"][0]["message"]["content"]
+    record = await _record(live_records)
+    assert record.cost_status == "priced"
+    assert record.cost_usd is not None
+    assert record.prompt_tokens is not None
+    assert record.prompt_tokens > 0
 
 
 async def test_live_stream_with_usage(
     live_provider: LiveProvider,
     live_client: httpx.AsyncClient,
+    live_records: list[UsageRecord],
 ) -> None:
     response = await live_client.post(
         "/v1/chat/completions",
@@ -45,11 +65,17 @@ async def test_live_stream_with_usage(
         for event in events[:-1]
         if event.get("usage")
     )
+    record = await _record(live_records)
+    assert record.cost_status == "priced"
+    assert record.cost_usd is not None
+    assert record.prompt_tokens is not None
+    assert record.prompt_tokens > 0
 
 
 async def test_live_embeddings(
     live_provider: LiveProvider,
     live_client: httpx.AsyncClient,
+    live_records: list[UsageRecord],
 ) -> None:
     if live_provider.embedding_model is None:
         pytest.skip(f"{live_provider.name} does not support embeddings")
@@ -65,3 +91,13 @@ async def test_live_embeddings(
     assert response.status_code == 200
     assert response.json()["data"][0]["embedding"]
     assert response.json()["model"].startswith(f"{live_provider.name}/")
+    record = await _record(live_records)
+    assert record.model == live_provider.embedding_model
+    if live_provider.name == "gemini":
+        # Google's OpenAI-compatible embedding response currently omits usage.
+        assert record.cost_status == "usage_missing"
+        assert record.cost_usd is None
+        return
+    assert record.cost_status == "priced"
+    assert record.cost_usd is not None
+    assert record.cost_usd > 0

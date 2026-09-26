@@ -62,7 +62,8 @@ async def test_optional_capability_rejection_is_an_http_400(
     monkeypatch.setattr(OpenAIAdapter, "capabilities", capabilities)
     upstream.post(f"/{endpoint}").respond(200, json={})
 
-    response = await client.post(f"/v1/{endpoint}", json={"model": "openai/model", **fields})
+    model = "openai/embedding" if endpoint == "embeddings" else "openai/model"
+    response = await client.post(f"/v1/{endpoint}", json={"model": model, **fields})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "unsupported_parameter"

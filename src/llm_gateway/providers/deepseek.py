@@ -18,6 +18,7 @@ no different request-ID header is documented.
 
 from llm_gateway.providers.base import Capabilities
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
+from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionChunk, PromptTokensDetails
 from llm_gateway.schemas.common import ProviderName
 
 
@@ -36,3 +37,16 @@ class DeepSeekAdapter(OpenAICompatibleAdapter):
             }
         ),
     )
+
+    def normalize_chat(self, result: ChatCompletion | ChatCompletionChunk) -> None:
+        super().normalize_chat(result)
+        usage = result.usage
+        if usage is None:
+            return
+        extras = usage.model_extra or {}
+        hits = extras.pop("prompt_cache_hit_tokens", None)
+        extras.pop("prompt_cache_miss_tokens", None)
+        if isinstance(hits, int) and (
+            usage.prompt_tokens_details is None or usage.prompt_tokens_details.cached_tokens is None
+        ):
+            usage.prompt_tokens_details = PromptTokensDetails(cached_tokens=hits)

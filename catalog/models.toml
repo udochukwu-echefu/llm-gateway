@@ -1,0 +1,98 @@
+version = "2026-09-27.2"
+
+[[models]]
+provider = "groq"
+model = "openai/gpt-oss-20b"
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+input_price = "0.075"
+output_price = "0.30"
+source_url = "https://console.groq.com/docs/models"
+checked_on = 2026-09-26
+
+[[models]]
+provider = "groq"
+model = "openai/gpt-oss-120b"
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+input_price = "0.15"
+output_price = "0.60"
+source_url = "https://console.groq.com/docs/models"
+checked_on = 2026-09-26
+
+[[models]]
+provider = "deepseek"
+model = "deepseek-flash"
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+# Published peak rates. Off-peak billing is lower; see ADR 0008.
+input_price = "0.3"
+cached_input_price = "0.006"
+output_price = "1.2"
+source_url = "https://api-docs.deepseek.com/quick_start/pricing/"
+checked_on = 2026-09-26
+
+[[models]]
+provider = "gemini"
+model = "gemini-3.8-flash"
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+# Published paid standard rate through 2026-12-31.
+input_price = "0.75"
+cached_input_price = "0.075"
+output_price = "3.75"
+source_url = "https://ai.google.dev/gemini-api/docs/pricing"
+checked_on = 2026-09-26
+
+[[models.periods]]
+effective_from = 2027-01-01
+currency = "USD"
+input_price = "1.50"
+cached_input_price = "0.15"
+output_price = "7.50"
+source_url = "https://ai.google.dev/gemini-api/docs/pricing"
+checked_on = 2026-09-27
+
+[[models]]
+provider = "gemini"
+model = "gemini-embedding-2"
+kind = "embedding"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+# Text-only standard API input; image, audio and video have separate prices.
+input_price = "0.20"
+source_url = "https://ai.google.dev/gemini-api/docs/pricing"
+checked_on = 2026-09-27
+
+[[models]]
+provider = "openai"
+model = "gpt-4.1-nano"
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+input_price = "0.10"
+cached_input_price = "0.025"
+output_price = "0.40"
+source_url = "https://platform.openai.com/docs/pricing"
+checked_on = 2026-09-26
+
+[[models]]
+provider = "openai"
+model = "text-embedding-3-small"
+kind = "embedding"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+input_price = "0.02"
+source_url = "https://platform.openai.com/docs/pricing"
+checked_on = 2026-09-26

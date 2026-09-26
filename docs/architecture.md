@@ -309,9 +309,69 @@ them directly in Postgres without opening a network admin route. See
 [ADR 0006](adr/0006-virtual-api-keys.md), [ADR 0007](adr/0007-secret-store-and-cli.md)
 and the [threat model](security/threat-model.md).
 
+## Step 5: a price tag and a receipt for each provider call
+
+The **model catalogue** (`catalog/models.toml`) is a reviewed list of models and
+their USD prices. Think of a shop's approved price list: if an item isn't on it,
+the gateway refuses the request before calling the provider. `/v1/models` shows
+only items whose providers are configured. Editing the file needs code review;
+the version is stamped onto each usage receipt so later price changes don't
+rewrite yesterday's spend.
+Gemini Embedding 2 has a published text-input rate; the gateway lists it for
+text embeddings only. Images, audio and video have different prices, so those
+cannot safely use the text price.
+Google's embedding response currently omits token usage on its OpenAI-compatible
+endpoint. These calls still succeed but their receipts have unknown cost rather
+than an invented token estimate.
+Each model may have several price periods. A request picks the rate effective
+at its start time in UTC, even if its response finishes after midnight. Future
+rates can be reviewed before they take effect without repricing old receipts.
+
+Providers return token counts in different shapes. The adapters translate cache
+hits into one `cached_tokens` field. Gemini sometimes reports fewer output tokens
+than `total - prompt` because of hidden thinking; the adapter charges that
+difference as output without pretending it knows the exact reasoning-token split.
+Cost = uncached input tokens at the input
+rate + cache hits at the cached rate (or input rate when there is no discount) +
+output tokens at the output rate, divided by a million. Thinking/reasoning tokens
+are included in output, not added again. Money uses **decimal arithmetic**:
+binary floats cannot exactly represent most decimal fractions (for example,
+`0.1 + 0.2 != 0.3` as floats), and tiny errors add up over millions of calls.
+Postgres stores the exact decimal result in `NUMERIC`.
+
+Writing a receipt directly to Postgres would hold up a customer's response.
+Usage has its own plain-ASGI middleware (a thin wrapper around HTTP messages):
+it observes the response and files the receipt when the call ends. The separate
+request-context middleware only assigns IDs and writes access logs, so accounting
+does not mix with request logging or buffer a streamed answer.
+Instead a **background worker** writes them later, like a cashier putting receipts
+into a tray while another person files them. The tray is a **bounded queue**: it
+has a fixed capacity so an outage cannot fill all memory. The worker files a
+**batch** (several receipts in one database transaction), reducing database
+round-trips. If the tray fills, the record is dropped and logged, not the user's
+response. Shutdown drains what it can, but a process killed without warning
+loses receipts still in memory. This is not a durable invoice ledger.
+The first queue drop logs immediately; later drops are grouped into at most
+one summary per second when another drop occurs, rather than flooding logs
+while the queue is full. The shutdown log still reports the total lost.
+
+Each provider-bound call has one metadata-only record: tenant IDs, model, tokens,
+cost, outcome and timing, never prompts or vectors. Even provider error statuses
+get a zero-cost `not_billed` record. If a connection was refused, timed out
+during connection, or no pool slot was available, the provider never received
+the request: these also get `not_billed` with zero cost. Once a request might
+have reached the provider, a read timeout has unknown cost (`usage_missing`).
+A client may disconnect mid-stream before
+the usage chunk arrives. The provider **probably still billed us**, but we have
+no final token count: `stream_incomplete` stores a NULL cost. This is a known
+accounting gap, not free usage. A stream error without usage is similarly visible
+as `usage_missing`. `gateway-admin usage` aggregates costs and missing counts
+in SQL so NULL costs aren't hidden in the sum. See [ADR 0008](adr/0008-reviewed-model-catalogue.md)
+and [ADR 0009](adr/0009-batched-usage-writer.md).
+
 ## What the gateway deliberately does NOT do yet
 
-- No rate limits, budgets, cost tracking, retries, or response caching (steps 5–10).
+- No rate limits, budgets, retries, or response caching (steps 6–10).
 - No HTTP admin API or audit log yet (steps 12 and 8).
 
 See [roadmap.md](roadmap.md) for the order.

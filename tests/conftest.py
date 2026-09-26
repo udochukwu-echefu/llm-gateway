@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
 from llm_gateway.tenants.keys import issue_key
@@ -89,8 +90,29 @@ def memory_repository(issued_test_key: str) -> MemoryKeyRepository:
 
 
 @pytest.fixture
-def app(settings: Settings, memory_repository: MemoryKeyRepository) -> FastAPI:
-    return create_app(settings, key_repository=memory_repository)
+def test_catalog() -> Catalog:
+    base = load_catalog()
+    entries = list(base.models)
+    for provider, model, kind in (
+        ("groq", "llama-3.3-70b-versatile", "chat"),
+        ("groq", "nope", "chat"),
+        ("openai", "text-embedding-004", "embedding"),
+        *((name, "vendor/model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
+        *((name, "model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
+        *((name, "nested/model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
+        *((name, "embedding", "embedding") for name in ("gemini", "openai")),
+        ("gemini", "gemini-embedding-001", "embedding"),
+    ):
+        template = next(entry for entry in base.models if entry.kind == kind)
+        entries.append(template.model_copy(update={"provider": provider, "model": model}))
+    return Catalog.model_validate({"version": "test-only", "models": entries})
+
+
+@pytest.fixture
+def app(
+    settings: Settings, memory_repository: MemoryKeyRepository, test_catalog: Catalog
+) -> FastAPI:
+    return create_app(settings, key_repository=memory_repository, catalog=test_catalog)
 
 
 @pytest.fixture

@@ -216,11 +216,72 @@ rejecting the request. It's the one deliberate exception to "strict in".
 
 Full reasoning: [ADR 0003](adr/0003-canonical-schema.md).
 
+## Step 3: adapters choose the provider for each request
+
+An **adapter** is like a travel plug: the appliance keeps the same plug, while the adapter
+fits the local socket. Apps keep sending the canonical OpenAI format. A small provider
+adapter fits that request to Groq, DeepSeek, Gemini or OpenAI and translates the answer back.
+
+```
+Client: model="groq/openai/gpt-oss-120b"
+  → API: validate request
+  → registry: choose Groq, model="openai/gpt-oss-120b"
+  → adapter: check capabilities, translate, call Groq
+  → canonical answer/chunks (model="groq/<returned model>")
+  → API: record usage, encode JSON or SSE for the client
+```
+
+The first slash selects the provider; later slashes belong to its model name. Unknown or
+unconfigured providers return an actionable 404. Setting a provider's nested API key enables
+it; at least one key is required at startup. Provider keys stay in `SecretStr`, a wrapper
+that masks their printed representation.
+
+**Capabilities** are the adapter's list of supported features. Checking them before making
+a network call avoids paying network latency for a request we already know cannot work.
+For example, Groq cannot serve embeddings. Where the meaning can be kept, we translate:
+DeepSeek receives `max_tokens` instead of `max_completion_tokens`. Developer instructions
+become system instructions for DeepSeek and Gemini. Undocumented parameters, including
+Gemini token-limit options, pass through unchanged: missing documentation does not prove
+non-support. Only explicit documented restrictions are rejected locally. Endpoint support
+is not a promise that every model supports
+every option; model-specific errors still come from the provider.
+
+Each enabled provider has its own **connection pool**, a collection of reusable connections.
+This is the **bulkhead pattern**, named after a ship's watertight compartments: flooding one
+compartment does not flood the whole ship. A stalled provider can fill only its own pool.
+The app creates those pools at startup and closes them on shutdown, including partial
+startup failure. Global timeout and pool-size settings apply to each pool.
+
+The adapter reads provider JSON/SSE and returns only canonical objects. The API no longer
+sees provider response bytes. It still records token usage, hides unrequested usage, and
+ends the client stream with `[DONE]` or an error. Closing the client connection closes the
+provider stream under a cancellation shield: cleanup gets time to release the connection
+even though the web server has cancelled the request.
+
+`reasoning_content` is the optional separate reasoning text. DeepSeek already uses that
+name; Groq's `reasoning` is translated. Ordinary content, including quoted `<think>` tags,
+is not parsed as reasoning. Access logs contain provider, model, usage and provider
+`x-request-id` when present (otherwise None), never prompts, answers or keys.
+
+| File | Job |
+|---|---|
+| `providers/base.py` | Defines the adapter/stream contracts and frozen capability declaration. |
+| `providers/registry.py` | Resolves provider-prefixed model names. |
+| `providers/pools.py` | Owns provider HTTP-client lifetimes. |
+| `providers/defaults.py` | Shares default URLs without importing adapters into configuration. |
+| `providers/openai_compat.py` | Applies shared capability checks and canonical translations. |
+| `providers/transport.py` | Performs HTTP I/O and ADR 0002 error mapping. |
+| `providers/stream.py` | Decodes provider SSE into checked canonical chunks. |
+| `providers/{groq,deepseek,gemini,openai}.py` | Declares verified provider differences and documentation sources. |
+| `api/streaming.py` | Encodes client SSE, records/hides usage and closes provider streams. |
+
+The old `upstream.py` is replaced. See [ADR 0004](adr/0004-provider-adapters.md) and
+[ADR 0005](adr/0005-canonical-reasoning.md) for decisions and documentation gaps.
+
 ## What the gateway deliberately does NOT do yet
 
 - **No authentication of clients.** Anyone who can reach it can use our key. Only run it
   on your own machine until step 4.
-- One provider at a time (step 3 adds more, chosen per request).
 - No limits, cost tracking, retries, or caching (steps 5–10).
 
 See [roadmap.md](roadmap.md) for the order.

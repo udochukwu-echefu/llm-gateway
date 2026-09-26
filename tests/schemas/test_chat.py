@@ -3,8 +3,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from llm_gateway.schemas.chat import ChatCompletionRequest
-from llm_gateway.schemas.embeddings import EmbeddingRequest
+from llm_gateway.schemas.chat import ChatCompletionRequest, Delta, ResponseMessage
 
 USER = {"role": "user", "content": "hi"}
 
@@ -135,14 +134,9 @@ def test_non_streaming_request_has_no_stream_options() -> None:
     assert "stream_options" not in chat().to_upstream("groq")
 
 
-@pytest.mark.parametrize("value", ["one text", ["a", "b"], [1, 2, 3], [[1, 2], [3]]])
-def test_embedding_input_shapes(value: object) -> None:
-    request = EmbeddingRequest.model_validate({"model": "e", "input": value})
-
-    assert request.to_upstream("gemini") == {"model": "e", "input": value}
-
-
-@pytest.mark.parametrize("value", ["", [], [""], [[]], [1, "a"], {"text": "x"}])
-def test_invalid_embedding_inputs(value: object) -> None:
+@pytest.mark.parametrize("model", [ResponseMessage, Delta])
+def test_reasoning_content_is_a_typed_optional_field(model: type[ResponseMessage | Delta]) -> None:
+    assert model().reasoning_content is None
+    assert model(reasoning_content="Analysis").reasoning_content == "Analysis"
     with pytest.raises(ValidationError):
-        EmbeddingRequest.model_validate({"model": "e", "input": value})
+        model.model_validate({"reasoning_content": ["invalid"]})

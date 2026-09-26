@@ -1,32 +1,22 @@
-from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-import anyio
 import httpx
 import structlog
 from pydantic import ValidationError
-from starlette.responses import StreamingResponse
-from starlette.types import Receive, Scope, Send
 
+from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.schemas.common import ResponseModel
-from llm_gateway.sse import encode_error
 
 log = structlog.get_logger("llm_gateway.upstream")
 
-# Turns the provider's raw stream into the bytes we send to the client.
-StreamTransform = Callable[[AsyncIterator[bytes]], AsyncIterator[bytes]]
-
 
 class UpstreamClient:
-    """Sends requests to a single OpenAI-compatible provider.
+    """HTTP transport and ADR 0002 error mapping shared by compatible adapters."""
 
-    Step 3 replaces this with provider adapters behind a common interface. The error
-    mapping here (docs/adr/0002) carries over to them.
-    """
-
-    def __init__(self, http: httpx.AsyncClient) -> None:
+    def __init__(self, http: httpx.AsyncClient, request_id_header: str | None) -> None:
         self._http = http
+        self._request_id_header = request_id_header
 
     async def open(self, path: str, payload: dict[str, Any]) -> httpx.Response:
         """POST `payload` and return the response with its body still unread.
@@ -41,6 +31,11 @@ class UpstreamClient:
             raise transport_error(exc) from exc
 
         log.debug("upstream_response", status=response.status_code)
+        annotate(
+            upstream_request_id=(
+                response.headers.get(self._request_id_header) if self._request_id_header else None
+            )
+        )
         if response.is_error:
             try:
                 await response.aread()
@@ -164,39 +159,3 @@ def _upstream_message(response: httpx.Response) -> str | None:
         return _ProviderError.model_validate_json(response.content).error.message
     except ValidationError:
         return None
-
-
-class UpstreamStreamingResponse(StreamingResponse):
-    """Relays an upstream server-sent-events stream to the client, chunk by chunk.
-
-    The upstream connection is always released when this response ends, including when
-    the client disconnects mid-stream. Otherwise we would keep the connection open and
-    keep paying for tokens nobody will read.
-    """
-
-    def __init__(self, upstream: httpx.Response, transform: StreamTransform) -> None:
-        self._upstream = upstream
-        self._transform = transform
-        super().__init__(
-            self._relay(),
-            media_type="text/event-stream",
-            headers={"cache-control": "no-cache", "x-accel-buffering": "no"},
-        )
-
-    async def _relay(self) -> AsyncIterator[bytes]:
-        try:
-            # aiter_bytes, not aiter_raw: raw bytes may still be gzip-encoded.
-            async for chunk in self._transform(self._upstream.aiter_bytes()):
-                yield chunk
-        except httpx.HTTPError as exc:
-            # Headers and a 200 are already sent, so the status can't change. Emit an error
-            # event (OpenAI SDKs raise on it) instead of silently truncating the stream.
-            log.warning("upstream_stream_interrupted", error=type(exc).__name__)
-            yield encode_error(transport_error(exc))
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        try:
-            await super().__call__(scope, receive, send)
-        finally:
-            with anyio.CancelScope(shield=True):
-                await self._upstream.aclose()

@@ -87,6 +87,11 @@ Keep the code easy to navigate: someone new should find anything in under a minu
 
 ## Code rules
 
+- "Not documented is not the same as not supported." Reject a parameter before the
+  network call only when official provider docs say it is unsupported, deprecated, or
+  has no effect, or when the endpoint does not exist. Otherwise forward it unchanged;
+  provider 4xx errors and messages pass through per ADR 0002.
+
 - Python 3.13, fully typed, pyright strict. No `# type: ignore`. A
   `# pyright: ignore[rule]` needs a comment saying why.
 - Match the existing style: small modules, docstrings that explain *why*, and comments

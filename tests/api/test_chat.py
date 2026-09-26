@@ -1,6 +1,5 @@
 import json
 from collections.abc import AsyncIterator
-from typing import Any
 
 import anyio
 import httpx
@@ -10,75 +9,15 @@ from fastapi import FastAPI
 from starlette.types import Message
 
 from tests.conftest import UPSTREAM_KEY
-
-CHAT_REQUEST: dict[str, Any] = {
-    "model": "llama-3.3-70b-versatile",
-    "messages": [{"role": "user", "content": "Say hi"}],
-    "temperature": 0.2,
-}
-COMPLETION: dict[str, Any] = {
-    "id": "chatcmpl-1",
-    "object": "chat.completion",
-    "created": 1790000000,
-    "model": "llama-3.3-70b-versatile",
-    "choices": [
-        {
-            "index": 0,
-            "message": {"role": "assistant", "content": "hi"},
-            "finish_reason": "stop",
-        }
-    ],
-    "usage": {"prompt_tokens": 9, "completion_tokens": 1, "total_tokens": 10},
-}
-
-
-def chunk(delta: dict[str, Any], finish_reason: str | None = None) -> dict[str, Any]:
-    return {
-        "id": "chatcmpl-1",
-        "object": "chat.completion.chunk",
-        "created": 1790000000,
-        "model": "llama-3.3-70b-versatile",
-        "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
-    }
-
-
-USAGE_CHUNK: dict[str, Any] = {
-    **chunk({}),
-    "choices": [],
-    "usage": {"prompt_tokens": 9, "completion_tokens": 2, "total_tokens": 11},
-}
-STREAM: list[dict[str, Any]] = [
-    chunk({"role": "assistant", "content": "h"}),
-    chunk({"content": "i"}, finish_reason="stop"),
-]
-
-
-def sse(*events: dict[str, Any] | str) -> list[bytes]:
-    return [
-        f"data: {event if isinstance(event, str) else json.dumps(event)}\n\n".encode()
-        for event in events
-    ]
-
-
-SSE_CHUNKS = sse(*STREAM, "[DONE]")
-
-
-def parse_events(body: str) -> list[Any]:
-    """The data of every SSE event, JSON-decoded ([DONE] stays a string)."""
-    events: list[Any] = []
-    for line in body.splitlines():
-        if line.startswith("data: "):
-            data = line.removeprefix("data: ")
-            events.append(data if data == "[DONE]" else json.loads(data))
-    return events
-
-
-def sse_response(chunks: list[bytes]) -> httpx.Response:
-    async def stream() -> AsyncIterator[bytes]:
-        for chunk in chunks:
-            yield chunk
-
-    return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=stream())
+from tests.fixtures import (
+    CHAT_REQUEST,
+    COMPLETION,
+    SSE_CHUNKS,
+    STREAM,
+    parse_events,
+    prefixed,
+    sse_response,
+)
 
 
 async def test_non_streaming_request_is_forwarded_as_sent(
@@ -96,10 +35,14 @@ async def test_non_streaming_request_is_forwarded_as_sent(
     )
 
     assert response.status_code == 200
-    assert response.json() == COMPLETION
+    assert response.json() == prefixed(COMPLETION)
     sent = route.calls.last.request
     # Exactly what the client set: no defaults added, nothing dropped.
-    assert json.loads(sent.content) == CHAT_REQUEST
+    assert json.loads(sent.content) == {
+        **CHAT_REQUEST,
+        "model": COMPLETION["model"],
+        "stream": False,
+    }
     # The provider sees our key, never the client's.
     assert sent.headers["authorization"] == f"Bearer {UPSTREAM_KEY}"
 
@@ -117,7 +60,7 @@ async def test_streaming_request_relays_every_chunk(
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     assert response.headers["cache-control"] == "no-cache"
-    assert parse_events(received) == [*STREAM, "[DONE]"]
+    assert parse_events(received) == [*(prefixed(c) for c in STREAM), "[DONE]"]
 
 
 @pytest.mark.parametrize(
@@ -214,7 +157,9 @@ async def test_client_errors_pass_the_provider_message_through(
         404, json={"error": {"message": "The model `nope` does not exist"}}
     )
 
-    response = await client.post("/v1/chat/completions", json={**CHAT_REQUEST, "model": "nope"})
+    response = await client.post(
+        "/v1/chat/completions", json={**CHAT_REQUEST, "model": "groq/nope"}
+    )
 
     assert response.json()["error"]["message"] == "The model `nope` does not exist"
 

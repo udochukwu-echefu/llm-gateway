@@ -8,7 +8,13 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import ConfigDict, Field, model_validator
 
-from llm_gateway.schemas.common import ProviderName, ProxiedRequest, RequestModel, ResponseModel
+from llm_gateway.schemas.common import (
+    ProviderName,
+    ProxiedRequest,
+    RequestModel,
+    ResponseModel,
+    ZeroOmittingResponseModel,
+)
 
 NAME_PATTERN = r"^[a-zA-Z0-9_-]{1,64}$"
 
@@ -250,7 +256,10 @@ class ChatCompletionRequest(ProxiedRequest):
         if self.stream:
             # Always ask for token usage: the gateway needs it for cost tracking even when
             # the client didn't ask. The relay removes it again if the client didn't want it.
-            payload["stream_options"] = {**payload.get("stream_options", {}), "include_usage": True}
+            payload["stream_options"] = {
+                **(payload.get("stream_options") or {}),
+                "include_usage": True,
+            }
         return payload
 
 
@@ -267,10 +276,11 @@ class CompletionTokensDetails(ResponseModel):
     reasoning_tokens: int | None = None
 
 
-class Usage(ResponseModel):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
+class Usage(ZeroOmittingResponseModel):
+    # Protobuf JSON omits zero-valued counters within a present usage object.
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
     prompt_tokens_details: PromptTokensDetails | None = None
     completion_tokens_details: CompletionTokensDetails | None = None
 
@@ -289,12 +299,13 @@ class ResponseToolCall(ResponseModel):
 class ResponseMessage(ResponseModel):
     role: str = "assistant"
     content: str | None = None
+    reasoning_content: str | None = None
     refusal: str | None = None
     tool_calls: list[ResponseToolCall] | None = None
 
 
-class Choice(ResponseModel):
-    index: int
+class Choice(ZeroOmittingResponseModel):
+    index: int = 0  # Protobuf JSON omits zero; this is a choice ID, not its array position.
     message: ResponseMessage
     # A string, not a fixed list: providers use values beyond OpenAI's.
     finish_reason: str | None = None
@@ -316,8 +327,8 @@ class ToolCallFunctionDelta(ResponseModel):
     arguments: str | None = None
 
 
-class ToolCallDelta(ResponseModel):
-    index: int
+class ToolCallDelta(ZeroOmittingResponseModel):
+    index: int = 0  # Protobuf omits zero; tool-call IDs persist across sparse stream chunks.
     id: str | None = None
     type: str | None = None
     function: ToolCallFunctionDelta | None = None
@@ -328,12 +339,13 @@ class Delta(ResponseModel):
 
     role: str | None = None
     content: str | None = None
+    reasoning_content: str | None = None
     refusal: str | None = None
     tool_calls: list[ToolCallDelta] | None = None
 
 
-class ChunkChoice(ResponseModel):
-    index: int
+class ChunkChoice(ZeroOmittingResponseModel):
+    index: int = 0  # Protobuf omits zero; streamed choice IDs need not match array positions.
     delta: Delta
     finish_reason: str | None = None
     logprobs: dict[str, Any] | None = None

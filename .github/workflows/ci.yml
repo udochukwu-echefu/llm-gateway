@@ -37,7 +37,7 @@ jobs:
         run: docker build -t llm-gateway:ci .
       - name: Smoke test
         run: |
-          docker run -d --name gateway -p 8000:8000 -e GATEWAY_UPSTREAM_API_KEY=ci-placeholder llm-gateway:ci
+          docker run -d --name gateway -p 8000:8000 -e GATEWAY_PROVIDERS__GROQ__API_KEY=ci-placeholder llm-gateway:ci
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/healthz && exit 0
             sleep 1

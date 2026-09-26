@@ -25,6 +25,22 @@ class ResponseModel(BaseModel):
     model_config = ConfigDict(extra="allow", serialize_by_alias=True)
 
 
+class ZeroOmittingResponseModel(ResponseModel):
+    """Restore declared numeric zeros omitted by protobuf JSON, including on output."""
+
+    @model_validator(mode="after")
+    def _materialize_zero_defaults(self) -> Self:
+        for name, field in type(self).model_fields.items():
+            if (
+                type(field.default) is int
+                and field.default == 0
+                and name not in self.model_fields_set
+            ):
+                # Assignment marks the field as set so exclude_unset=True preserves it.
+                setattr(self, name, 0)
+        return self
+
+
 class ProxiedRequest(RequestModel):
     """A request the gateway forwards to a provider.
 

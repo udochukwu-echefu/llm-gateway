@@ -3,8 +3,8 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 2 of 12.** Chat completions (streaming, tools, images, structured output)
-> and embeddings in OpenAI's format, validated end to end, against one provider. There is no
+> **Status: step 3 of 12.** Chat completions and embeddings in OpenAI's format, validated
+> end to end, routed per request to Groq, DeepSeek, Gemini or OpenAI. There is no
 > client authentication yet, so run it only on your own machine. See the
 > [roadmap](docs/roadmap.md).
 
@@ -23,7 +23,7 @@ Call it like OpenAI:
 ```bash
 curl -N http://127.0.0.1:8000/v1/chat/completions \
   -H 'content-type: application/json' \
-  -d '{"model": "llama-3.3-70b-versatile", "stream": true,
+  -d '{"model": "groq/llama-3.3-70b-versatile", "stream": true,
        "messages": [{"role": "user", "content": "Say hi in five words"}]}'
 ```
 
@@ -39,9 +39,9 @@ Provider-only options go in `provider_options`, and only the serving provider's 
 
 ```python
 client.chat.completions.create(
-    model="llama-3.3-70b-versatile",
+    model="groq/openai/gpt-oss-20b",
     messages=[{"role": "user", "content": "hi"}],
-    extra_body={"provider_options": {"groq": {"reasoning_format": "hidden"}}},
+    extra_body={"provider_options": {"groq": {"include_reasoning": False}}},
 )
 ```
 
@@ -49,7 +49,7 @@ client.chat.completions.create(
 
 | Endpoint | Notes |
 |---|---|
-| `POST /v1/chat/completions` | Streaming and non-streaming, tools, images, audio, files, JSON schema output |
+| `POST /v1/chat/completions` | Streaming and non-streaming; optional features depend on provider and model |
 | `POST /v1/embeddings` | Needs a provider that offers embeddings (Gemini or OpenAI; Groq and DeepSeek don't) |
 | `GET /healthz` | Liveness |
 
@@ -60,9 +60,39 @@ uv run pytest            # tests (no network: providers are mocked)
 uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run pyright           # strict type check
+uv run pytest -m live    # opt-in smoke calls, skipped for missing environment keys
 ```
 
 CI runs all four on every push, then builds the Docker image and smoke-tests it.
+
+Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
+(not `.env`), and optional matching `BASE_URL` overrides. They run one chat, one stream
+with usage and, for Gemini/OpenAI, one embedding. The default suite deselects these tests
+and blocks real provider HTTP requests.
+
+Override smoke-test model IDs without editing code:
+
+```bash
+GATEWAY_LIVE_GROQ_CHAT_MODEL=openai/gpt-oss-20b uv run pytest -m live
+GATEWAY_LIVE_GEMINI_EMBEDDING_MODEL=gemini-embedding-001 uv run pytest -m live
+```
+
+Every provider accepts `GATEWAY_LIVE_<PROVIDER>_CHAT_MODEL` and
+`GATEWAY_LIVE_<PROVIDER>_EMBEDDING_MODEL` (`GROQ`, `DEEPSEEK`, `GEMINI`, `OPENAI`).
+Use provider-native model IDs, including any internal slashes; tests add the gateway
+provider prefix. Unset or empty overrides retain the defaults below.
+
+| Provider | Default live chat model | Default live embedding model |
+|---|---|---|
+| Groq | `openai/gpt-oss-20b` | None (unsupported endpoint) |
+| DeepSeek | `deepseek-flash` | None (unsupported endpoint) |
+| Gemini | `gemini-3.8-flash` | `gemini-embedding-001` |
+| OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
+
+Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
+and uses its reasoning-capable GPT-OSS adapter path. These variables configure tests only;
+they do not create gateway aliases or enable unsupported endpoints. Model-selection unit
+tests run offline in the default suite; only provider smoke calls carry the `live` marker.
 
 ## Configuration
 
@@ -70,12 +100,34 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GATEWAY_UPSTREAM_API_KEY` | required | Provider API key |
-| `GATEWAY_UPSTREAM_PROVIDER` | `groq` | `groq`, `gemini`, `deepseek` or `openai`; selects `provider_options` |
-| `GATEWAY_UPSTREAM_BASE_URL` | Groq | Any OpenAI-compatible base URL |
+| `GATEWAY_PROVIDERS__GROQ__API_KEY` | unset | Enable Groq |
+| `GATEWAY_PROVIDERS__DEEPSEEK__API_KEY` | unset | Enable DeepSeek |
+| `GATEWAY_PROVIDERS__GEMINI__API_KEY` | unset | Enable Gemini's OpenAI-compatible endpoint |
+| `GATEWAY_PROVIDERS__OPENAI__API_KEY` | unset | Enable OpenAI |
+| `GATEWAY_PROVIDERS__<PROVIDER>__BASE_URL` | provider default | Optional HTTP(S) endpoint override |
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
+
+At least one nonempty key is required. Each enabled provider has its own connection pool;
+timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.
+
+Use `<provider>/<model>` in every request. Only the first slash is split:
+`groq/openai/gpt-oss-120b` routes to Groq with model `openai/gpt-oss-120b`.
+Unknown, unprefixed or unconfigured providers return `404 model_not_found`, listing
+configured providers. Responses and stream chunks prefix the provider's returned model ID.
+
+Unsupported parameters return `400 unsupported_parameter` before a provider call.
+Developer instructions become system instructions on DeepSeek and Gemini. DeepSeek's
+token limit is translated to `max_tokens` (supplying both limits is rejected).
+Groq's separate `reasoning` output becomes `reasoning_content`, as on DeepSeek.
+Capabilities are endpoint-level; models can have additional restrictions.
+
+Defaults: Groq `https://api.groq.com/openai/v1`, DeepSeek `https://api.deepseek.com/v1`,
+Gemini `https://generativelanguage.googleapis.com/v1beta/openai`, OpenAI `https://api.openai.com/v1`.
+Verified documentation and conservative restrictions are recorded in each adapter's docstring.
+Undocumented parameters, including Gemini's token limits, are forwarded unchanged;
+only explicit documented restrictions or nonexistent endpoints are rejected locally.
 
 ## Docs
 
@@ -83,4 +135,6 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 - [Roadmap](docs/roadmap.md)
 - Decisions: [ADR 0001: OpenAI-compatible API](docs/adr/0001-openai-compatible-api.md),
   [ADR 0002: error mapping](docs/adr/0002-upstream-error-mapping.md),
-  [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md)
+  [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md),
+  [ADR 0004: provider adapters](docs/adr/0004-provider-adapters.md),
+  [ADR 0005: reasoning output](docs/adr/0005-canonical-reasoning.md)

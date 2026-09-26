@@ -1,8 +1,8 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from llm_gateway.schemas.common import ProxiedRequest, ResponseModel
+from llm_gateway.schemas.common import ProxiedRequest, ResponseModel, ZeroOmittingResponseModel
 
 MAX_INPUTS = 2048
 
@@ -29,13 +29,14 @@ class EmbeddingRequest(ProxiedRequest):
 
 class Embedding(ResponseModel):
     object: str = "embedding"
-    index: int
+    index: int = 0  # Protobuf may omit zero; the containing response restores missing positions.
     embedding: list[float] | str  # a string when encoding_format is base64
 
 
-class EmbeddingUsage(ResponseModel):
-    prompt_tokens: int
-    total_tokens: int
+class EmbeddingUsage(ZeroOmittingResponseModel):
+    # Protobuf JSON omits zero-valued counters within a present usage object.
+    prompt_tokens: int = 0
+    total_tokens: int = 0
 
 
 class EmbeddingResponse(ResponseModel):
@@ -43,3 +44,10 @@ class EmbeddingResponse(ResponseModel):
     data: list[Embedding]
     model: str
     usage: EmbeddingUsage | None = None
+
+    @model_validator(mode="after")
+    def _restore_missing_indices(self) -> Self:
+        for position, item in enumerate(self.data):
+            if "index" not in item.model_fields_set:
+                item.index = position
+        return self

@@ -1,10 +1,10 @@
+import os
 from collections.abc import AsyncIterator, Iterator
 
 import httpx
 import pytest
 import respx
 from fastapi import FastAPI
-from pydantic import SecretStr
 
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
@@ -13,12 +13,29 @@ UPSTREAM_URL = "https://upstream.test/v1"
 UPSTREAM_KEY = "sk-upstream-test"
 
 
+@pytest.fixture(autouse=True)
+def offline_by_default(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """Ordinary tests cannot use developer credentials or accidentally reach the network."""
+    if "live" in request.keywords:
+        yield
+        return
+    for name in os.environ:
+        if name.startswith("GATEWAY_PROVIDERS"):
+            monkeypatch.delenv(name)
+    with respx.mock(assert_all_called=False):
+        yield
+
+
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
         _env_file=None,  # pyright: ignore[reportCallIssue]  # never read a developer's real .env
-        upstream_base_url=UPSTREAM_URL,
-        upstream_api_key=SecretStr(UPSTREAM_KEY),
+        providers={
+            "groq": {"base_url": UPSTREAM_URL, "api_key": UPSTREAM_KEY},
+            "openai": {"base_url": UPSTREAM_URL, "api_key": UPSTREAM_KEY},
+        },
         log_format="console",
         max_request_bytes=4096,
     )

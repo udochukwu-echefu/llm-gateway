@@ -11,6 +11,7 @@ No separate reasoning output representation was verified: no mapping.
 
 from llm_gateway.providers.base import Capabilities
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
+from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionChunk
 from llm_gateway.schemas.common import ProviderName
 
 
@@ -22,3 +23,15 @@ class GeminiAdapter(OpenAICompatibleAdapter):
         supports_developer=False,
         supports_max_completion_tokens=True,
     )
+
+    def normalize_chat(self, result: ChatCompletion | ChatCompletionChunk) -> None:
+        super().normalize_chat(result)
+        usage = result.usage
+        if usage is None:
+            return
+        # Gemini's OpenAI surface can omit thinking from completion_tokens while
+        # total_tokens includes it; output pricing includes thinking tokens. Do not
+        # claim the entire difference is reasoning without a provider breakdown.
+        unaccounted = usage.total_tokens - usage.prompt_tokens - usage.completion_tokens
+        if unaccounted > 0:
+            usage.completion_tokens += unaccounted

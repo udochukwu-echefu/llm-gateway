@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from tests.fixtures import parse_events
-from tests.live.conftest import LiveProvider
+from tests.live.models import LiveProvider
 
 pytestmark = pytest.mark.live
 

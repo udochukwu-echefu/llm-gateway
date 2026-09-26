@@ -1,6 +1,5 @@
 import os
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from typing import cast
 
 import httpx
@@ -8,22 +7,7 @@ import pytest
 
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
-from llm_gateway.schemas.common import ProviderName
-
-
-@dataclass(frozen=True)
-class LiveProvider:
-    name: ProviderName
-    chat_model: str
-    embedding_model: str | None
-
-
-PROVIDERS = (
-    LiveProvider("groq", "llama-3.1-8b-instant", None),
-    LiveProvider("deepseek", "deepseek-flash", None),
-    LiveProvider("gemini", "gemini-3.8-flash", "gemini-embedding-001"),
-    LiveProvider("openai", "gpt-4.1-nano", "text-embedding-3-small"),
-)
+from tests.live.models import PROVIDERS, LiveProvider, resolve_live_models
 
 
 @pytest.fixture(params=PROVIDERS, ids=lambda provider: provider.name)
@@ -31,7 +15,7 @@ def live_provider(request: pytest.FixtureRequest) -> LiveProvider:
     provider = cast(LiveProvider, request.param)
     if not os.environ.get(f"GATEWAY_PROVIDERS__{provider.name.upper()}__API_KEY"):
         pytest.skip(f"No environment key configured for {provider.name}")
-    return provider
+    return resolve_live_models(provider)
 
 
 @pytest.fixture

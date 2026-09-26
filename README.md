@@ -70,6 +70,30 @@ Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process enviro
 with usage and, for Gemini/OpenAI, one embedding. The default suite deselects these tests
 and blocks real provider HTTP requests.
 
+Override smoke-test model IDs without editing code:
+
+```bash
+GATEWAY_LIVE_GROQ_CHAT_MODEL=openai/gpt-oss-20b uv run pytest -m live
+GATEWAY_LIVE_GEMINI_EMBEDDING_MODEL=gemini-embedding-001 uv run pytest -m live
+```
+
+Every provider accepts `GATEWAY_LIVE_<PROVIDER>_CHAT_MODEL` and
+`GATEWAY_LIVE_<PROVIDER>_EMBEDDING_MODEL` (`GROQ`, `DEEPSEEK`, `GEMINI`, `OPENAI`).
+Use provider-native model IDs, including any internal slashes; tests add the gateway
+provider prefix. Unset or empty overrides retain the defaults below.
+
+| Provider | Default live chat model | Default live embedding model |
+|---|---|---|
+| Groq | `openai/gpt-oss-20b` | None (unsupported endpoint) |
+| DeepSeek | `deepseek-flash` | None (unsupported endpoint) |
+| Gemini | `gemini-3.8-flash` | `gemini-embedding-001` |
+| OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
+
+Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
+and uses its reasoning-capable GPT-OSS adapter path. These variables configure tests only;
+they do not create gateway aliases or enable unsupported endpoints. Model-selection unit
+tests run offline in the default suite; only provider smoke calls carry the `live` marker.
+
 ## Configuration
 
 All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway/config.py`).

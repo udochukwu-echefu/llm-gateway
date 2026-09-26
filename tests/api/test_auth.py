@@ -1,4 +1,6 @@
+import asyncio
 import json
+import uuid
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol, cast
@@ -9,12 +11,13 @@ import respx
 import structlog
 from fastapi import APIRouter, FastAPI
 from fastapi.routing import APIRoute
-from starlette.types import Scope
+from starlette.types import Message, Scope
 from structlog.testing import capture_logs
 
 from llm_gateway.errors import error_body
 from llm_gateway.gateway_state import get_app_state
-from llm_gateway.tenants.keys import issue_key
+from llm_gateway.tenants.keys import hash_secret, issue_key
+from llm_gateway.tenants.repository import KeyRecord
 from tests.conftest import TEST_PEPPER, MemoryKeyRepository
 from tests.fixtures import CHAT_REQUEST, COMPLETION
 
@@ -61,8 +64,6 @@ async def test_every_v1_route_requires_authentication(app: FastAPI, endpoint: st
 
 
 async def test_authentication_does_not_read_anonymous_body(app: FastAPI) -> None:
-    from starlette.types import Message
-
     responses: list[Message] = []
 
     async def receive() -> Message:
@@ -214,11 +215,6 @@ async def test_wrong_secret_is_never_cached(
         "/v1/chat/completions", headers={"authorization": f"Bearer {issued_test_key}"}
     )
     assert key_id not in get_app_state(app).key_cache.entries
-    import uuid
-
-    from llm_gateway.tenants.keys import hash_secret
-    from llm_gateway.tenants.repository import KeyRecord
-
     memory_repository.records[key_id] = KeyRecord(
         key_id, hash_secret(TEST_PEPPER.encode(), secret), uuid.uuid4(), uuid.uuid4()
     )
@@ -251,8 +247,6 @@ async def test_cached_key_still_expires_at_absolute_deadline(
         expires_at=datetime.now(UTC) + timedelta(milliseconds=200),
     )
     first = await client.post("/v1/chat/completions", json={})
-    import asyncio
-
     await asyncio.sleep(0.25)
     expired = await client.post("/v1/chat/completions", json={})
 

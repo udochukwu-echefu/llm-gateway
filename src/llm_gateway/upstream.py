@@ -1,15 +1,21 @@
-import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
 import anyio
 import httpx
 import structlog
+from pydantic import ValidationError
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from llm_gateway.errors import GatewayError, error_body
+from llm_gateway.errors import GatewayError
+from llm_gateway.schemas.common import ResponseModel
+from llm_gateway.sse import encode_error
 
 log = structlog.get_logger("llm_gateway.upstream")
+
+# Turns the provider's raw stream into the bytes we send to the client.
+StreamTransform = Callable[[AsyncIterator[bytes]], AsyncIterator[bytes]]
 
 
 class UpstreamClient:
@@ -22,15 +28,13 @@ class UpstreamClient:
     def __init__(self, http: httpx.AsyncClient) -> None:
         self._http = http
 
-    async def open_chat_completion(self, body: bytes) -> httpx.Response:
-        """Send the request and return the response with its body still unread.
+    async def open(self, path: str, payload: dict[str, Any]) -> httpx.Response:
+        """POST `payload` and return the response with its body still unread.
 
         The caller owns the returned response and must close it. Error statuses are
         read, closed and raised as GatewayError here, so the caller only sees successes.
         """
-        request = self._http.build_request(
-            "POST", "chat/completions", content=body, headers={"content-type": "application/json"}
-        )
+        request = self._http.build_request("POST", path, json=payload)
         try:
             response = await self._http.send(request, stream=True)
         except httpx.HTTPError as exc:
@@ -46,6 +50,34 @@ class UpstreamClient:
                 await response.aclose()
             raise status_error(response)
         return response
+
+
+async def read_model[M: ResponseModel](response: httpx.Response, model: type[M]) -> M:
+    """Read a whole (non-streamed) response body and check it has the shape we rely on."""
+    try:
+        content = await response.aread()
+    except httpx.HTTPError as exc:
+        raise transport_error(exc) from exc
+    finally:
+        await response.aclose()
+    try:
+        return model.model_validate_json(content)
+    except ValidationError as exc:
+        raise invalid_response(exc) from None
+
+
+def invalid_response(exc: ValidationError) -> GatewayError:
+    # Log where the shape was wrong, never the content: it may contain the completion.
+    log.error(
+        "upstream_invalid_response",
+        problems=[".".join(str(part) for part in error["loc"]) for error in exc.errors()][:5],
+    )
+    return GatewayError(
+        502,
+        "The model provider returned an unexpected response.",
+        type="upstream_error",
+        code="upstream_invalid_response",
+    )
 
 
 def transport_error(exc: httpx.HTTPError) -> GatewayError:
@@ -120,18 +152,18 @@ def status_error(response: httpx.Response) -> GatewayError:
     )
 
 
+class _ProviderError(ResponseModel):
+    class Detail(ResponseModel):
+        message: str
+
+    error: Detail
+
+
 def _upstream_message(response: httpx.Response) -> str | None:
     try:
-        payload = response.json()
-    except ValueError:
+        return _ProviderError.model_validate_json(response.content).error.message
+    except ValidationError:
         return None
-    if isinstance(payload, dict):
-        error = payload.get("error")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        if isinstance(error, dict):
-            message = error.get("message")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            if isinstance(message, str):
-                return message
-    return None
 
 
 class UpstreamStreamingResponse(StreamingResponse):
@@ -142,24 +174,25 @@ class UpstreamStreamingResponse(StreamingResponse):
     keep paying for tokens nobody will read.
     """
 
-    def __init__(self, upstream: httpx.Response) -> None:
+    def __init__(self, upstream: httpx.Response, transform: StreamTransform) -> None:
         self._upstream = upstream
+        self._transform = transform
         super().__init__(
             self._relay(),
-            media_type=upstream.headers.get("content-type", "text/event-stream"),
+            media_type="text/event-stream",
             headers={"cache-control": "no-cache", "x-accel-buffering": "no"},
         )
 
     async def _relay(self) -> AsyncIterator[bytes]:
         try:
             # aiter_bytes, not aiter_raw: raw bytes may still be gzip-encoded.
-            async for chunk in self._upstream.aiter_bytes():
+            async for chunk in self._transform(self._upstream.aiter_bytes()):
                 yield chunk
         except httpx.HTTPError as exc:
             # Headers and a 200 are already sent, so the status can't change. Emit an error
             # event (OpenAI SDKs raise on it) instead of silently truncating the stream.
             log.warning("upstream_stream_interrupted", error=type(exc).__name__)
-            yield _sse_error_event(transport_error(exc))
+            yield encode_error(transport_error(exc))
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
@@ -167,8 +200,3 @@ class UpstreamStreamingResponse(StreamingResponse):
         finally:
             with anyio.CancelScope(shield=True):
                 await self._upstream.aclose()
-
-
-def _sse_error_event(error: GatewayError) -> bytes:
-    payload = error_body(error.message, type=error.type, code=error.code)
-    return f"data: {json.dumps(payload)}\n\n".encode()

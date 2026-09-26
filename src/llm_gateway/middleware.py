@@ -7,6 +7,7 @@ import structlog
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from llm_gateway import context
 from llm_gateway.errors import error_body
 
 REQUEST_ID_HEADER = "x-request-id"
@@ -51,6 +52,7 @@ class RequestContextMiddleware:
                     completed = True
             await send(message)
 
+        fields, token = context.begin_request()
         with structlog.contextvars.bound_contextvars(request_id=request_id):
             try:
                 await self.app(scope, receive, send_with_context)
@@ -69,7 +71,9 @@ class RequestContextMiddleware:
                     ttfb_ms=_elapsed_ms(started, first_byte_at),
                     # False means the client went away (or we failed) before the body finished.
                     completed=completed,
+                    **fields,
                 )
+                context.end_request(token)
 
 
 async def _send_internal_error(send: Send) -> None:

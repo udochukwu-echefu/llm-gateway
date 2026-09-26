@@ -5,8 +5,8 @@ Each step ends with tests, docs and a working gateway.
 | # | Step | Status |
 |---|---|---|
 | 1 | Proxy to one provider with streaming, request IDs, structured logs, error mapping, CI | ✅ Done |
-| 2 | Canonical OpenAI-compatible schema (chat, tools, structured output, embeddings), pass-through for provider-only fields | Next |
-| 3 | Provider adapters: Groq, Gemini, DeepSeek, OpenAI | |
+| 2 | Canonical OpenAI-compatible schema (chat, tools, structured output, embeddings), pass-through for provider-only fields | ✅ Done |
+| 3 | Provider adapters: Groq, Gemini, DeepSeek, OpenAI | Next |
 | 4 | Tenants and virtual API keys (inbound), secret store for provider keys (outbound) | |
 | 5 | Model catalog with prices; token and cost tracking, written to Postgres off the request path | |
 | 6 | Rate limits (requests and tokens per minute), concurrency limits, budgets, all in Redis | |

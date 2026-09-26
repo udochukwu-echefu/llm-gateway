@@ -3,6 +3,8 @@ from typing import Literal
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from llm_gateway.schemas.common import ProviderName
+
 
 class Settings(BaseSettings):
     """Runtime configuration, read from GATEWAY_* environment variables (and `.env` locally).
@@ -14,6 +16,7 @@ class Settings(BaseSettings):
 
     # Step 1 forwards to a single OpenAI-compatible provider. Step 3 replaces this with
     # per-provider adapters, and step 4 moves the key into a secret store.
+    upstream_provider: ProviderName = "groq"  # decides which provider_options are sent
     upstream_base_url: str = "https://api.groq.com/openai/v1"
     upstream_api_key: SecretStr
 

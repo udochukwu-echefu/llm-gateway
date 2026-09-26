@@ -1,4 +1,4 @@
-from typing import Literal, Self, cast
+from typing import Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -46,7 +46,7 @@ class ProvidersSettings(BaseModel):
 
     def enabled(self) -> list[tuple[ProviderName, ProviderSettings]]:
         return [
-            (cast(ProviderName, name), block)
+            (name, block)
             for name in DEFAULT_BASE_URLS
             if (block := getattr(self, name)).api_key is not None
         ]

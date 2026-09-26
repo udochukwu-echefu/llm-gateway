@@ -10,14 +10,12 @@ No separate reasoning output representation was verified: no mapping.
 """
 
 from llm_gateway.providers.base import Capabilities
-from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.common import ProviderName
 
 
 class GeminiAdapter(OpenAICompatibleAdapter):
     name: ProviderName = "gemini"
-    base_url = DEFAULT_BASE_URLS["gemini"]
     capabilities = Capabilities(
         supports_embeddings=True,
         supports_stream_usage=True,

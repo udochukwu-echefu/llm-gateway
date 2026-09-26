@@ -16,7 +16,6 @@ class OpenAICompatibleAdapter:
 
     name: ProviderName
     capabilities: Capabilities
-    base_url: str
     request_id_header: str | None = "x-request-id"
 
     def __init__(self, http: httpx.AsyncClient) -> None:

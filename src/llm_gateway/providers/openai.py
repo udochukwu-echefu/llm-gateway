@@ -10,14 +10,12 @@ No separate Chat Completions reasoning text is documented, so do not manufacture
 """
 
 from llm_gateway.providers.base import Capabilities
-from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.common import ProviderName
 
 
 class OpenAIAdapter(OpenAICompatibleAdapter):
     name: ProviderName = "openai"
-    base_url = DEFAULT_BASE_URLS["openai"]
     capabilities = Capabilities(
         supports_embeddings=True,
         supports_stream_usage=True,

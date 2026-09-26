@@ -238,7 +238,7 @@ async def test_unsupported_parameters_fail_before_network(
     adapter: OpenAICompatibleAdapter,
     stream: bool,
 ) -> None:
-    for parameter in adapter.capabilities.unsupported_parameters - {"messages[].name"}:
+    for parameter in adapter.capabilities.unsupported_parameters:
         values: dict[str, Any] = {
             "n": 2,
             "seed": 1,

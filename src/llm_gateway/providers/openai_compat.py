@@ -90,9 +90,7 @@ class OpenAICompatibleAdapter:
 
     def _translate_messages(self, payload: dict[str, Any]) -> None:
         for message in payload["messages"]:
-            if "messages[].name" in self.capabilities.unsupported_parameters and (
-                "name" in message
-            ):
+            if not self.capabilities.supports_message_names and "name" in message:
                 raise self.unsupported("messages[].name")
             if not self.capabilities.supports_developer and message["role"] == "developer":
                 message["role"] = "system"

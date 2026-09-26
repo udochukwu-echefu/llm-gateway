@@ -21,6 +21,8 @@ need to know those details.
   usage hiding, SSE encoding and terminal success/error events.
 - Shared wire behavior lives in `openai_compat.py`, with single-purpose `transport.py`
   and `stream.py` modules. Four thin adapters declare frozen capabilities in one place.
+  Nested message names use an explicit `supports_message_names` flag rather than a
+  pseudo-parameter in the set of unsupported top-level fields.
 - Unsupported parameters (including explicitly supplied nulls) fail locally with
   `400 unsupported_parameter`. Translate developer instructions to system when needed;
   translate DeepSeek's completion limit to `max_tokens`, rejecting two non-null limits.

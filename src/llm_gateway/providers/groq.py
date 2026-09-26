@@ -33,12 +33,12 @@ class GroqAdapter(OpenAICompatibleAdapter):
         supports_developer=True,
         supports_max_completion_tokens=True,
         supports_multiple_choices=False,
+        supports_message_names=False,
         unsupported_parameters=frozenset(
             {
                 "logprobs",
                 "top_logprobs",
                 "logit_bias",
-                "messages[].name",
                 "frequency_penalty",
                 "presence_penalty",
             }

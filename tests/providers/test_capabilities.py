@@ -7,8 +7,36 @@ import respx
 
 from llm_gateway.errors import GatewayError
 from llm_gateway.providers.openai import OpenAIAdapter
+from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.chat import ChatCompletionRequest
-from tests.fixtures import STREAM, sse
+from llm_gateway.schemas.common import ProviderName
+from tests.fixtures import COMPLETION, STREAM, sse
+
+
+async def test_message_names_follow_explicit_capability(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+    provider_name: ProviderName,
+    adapter: OpenAICompatibleAdapter,
+) -> None:
+    route = upstream.post("/chat/completions").respond(200, json=COMPLETION)
+
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": f"{provider_name}/model",
+            "messages": [{"role": "user", "content": "Hi", "name": "participant"}],
+        },
+    )
+
+    if adapter.capabilities.supports_message_names:
+        assert response.status_code == 200
+        assert json.loads(route.calls.last.request.content)["messages"][0]["name"] == "participant"
+    else:
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "unsupported_parameter"
+        assert "messages[].name" in response.json()["error"]["message"]
+        assert not route.called
 
 
 @pytest.mark.parametrize("include_usage", [False, True])

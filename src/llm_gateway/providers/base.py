@@ -18,6 +18,7 @@ class Capabilities:
     supports_json_schema: bool = True
     unsupported_embedding_parameters: frozenset[str] = frozenset()
     supports_token_inputs: bool = True
+    supports_message_names: bool = True
 
 
 class ChatStream(Protocol):

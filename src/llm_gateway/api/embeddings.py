@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request, Response
 
 from llm_gateway.api.common import parse_request, read_json_body, record_usage, require_price
@@ -29,7 +31,8 @@ async def embeddings(request: Request) -> Response:
             code="unsupported_parameter",
             type="invalid_request_error",
         )
-    price = require_price(state, adapter.name, model, "embedding")
+    requested_at = datetime.now(UTC)
+    price = require_price(state, adapter.name, model, "embedding", requested_at)
     event = UsageEvent(
         request.state.principal,
         request.state.gateway_request_id,
@@ -37,6 +40,7 @@ async def embeddings(request: Request) -> Response:
         state.catalog,
         "embeddings",
         False,
+        requested_at=requested_at,
     )
     request.state.usage_event = event
     token = bind(event)

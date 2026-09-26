@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request, Response
 
 from llm_gateway.api.common import parse_request, read_json_body, record_usage, require_price
@@ -20,7 +22,8 @@ async def chat_completions(request: Request) -> Response:
     )
     annotate(model=chat.model, stream=chat.stream)
     adapter, model = state.providers.resolve(chat.model)
-    price = require_price(state, adapter.name, model, "chat")
+    requested_at = datetime.now(UTC)
+    price = require_price(state, adapter.name, model, "chat", requested_at)
     annotate(provider=adapter.name)
     event = UsageEvent(
         request.state.principal,
@@ -29,6 +32,7 @@ async def chat_completions(request: Request) -> Response:
         state.catalog,
         "chat",
         chat.stream,
+        requested_at=requested_at,
     )
     request.state.usage_event = event
     token = bind(event)

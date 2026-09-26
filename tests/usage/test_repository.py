@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Literal
 
@@ -8,6 +8,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from llm_gateway.catalog import load_catalog
+from llm_gateway.schemas.chat import Usage
+from llm_gateway.tenants.auth import Principal
+from llm_gateway.usage.record import UsageEvent
 from llm_gateway.usage.repository import PostgresUsageRepository, UsageRow
 from tests.tenants.support import run_admin
 from tests.usage.test_writer import sample_record
@@ -46,6 +50,56 @@ async def test_insert_round_trips_numeric_exactly_and_preserves_original_price(
         await engine.dispose()
 
 
+async def test_announced_future_rate_does_not_reprice_historical_rows(
+    migrated_database: str,
+) -> None:
+    engine = create_async_engine(migrated_database)
+    repository = PostgresUsageRepository(async_sessionmaker(engine, expire_on_commit=False))
+    linked = await _linked_record(migrated_database)
+    catalog = load_catalog()
+    price = catalog.find("gemini", "gemini-3.8-flash", "chat")
+    assert price is not None
+    principal = Principal(linked.organization_id, linked.team_id, linked.key_id)
+    usage = Usage(prompt_tokens=10, completion_tokens=2, total_tokens=12)
+    old = UsageEvent(
+        principal,
+        "old-rate",
+        price,
+        catalog,
+        "chat",
+        False,
+        requested_at=datetime(2026, 12, 31, 23, 59, 59, tzinfo=UTC),
+    )
+    new = UsageEvent(
+        principal,
+        "new-rate",
+        price,
+        catalog,
+        "chat",
+        False,
+        requested_at=datetime(2027, 1, 1, tzinfo=UTC),
+    )
+    old.usage = new.usage = usage
+    try:
+        await repository.insert([old.finish(1, 1)])
+        await repository.insert([new.finish(1, 1)])
+        async with repository.sessions() as session:
+            rows = (
+                await session.execute(
+                    select(UsageRow.request_id, UsageRow.cost_usd).where(
+                        UsageRow.organization_id == linked.organization_id
+                    )
+                )
+            ).all()
+
+        assert dict(rows) == {
+            "old-rate": Decimal("0.000015000000"),
+            "new-rate": Decimal("0.000030000000"),
+        }
+    finally:
+        await engine.dispose()
+
+
 async def test_usage_cli_reports_aggregated_cost_and_missing_counts(
     migrated_database: str,
 ) -> None:
@@ -76,9 +130,9 @@ async def test_usage_cli_reports_aggregated_cost_and_missing_counts(
             "--group-by",
             "model",
             "--since",
-            date.today().isoformat(),
+            record.created_at.date().isoformat(),
             "--until",
-            date.today().isoformat(),
+            record.created_at.date().isoformat(),
         )
 
         assert "requests=2" in report
@@ -107,7 +161,11 @@ async def test_sql_report_aggregates_by_each_group_and_counts_missing_costs(
     try:
         await repository.insert([record, second])
         report = await repository.report(
-            record.organization_id.hex, None, date.today(), date.today(), group_by
+            record.organization_id.hex,
+            None,
+            record.created_at.date(),
+            record.created_at.date(),
+            group_by,
         )
         # report uses organization names, not UUIDs
         assert report == []
@@ -120,7 +178,9 @@ async def test_sql_report_aggregates_by_each_group_and_counts_missing_costs(
                 select(Organization.name).where(Organization.id == record.organization_id)
             )
         assert org is not None
-        report = await repository.report(org, None, date.today(), date.today(), group_by)
+        report = await repository.report(
+            org, None, record.created_at.date(), record.created_at.date(), group_by
+        )
 
         assert len(report) == 1
         assert report[0]["requests"] == 2
@@ -129,7 +189,9 @@ async def test_sql_report_aggregates_by_each_group_and_counts_missing_costs(
         assert report[0]["prompt_tokens"] == record.prompt_tokens
         assert await repository.report(org, "not-this-team", None, None, group_by) == []
         assert (
-            await repository.report(org, None, date.today() + timedelta(days=1), None, group_by)
+            await repository.report(
+                org, None, record.created_at.date() + timedelta(days=1), None, group_by
+            )
             == []
         )
     finally:

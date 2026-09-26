@@ -317,6 +317,9 @@ the gateway refuses the request before calling the provider. `/v1/models` shows
 only items whose providers are configured. Editing the file needs code review;
 the version is stamped onto each usage receipt so later price changes don't
 rewrite yesterday's spend.
+Each model may have several price periods. A request picks the rate effective
+at its start time in UTC, even if its response finishes after midnight. Future
+rates can be reviewed before they take effect without repricing old receipts.
 
 Providers return token counts in different shapes. The adapters translate cache
 hits into one `cached_tokens` field. Gemini sometimes reports fewer output tokens

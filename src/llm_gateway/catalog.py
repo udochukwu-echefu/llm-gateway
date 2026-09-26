@@ -1,7 +1,7 @@
 """Reviewed model allowlist and decimal prices, loaded before accepting traffic."""
 
 import tomllib
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Self
@@ -11,12 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, mod
 from llm_gateway.schemas.common import ProviderName
 
 
-class ModelPrice(BaseModel):
+class PricePeriod(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    provider: ProviderName
-    model: str = Field(min_length=1)
-    kind: Literal["chat", "embedding"]
+    effective_from: date
     input_price: Decimal = Field(ge=0)
     cached_input_price: Decimal | None = Field(default=None, ge=0)
     output_price: Decimal | None = Field(default=None, ge=0)
@@ -32,12 +30,39 @@ class ModelPrice(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _consistent_prices(self) -> Self:
-        if (self.output_price is None) != (self.kind == "embedding"):
-            raise ValueError("chat needs an output price; embeddings must not have one")
+    def _valid_cache_price(self) -> Self:
         if self.cached_input_price is not None and self.cached_input_price > self.input_price:
             raise ValueError("cached price cannot exceed input price")
         return self
+
+
+class ModelPrice(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    provider: ProviderName
+    model: str = Field(min_length=1)
+    kind: Literal["chat", "embedding"]
+    periods: list[PricePeriod] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _valid_periods(self) -> Self:
+        dates = [period.effective_from for period in self.periods]
+        if dates != sorted(set(dates)):
+            raise ValueError("price periods must have strictly increasing unique dates")
+        if any(
+            (period.output_price is None) != (self.kind == "embedding") for period in self.periods
+        ):
+            raise ValueError("chat needs an output price; embeddings must not have one")
+        return self
+
+    def at(self, requested_at: datetime) -> PricePeriod | None:
+        """Periods start at midnight UTC; future-only models are not yet available."""
+        if requested_at.tzinfo is None or requested_at.utcoffset() is None:
+            raise ValueError("request timestamp must be timezone-aware")
+        day = requested_at.astimezone(UTC).date()
+        return next(
+            (period for period in reversed(self.periods) if period.effective_from <= day), None
+        )
 
 
 class Catalog(BaseModel):

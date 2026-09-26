@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Literal
 
-from llm_gateway.catalog import Catalog, ModelPrice
+from llm_gateway.catalog import Catalog, ModelPrice, PricePeriod
 from llm_gateway.cost import compute_cost
 from llm_gateway.schemas.chat import Usage
 from llm_gateway.schemas.embeddings import EmbeddingUsage
@@ -56,10 +56,16 @@ class UsageEvent:
         catalog: Catalog,
         endpoint: Literal["chat", "embeddings"],
         stream: bool,
+        requested_at: datetime | None = None,
     ) -> None:
         self.principal = principal
         self.request_id = request_id
         self.price = price
+        self.requested_at = requested_at if requested_at is not None else datetime.now(UTC)
+        period = price.at(self.requested_at)
+        if period is None:
+            raise ValueError("model has no price at request timestamp")
+        self.period: PricePeriod = period
         self.catalog = catalog
         self.endpoint: Literal["chat", "embeddings"] = endpoint
         self.stream = stream
@@ -88,7 +94,7 @@ class UsageEvent:
         cost: Decimal | None = None
         if usage is not None:
             try:
-                cost = compute_cost(self.price, prompt or 0, completion or 0, cached or 0)
+                cost = compute_cost(self.period, prompt or 0, completion or 0, cached or 0)
             except ValueError:
                 cost_status = "usage_missing"
         if self.outcome == "client_disconnected" and usage is None:
@@ -98,7 +104,7 @@ class UsageEvent:
         return UsageRecord(
             uuid.uuid4(),
             self.request_id,
-            datetime.now(UTC),
+            self.requested_at,
             self.principal.organization_id,
             self.principal.team_id,
             self.principal.key_id,

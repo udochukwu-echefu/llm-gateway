@@ -16,6 +16,12 @@ diff and a commit. Reject unlisted provider/model/kind combinations before conta
 the provider. List only enabled providers' catalogued IDs through authenticated
 `GET /v1/models`. Each row records the catalogue version and its computed cost;
 historical costs are never recalculated.
+Each model has a nonempty, strictly increasing list of price periods. A period
+starts at midnight UTC on `effective_from`; select it once at request time,
+before sending to the provider, and retain it even if a stream crosses midnight.
+Models with no period in force yet are unavailable. Announced future prices can
+be reviewed and deployed ahead of time; Gemini 3.8 Flash doubles its published
+standard rates on 2027-01-01, so both periods are already in the catalogue.
 
 Store USD prices and costs as `Decimal`, with `NUMERIC(20,12)` in Postgres. For each
 million tokens, charge `(prompt - cached) * input_price + cached *
@@ -33,9 +39,10 @@ An unknown model is unavailable even if a provider supports it; a newly publishe
 price needs a code review and deployment. USD is explicit in each entry. The reviewed
 prices are standard paid API rates, not batch or priority rates. DeepSeek publishes
 peak and off-peak schedules: this catalogue's **peak** rate is a conservative cost
-estimate, not the invoice amount at off-peak times. A single price cannot represent
-both. The Gemini 3.8 Flash promotional standard rate ends 2026-12-31 and must be
-reviewed before then. Google's current official pricing page has no
+estimate, not the invoice amount at off-peak times. Effective **dates** cannot
+represent hour-of-day schedules; add time-of-day/holiday-aware pricing as a
+future catalogue feature before treating DeepSeek estimates as exact invoices.
+Google's current official pricing page has no
 `gemini-embedding-001` row, so this model is excluded instead of inventing a price.
 
 ## Alternatives considered

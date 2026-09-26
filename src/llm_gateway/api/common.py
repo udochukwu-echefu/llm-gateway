@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import Request
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -86,9 +88,11 @@ def record_usage(usage: Usage | EmbeddingUsage | None) -> None:
     )
 
 
-def require_price(state: GatewayState, provider: ProviderName, model: str, kind: str) -> ModelPrice:
+def require_price(
+    state: GatewayState, provider: ProviderName, model: str, kind: str, requested_at: datetime
+) -> ModelPrice:
     price = state.catalog.find(provider, model, kind)
-    if price is None:
+    if price is None or price.at(requested_at) is None:
         raise GatewayError(
             404,
             f"Model '{provider}/{model}' is not in this gateway's catalogue.",

@@ -74,12 +74,16 @@ offline with `gateway-admin list-keys <org> [<team>]` and `gateway-admin revoke-
 
 Edit `catalog/models.toml` through code review: verify each model's per-million-token
 standard USD prices on its provider's **official** pricing page, update `source_url`
-and `checked_on`, and increment the top-level `version`. Invalid prices, duplicate
+and `checked_on` in each `[[models.periods]]` entry, set its UTC `effective_from`
+date, and increment the top-level `version`. Periods must be nonempty, ordered,
+and have unique dates; each request keeps the rate in force when it started.
+Invalid prices, duplicate
 models, or an unknown provider prevent startup. Uncatalogued models return
 `404 model_not_found` before any provider call. Do not guess missing prices;
 `gemini-embedding-001` is currently excluded because its official price is not listed.
 The reviewed DeepSeek price uses the published **peak** rate; off-peak invoices are
-lower. Gemini 3.8 Flash's reviewed promotional rate expires on 2026-12-31.
+lower. Gemini 3.8 Flash's published rate increase on 2027-01-01 is already
+entered as a second period.
 
 Usage records contain identity, token counts, USD cost and outcome, not request or
 response content. They are batched asynchronously into Postgres. A full queue or an

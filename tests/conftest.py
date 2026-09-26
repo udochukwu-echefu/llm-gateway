@@ -1,0 +1,44 @@
+from collections.abc import AsyncIterator, Iterator
+
+import httpx
+import pytest
+import respx
+from fastapi import FastAPI
+from pydantic import SecretStr
+
+from llm_gateway.config import Settings
+from llm_gateway.main import create_app
+
+UPSTREAM_URL = "https://upstream.test/v1"
+UPSTREAM_KEY = "sk-upstream-test"
+
+
+@pytest.fixture
+def settings() -> Settings:
+    return Settings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]  # never read a developer's real .env
+        upstream_base_url=UPSTREAM_URL,
+        upstream_api_key=SecretStr(UPSTREAM_KEY),
+        log_format="console",
+        max_request_bytes=4096,
+    )
+
+
+@pytest.fixture
+def app(settings: Settings) -> FastAPI:
+    return create_app(settings)
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://gateway.test") as c:
+            yield c
+
+
+@pytest.fixture
+def upstream() -> Iterator[respx.MockRouter]:
+    # Any request to an unmocked URL fails the test, so nothing can reach a real provider.
+    with respx.mock(base_url=UPSTREAM_URL, assert_all_called=False) as router:
+        yield router

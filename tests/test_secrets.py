@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 
 from llm_gateway.config import Settings
+from llm_gateway.gateway_state import get_app_state
 from llm_gateway.main import create_app
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore
 from tests.conftest import TEST_DATABASE_URL, TEST_PEPPER
@@ -115,7 +116,7 @@ def test_startup_rejects_missing_or_short_critical_secrets(
         create_app(configured, secret_store=IncompleteStore())
 
 
-def test_file_backend_resolves_provider_keys_from_store(settings: Settings) -> None:
+async def test_file_backend_resolves_provider_keys_from_store(settings: Settings) -> None:
     class Store:
         def get(self, name: str) -> SecretStr | None:
             values = {
@@ -131,4 +132,5 @@ def test_file_backend_resolves_provider_keys_from_store(settings: Settings) -> N
 
     app: FastAPI = create_app(configured, secret_store=Store())
 
-    assert [name for name, _ in app.state.settings.providers.enabled()] == ["groq"]
+    async with app.router.lifespan_context(app):
+        assert [name for name, _ in get_app_state(app).settings.providers.enabled()] == ["groq"]

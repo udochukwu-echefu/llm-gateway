@@ -13,7 +13,7 @@ from starlette.types import Scope
 from structlog.testing import capture_logs
 
 from llm_gateway.errors import error_body
-from llm_gateway.tenants.cache import VerifiedKeyCache
+from llm_gateway.gateway_state import get_app_state
 from llm_gateway.tenants.keys import issue_key
 from tests.conftest import TEST_PEPPER, MemoryKeyRepository
 from tests.fixtures import CHAT_REQUEST, COMPLETION
@@ -163,7 +163,7 @@ async def test_revoked_key_stops_working_after_cache_ttl(
     app: FastAPI,
 ) -> None:
     clock = [0.0]
-    app.state.key_cache = VerifiedKeyCache(ttl=30, clock=lambda: clock[0])
+    get_app_state(app).key_cache.clock = lambda: clock[0]
     key_id = issued_test_key.split("_")[1]
     await client.post("/v1/chat/completions", json={})
     record = memory_repository.records[key_id]
@@ -184,7 +184,7 @@ async def test_continuous_use_does_not_extend_revoked_keys_cache_ttl(
     app: FastAPI,
 ) -> None:
     clock = [0.0]
-    app.state.key_cache = VerifiedKeyCache(ttl=30, clock=lambda: clock[0])
+    get_app_state(app).key_cache.clock = lambda: clock[0]
     key_id = issued_test_key.split("_")[1]
 
     first = await client.post("/v1/chat/completions", json={})
@@ -213,7 +213,7 @@ async def test_wrong_secret_is_never_cached(
     failed = await client.post(
         "/v1/chat/completions", headers={"authorization": f"Bearer {issued_test_key}"}
     )
-    assert key_id not in app.state.key_cache.entries
+    assert key_id not in get_app_state(app).key_cache.entries
     import uuid
 
     from llm_gateway.tenants.keys import hash_secret
@@ -239,7 +239,7 @@ async def test_wrong_secret_for_existing_key_is_not_cached(
     )
 
     assert response.status_code == 401
-    assert key_id not in app.state.key_cache.entries
+    assert key_id not in get_app_state(app).key_cache.entries
 
 
 async def test_cached_key_still_expires_at_absolute_deadline(

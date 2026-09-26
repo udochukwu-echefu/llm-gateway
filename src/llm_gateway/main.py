@@ -11,6 +11,7 @@ from llm_gateway import __version__
 from llm_gateway.api import chat, embeddings, health
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
+from llm_gateway.gateway_state import GatewayState
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
 from llm_gateway.providers.pools import provider_pools
@@ -65,14 +66,22 @@ def create_app(
         engine = None
         if key_repository is None:
             engine = create_async_engine(database_url.get_secret_value(), pool_pre_ping=True)
-            app.state.key_repository = PostgresKeyRepository(
+            repository: KeyRepository = PostgresKeyRepository(
                 async_sessionmaker(engine, expire_on_commit=False)
             )
         else:
-            app.state.key_repository = key_repository
+            repository = key_repository
         try:
             async with provider_pools(settings) as registry:
-                app.state.providers = registry
+                app.state.gateway = GatewayState(
+                    settings=settings,
+                    providers=registry,
+                    key_repository=repository,
+                    key_cache=key_cache
+                    if key_cache is not None
+                    else VerifiedKeyCache(settings.key_cache_ttl_s, settings.key_cache_max_size),
+                    pepper=pepper.get_secret_value().encode(),
+                )
                 log.info(
                     "gateway_started", version=__version__, providers=sorted(registry.adapters)
                 )
@@ -83,11 +92,6 @@ def create_app(
         log.info("gateway_stopped")
 
     app = FastAPI(title="LLM Gateway", version=__version__, lifespan=lifespan)
-    app.state.settings = settings
-    app.state.pepper = pepper.get_secret_value().encode()
-    app.state.key_cache = key_cache or VerifiedKeyCache(
-        settings.key_cache_ttl_s, settings.key_cache_max_size
-    )
     app.include_router(health.router)
     v1 = APIRouter(prefix="/v1", dependencies=[Depends(authenticate)])
     for module in (chat, embeddings):

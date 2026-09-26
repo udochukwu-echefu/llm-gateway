@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 
 from llm_gateway.errors import GatewayError
+from llm_gateway.gateway_state import get_state
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ async def healthz() -> dict[str, str]:
 @router.get("/readyz", include_in_schema=False)
 async def readyz(request: Request) -> dict[str, str]:
     try:
-        await request.app.state.key_repository.ping()
+        await get_state(request).key_repository.ping()
     except Exception as exc:
         raise GatewayError(
             503, "Database unavailable.", type="server_error", code="database_unavailable"

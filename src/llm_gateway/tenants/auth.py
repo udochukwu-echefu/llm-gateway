@@ -10,7 +10,9 @@ from fastapi import Request
 
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
+from llm_gateway.gateway_state import get_state
 from llm_gateway.tenants.keys import hash_secret, parse_key, verify_hash
+from llm_gateway.tenants.repository import KeyRecord
 
 log = structlog.get_logger("llm_gateway.auth")
 
@@ -29,21 +31,23 @@ async def authenticate(request: Request) -> None:
     if parsed is None:
         _reject("missing_or_malformed")
     key_id, secret = parsed
-    cache = request.app.state.key_cache
-    repository = request.app.state.key_repository
-    record = cache.get(key_id)
+    state = get_state(request)
+    record: KeyRecord | None = state.key_cache.get(key_id)
     verified_from_database = record is None
     if record is None:
-        record = await repository.get_key(key_id)
-    actual = hash_secret(request.app.state.pepper, secret)
-    if not verify_hash(record.secret_hash if record else None, actual):
-        _reject("unknown_key_id" if record is None else "wrong_secret")
+        record = await state.key_repository.get_key(key_id)
+    actual = hash_secret(state.pepper, secret)
+    valid = verify_hash(record.secret_hash if record is not None else None, actual)
+    if record is None:
+        _reject("unknown_key_id")
+    if not valid:
+        _reject("wrong_secret")
     if record.revoked_at is not None:
         _reject("revoked")
     if record.expires_at is not None and record.expires_at <= datetime.now(UTC):
         _reject("expired")
     if verified_from_database:
-        cache.put(record)
+        state.key_cache.put(record)
     principal = Principal(record.organization_id, record.team_id, record.key_id)
     request.state.principal = principal
     annotate(

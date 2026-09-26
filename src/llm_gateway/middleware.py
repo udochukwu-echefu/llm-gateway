@@ -63,22 +63,6 @@ class RequestContextMiddleware:
                 if status is None:
                     await _send_internal_error(send_with_context)
             finally:
-                event = state.get("usage_event")
-                if event is not None:
-                    from llm_gateway.gateway_state import get_app_state
-                    from llm_gateway.usage.record import UsageEvent
-
-                    if isinstance(event, UsageEvent) and event.sent:
-                        try:
-                            event.status_code = status or 500
-                            get_app_state(scope["app"]).usage_writer.enqueue(
-                                event.finish(
-                                    _elapsed_ms(started, time.perf_counter()),
-                                    _elapsed_ms(started, first_byte_at),
-                                )
-                            )
-                        except Exception:
-                            log.exception("usage_enqueue_failed", request_id=request_id)
                 log.info(
                     "request",
                     method=scope["method"],

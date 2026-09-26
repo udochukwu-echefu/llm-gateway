@@ -20,6 +20,7 @@ from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
 from llm_gateway.tenants.auth import authenticate
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.repository import KeyRepository, PostgresKeyRepository
+from llm_gateway.usage.middleware import UsageMiddleware
 from llm_gateway.usage.repository import PostgresUsageRepository
 from llm_gateway.usage.writer import Sink, UsageWriter
 
@@ -129,5 +130,6 @@ def create_app(
     app.include_router(v1)
     app.add_exception_handler(GatewayError, gateway_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_middleware(UsageMiddleware)
     app.add_middleware(RequestContextMiddleware)
     return app

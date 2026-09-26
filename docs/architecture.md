@@ -334,6 +334,10 @@ binary floats cannot exactly represent most decimal fractions (for example,
 Postgres stores the exact decimal result in `NUMERIC`.
 
 Writing a receipt directly to Postgres would hold up a customer's response.
+Usage has its own plain-ASGI middleware (a thin wrapper around HTTP messages):
+it observes the response and files the receipt when the call ends. The separate
+request-context middleware only assigns IDs and writes access logs, so accounting
+does not mix with request logging or buffer a streamed answer.
 Instead a **background worker** writes them later, like a cashier putting receipts
 into a tray while another person files them. The tray is a **bounded queue**: it
 has a fixed capacity so an outage cannot fill all memory. The worker files a

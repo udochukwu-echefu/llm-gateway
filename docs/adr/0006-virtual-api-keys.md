@@ -19,7 +19,9 @@ goes into Postgres. Never log the secret or an unverified ID. Revoke without del
 
 Use a bounded per-process LRU cache only for successful verifications (default 10,000
 entries, 30-second TTL). Store the hash and identity, but still compare the supplied
-secret on every cache hit and recheck absolute expiry each time. Do not cache failures.
+secret on every cache hit and recheck absolute expiry each time. Only insert after a
+successful database verification: cache hits must never restart the TTL. Do not cache
+failures.
 
 ## Consequences
 
@@ -29,9 +31,10 @@ feasible; a fast hash avoids a slow operation on every request. The pepper means
 database leak alone cannot even check candidate secrets offline. A leaked database **and**
 pepper together remove that additional barrier, but still do not disclose the random keys.
 Keys cannot be decrypted or recovered: clients must save them at creation. Rotating the
-pepper invalidates every existing key; plan coordinated re-issuance. Revoked keys can
-continue working for up to the TTL **on each gateway replica**; expiry is checked even
-for a cached key. Cached identity remains bound to the verified ID, never the bearer text.
+pepper invalidates every existing key; plan coordinated re-issuance. Revocation takes
+effect within TTL seconds of revocation, even for a key in continuous use, on **each
+gateway replica**; expiry is checked even for a cached key. Cached identity remains
+bound to the verified ID, never the bearer text.
 
 ## Alternatives considered
 

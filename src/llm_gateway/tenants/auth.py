@@ -32,6 +32,7 @@ async def authenticate(request: Request) -> None:
     cache = request.app.state.key_cache
     repository = request.app.state.key_repository
     record = cache.get(key_id)
+    verified_from_database = record is None
     if record is None:
         record = await repository.get_key(key_id)
     actual = hash_secret(request.app.state.pepper, secret)
@@ -41,7 +42,8 @@ async def authenticate(request: Request) -> None:
         _reject("revoked")
     if record.expires_at is not None and record.expires_at <= datetime.now(UTC):
         _reject("expired")
-    cache.put(record)
+    if verified_from_database:
+        cache.put(record)
     principal = Principal(record.organization_id, record.team_id, record.key_id)
     request.state.principal = principal
     annotate(

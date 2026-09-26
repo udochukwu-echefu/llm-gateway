@@ -177,6 +177,30 @@ async def test_revoked_key_stops_working_after_cache_ttl(
     assert after_ttl.status_code == 401
 
 
+async def test_continuous_use_does_not_extend_revoked_keys_cache_ttl(
+    client: httpx.AsyncClient,
+    memory_repository: MemoryKeyRepository,
+    issued_test_key: str,
+    app: FastAPI,
+) -> None:
+    clock = [0.0]
+    app.state.key_cache = VerifiedKeyCache(ttl=30, clock=lambda: clock[0])
+    key_id = issued_test_key.split("_")[1]
+
+    first = await client.post("/v1/chat/completions", json={})
+    memory_repository.records[key_id] = replace(
+        memory_repository.records[key_id], revoked_at=datetime.now(UTC)
+    )
+    clock[0] = 20
+    within_ttl = await client.post("/v1/chat/completions", json={})
+    clock[0] = 35
+    after_ttl = await client.post("/v1/chat/completions", json={})
+
+    assert first.status_code == 400
+    assert within_ttl.status_code == 400
+    assert after_ttl.status_code == 401
+
+
 async def test_wrong_secret_is_never_cached(
     client: httpx.AsyncClient,
     memory_repository: MemoryKeyRepository,

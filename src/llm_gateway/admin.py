@@ -77,12 +77,15 @@ async def execute(
 def admin_store() -> SecretStore:
     from pathlib import Path
 
-    if os.getenv("GATEWAY_SECRETS__BACKEND", "env") == "file":
+    backend = os.getenv("GATEWAY_SECRETS__BACKEND", "env")
+    if backend == "file":
         directory = os.getenv("GATEWAY_SECRETS__DIR")
         if not directory:
             raise ValueError("GATEWAY_SECRETS__DIR is required")
         return FileSecretStore(Path(directory))
-    return EnvSecretStore()
+    if backend == "env":
+        return EnvSecretStore()
+    raise ValueError("GATEWAY_SECRETS__BACKEND must be env or file")
 
 
 async def run(args: argparse.Namespace) -> str:

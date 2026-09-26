@@ -2,17 +2,29 @@
 
 import asyncio
 import os
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from llm_gateway.secrets import FileSecretStore
 from llm_gateway.tenants.models import Base
 
 target_metadata = Base.metadata
 
 
 async def run_migrations() -> None:
-    url = os.environ.get("GATEWAY_DATABASE_URL")
+    backend = os.environ.get("GATEWAY_SECRETS__BACKEND", "env")
+    if backend == "file":
+        directory = os.environ.get("GATEWAY_SECRETS__DIR")
+        if not directory:
+            raise ValueError("GATEWAY_SECRETS__DIR is required to run migrations")
+        secret = FileSecretStore(Path(directory)).get("database_url")
+        url = secret.get_secret_value() if secret else None
+    elif backend == "env":
+        url = os.environ.get("GATEWAY_DATABASE_URL")
+    else:
+        raise ValueError("GATEWAY_SECRETS__BACKEND must be env or file")
     if not url:
         raise ValueError("GATEWAY_DATABASE_URL is required to run migrations")
     engine = create_async_engine(url)

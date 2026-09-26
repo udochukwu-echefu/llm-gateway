@@ -102,7 +102,8 @@ Capabilities are endpoint-level; models can have additional restrictions.
 Defaults: Groq `https://api.groq.com/openai/v1`, DeepSeek `https://api.deepseek.com/v1`,
 Gemini `https://generativelanguage.googleapis.com/v1beta/openai`, OpenAI `https://api.openai.com/v1`.
 Verified documentation and conservative restrictions are recorded in each adapter's docstring.
-In particular, Gemini's undocumented token-limit parameters are currently rejected.
+Undocumented parameters, including Gemini's token limits, are forwarded unchanged;
+only explicit documented restrictions or nonexistent endpoints are rejected locally.
 
 ## Docs
 

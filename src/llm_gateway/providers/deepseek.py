@@ -5,8 +5,14 @@ alias could not be reverified in the current guide and is retained as required.
 https://api-docs.deepseek.com/api/create-chat-completion documents system (not developer),
 max_tokens (not max_completion_tokens), include_usage and reasoning_content.
 Translate developer to system and the token limit to max_tokens. Penalties are explicitly
-unsupported; the remaining rejected parameters/embeddings are absent from the API reference.
-JSON schema output is absent (only text/json_object); no request-ID header was verified.
+unsupported. Rejection evidence from that reference:
+frequency_penalty and presence_penalty: "This parameter is no longer supported. It will
+not take effect if you pass it to the API."
+response_format.type: "Must be one of `text` or `json_object`."
+Embeddings are rejected because no embeddings endpoint exists in the official API reference
+at https://api-docs.deepseek.com/api/create-chat-completion (endpoint inventory).
+The token-limit conflict is a gateway translation ambiguity, not a provider restriction.
+Undocumented parameters are forwarded. No request-ID header was verified.
 """
 
 from llm_gateway.providers.base import Capabilities
@@ -25,13 +31,6 @@ class DeepSeekAdapter(OpenAICompatibleAdapter):
         supports_json_schema=False,
         unsupported_parameters=frozenset(
             {
-                "n",
-                "seed",
-                "logit_bias",
-                "parallel_tool_calls",
-                "service_tier",
-                "user",
-                "safety_identifier",
                 "frequency_penalty",
                 "presence_penalty",
             }

@@ -26,7 +26,7 @@ need to know those details.
   translate DeepSeek's completion limit to `max_tokens`, rejecting two non-null limits.
   Explicit null is treated as absence for the limit conflict. Verified supported native
   spellings are preserved. Gemini token-limit translation is not verified, so both spellings
-  are rejected rather than silently losing a limit.
+  are forwarded unchanged.
 - Capabilities describe endpoints, not every model. Model-specific restrictions remain
   provider errors. Arbitrary namespaced provider options remain an explicit pass-through.
 - A nested settings block enables a provider exactly when its key is non-null. Empty keys
@@ -46,7 +46,7 @@ need to know those details.
 
 Provider-specific wire data never crosses the adapter interface. A slow provider cannot
 exhaust another provider's pool. A fifth compatible provider can reuse the contract suite
-by registering its adapter. Some undocumented features are conservatively unavailable.
+  by registering its adapter.
 
 Official documentation was checked on 2026-09-26; sources are in adapter docstrings.
 Groq's current embedded OpenAPI schema documents developer and streamed usage even though
@@ -54,18 +54,23 @@ its Python message union lags behind. DeepSeek's current reference explicitly dr
 DeepSeek's required `/v1` default is retained despite its current quickstart documenting
 only the root URL; configure the documented root URL if the alias is unavailable.
 
-Unverified features: Gemini developer/native token-limit spellings, temperature, top_p,
-stop, seed, log probabilities/bias, penalties, parallel-tool flag, message names, user and
-safety identifiers; multiple choices beyond its n=1 example; embedding token IDs,
-dimensions, encoding format and user; separate reasoning output. Gemini developer maps
-to documented system instructions; other listed request features are rejected.
-Groq embeddings/safety_identifier and DeepSeek embeddings/n/seed/logit_bias/
-parallel_tool_calls/service_tier/user/safety_identifier are not documented and are rejected.
+**Review amendment:** Not documented is not the same as not supported. Only explicit
+official statements of non-support, deprecation or no effect justify parameter rejection;
+nonexistent endpoints (Groq/DeepSeek embeddings) are also rejected. Otherwise forward
+unchanged and let ADR 0002 preserve the provider's 4xx and message. A wrong local rejection
+has no workaround; a wrong forward produces the provider's own clear error.
+
+Gemini's previously unverified chat and embedding parameters now pass through, including
+both token limits and token-ID inputs. DeepSeek rejects only its explicitly unsupported
+penalties and the response format outside its documented text/json_object enum. Groq keeps
+documented logprob/bias/name/penalty restrictions and n=1, but forwards safety_identifier.
+Adapter docstrings quote the evidence. Developer/system and DeepSeek token-limit
+translations remain the agreed canonical translations; no speculative reasoning is added.
 Gemini/DeepSeek/Groq request-ID response headers were not verified and remain unset.
 
 ## Alternatives considered
 
 - One shared HTTP pool: rejected because a stalled provider could starve all others.
 - Native Gemini API: deferred by scope; use its OpenAI-compatible endpoint.
-- Accept undocumented fields optimistically: rejected for canonical parameters; that can
-  silently ignore client intent. Namespaced provider options remain the escape hatch.
+- Reject undocumented fields: superseded by the review amendment above; absence from
+  documentation is insufficient evidence of non-support.

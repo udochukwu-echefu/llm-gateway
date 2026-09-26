@@ -240,8 +240,10 @@ that masks their printed representation.
 a network call avoids paying network latency for a request we already know cannot work.
 For example, Groq cannot serve embeddings. Where the meaning can be kept, we translate:
 DeepSeek receives `max_tokens` instead of `max_completion_tokens`. Developer instructions
-become system instructions for DeepSeek and Gemini. Unverified Gemini token-limit options
-are rejected conservatively. Endpoint support is not a promise that every model supports
+become system instructions for DeepSeek and Gemini. Undocumented parameters, including
+Gemini token-limit options, pass through unchanged: missing documentation does not prove
+non-support. Only explicit documented restrictions are rejected locally. Endpoint support
+is not a promise that every model supports
 every option; model-specific errors still come from the provider.
 
 Each enabled provider has its own **connection pool**, a collection of reusable connections.

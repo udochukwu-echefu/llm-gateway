@@ -3,7 +3,14 @@
 https://console.groq.com/docs/openai verifies the base URL, name/logprob restrictions and n=1.
 https://console.groq.com/docs/api-reference (including its embedded OpenAPI schema)
 verifies developer, max_completion_tokens and stream_options.include_usage support,
-and unsupported penalties. No embeddings endpoint or safety_identifier is documented.
+and unsupported penalties. Rejection evidence:
+https://console.groq.com/docs/openai: "The following fields are currently not supported
+and will result in a 400 error (yikes) if they are supplied:" lists logprobs, logit_bias,
+top_logprobs and messages[].name. "If N is supplied, it must be equal to 1."
+https://console.groq.com/docs/api-reference says for frequency_penalty and presence_penalty:
+"This is not yet supported by any of our models."
+Embeddings are rejected because no embeddings endpoint exists in that API's endpoint
+inventory. Undocumented parameters such as safety_identifier are forwarded unchanged.
 https://console.groq.com/docs/reasoning documents message.reasoning.
 https://github.com/groq/groq-python/blob/main/src/groq/types/chat/chat_completion_chunk.py
 documents delta.reasoning. Raw think tags are deliberately not parsed.
@@ -33,7 +40,6 @@ class GroqAdapter(OpenAICompatibleAdapter):
                 "messages[].name",
                 "frequency_penalty",
                 "presence_penalty",
-                "safety_identifier",
             }
         ),
     )

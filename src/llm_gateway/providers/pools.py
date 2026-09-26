@@ -1,16 +1,12 @@
-from __future__ import annotations
-
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import TYPE_CHECKING
 
 import httpx
 
+from llm_gateway.config import Settings
 from llm_gateway.providers.base import ProviderAdapter
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.registry import ADAPTER_TYPES, ProviderRegistry
-
-if TYPE_CHECKING:
-    from llm_gateway.config import Settings
 
 
 @asynccontextmanager
@@ -23,7 +19,7 @@ async def provider_pools(settings: Settings) -> AsyncGenerator[ProviderRegistry]
                 continue
             http = await stack.enter_async_context(
                 httpx.AsyncClient(
-                    base_url=str(block.base_url).rstrip("/") + "/",
+                    base_url=str(block.base_url or DEFAULT_BASE_URLS[name]).rstrip("/") + "/",
                     headers={"authorization": f"Bearer {block.api_key.get_secret_value()}"},
                     timeout=httpx.Timeout(
                         connect=settings.connect_timeout_s,

@@ -268,6 +268,7 @@ is not parsed as reasoning. Access logs contain provider, model, usage and provi
 | `providers/base.py` | Defines the adapter/stream contracts and frozen capability declaration. |
 | `providers/registry.py` | Resolves provider-prefixed model names. |
 | `providers/pools.py` | Owns provider HTTP-client lifetimes. |
+| `providers/defaults.py` | Shares default URLs without importing adapters into configuration. |
 | `providers/openai_compat.py` | Applies shared capability checks and canonical translations. |
 | `providers/transport.py` | Performs HTTP I/O and ADR 0002 error mapping. |
 | `providers/stream.py` | Decodes provider SSE into checked canonical chunks. |

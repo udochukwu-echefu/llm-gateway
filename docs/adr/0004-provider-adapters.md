@@ -31,7 +31,9 @@ need to know those details.
   provider errors. Arbitrary namespaced provider options remain an explicit pass-through.
 - A nested settings block enables a provider exactly when its key is non-null. Empty keys
   are configuration errors. Validate HTTP(S) URLs, disallow embedded credentials/query/
-  fragments, and require at least one enabled provider. Defaults come from adapter classes.
+  fragments, and require at least one enabled provider. An absent/null base_url means use
+  `providers/defaults.py`, the dependency-free source of default URLs shared with adapters.
+  Only pool creation resolves that fallback; settings do not populate it a second way.
 - Each enabled provider gets one lifespan-owned client with its own pool. `AsyncExitStack`
   closes already-created clients on partial startup failure too. Timeout and size limits
   are shared settings. Stream shutdown is cancellation-shielded, including disconnects.

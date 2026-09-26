@@ -17,13 +17,14 @@ no different request-ID header is documented.
 """
 
 from llm_gateway.providers.base import Capabilities
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.common import ProviderName
 
 
 class DeepSeekAdapter(OpenAICompatibleAdapter):
     name: ProviderName = "deepseek"
-    base_url = "https://api.deepseek.com/v1"
+    base_url = DEFAULT_BASE_URLS["deepseek"]
     capabilities = Capabilities(
         supports_embeddings=False,
         supports_stream_usage=True,

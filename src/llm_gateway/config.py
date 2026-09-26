@@ -1,4 +1,4 @@
-from typing import Any, Literal, Self, cast
+from typing import Literal, Self, cast
 
 from pydantic import (
     BaseModel,
@@ -11,7 +11,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llm_gateway.providers.registry import ADAPTER_TYPES
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.schemas.common import ProviderName
 
 
@@ -19,7 +19,7 @@ class ProviderSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     api_key: SecretStr | None = None
-    base_url: HttpUrl
+    base_url: HttpUrl | None = None
 
     @field_validator("api_key")
     @classmethod
@@ -30,40 +30,24 @@ class ProviderSettings(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def _plain_base_url(cls, value: HttpUrl) -> HttpUrl:
-        if value.username or value.password or value.query or value.fragment:
+    def _plain_base_url(cls, value: HttpUrl | None) -> HttpUrl | None:
+        if value and (value.username or value.password or value.query or value.fragment):
             raise ValueError("base URL must not contain credentials, query or fragment")
         return value
-
-
-def _defaults(name: ProviderName) -> ProviderSettings:
-    return ProviderSettings(base_url=HttpUrl(ADAPTER_TYPES[name].base_url))
 
 
 class ProvidersSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    groq: ProviderSettings = Field(default_factory=lambda: _defaults("groq"))
-    deepseek: ProviderSettings = Field(default_factory=lambda: _defaults("deepseek"))
-    gemini: ProviderSettings = Field(default_factory=lambda: _defaults("gemini"))
-    openai: ProviderSettings = Field(default_factory=lambda: _defaults("openai"))
-
-    @model_validator(mode="before")
-    @classmethod
-    def _supply_base_urls(cls, value: object) -> object:
-        if not isinstance(value, dict):
-            return value
-        return {
-            name: {"base_url": ADAPTER_TYPES[name].base_url, **cast(dict[str, Any], block)}
-            if name in ADAPTER_TYPES and isinstance(block, dict)
-            else block
-            for name, block in cast(dict[str, Any], value).items()
-        }
+    groq: ProviderSettings = Field(default_factory=ProviderSettings)
+    deepseek: ProviderSettings = Field(default_factory=ProviderSettings)
+    gemini: ProviderSettings = Field(default_factory=ProviderSettings)
+    openai: ProviderSettings = Field(default_factory=ProviderSettings)
 
     def enabled(self) -> list[tuple[ProviderName, ProviderSettings]]:
         return [
-            (name, block)
-            for name in ADAPTER_TYPES
+            (cast(ProviderName, name), block)
+            for name in DEFAULT_BASE_URLS
             if (block := getattr(self, name)).api_key is not None
         ]
 

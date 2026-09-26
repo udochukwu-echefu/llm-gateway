@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from llm_gateway.config import ProvidersSettings, Settings
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.pools import provider_pools
 
 
@@ -34,5 +35,7 @@ async def test_only_enabled_providers_have_separate_pools_closed_on_shutdown(
         assert all(not client.is_closed for client in clients)
         assert clients[0].headers["authorization"] == "Bearer groq-test"
         assert clients[1].headers["authorization"] == "Bearer openai-test"
+        assert str(clients[0].base_url).rstrip("/") == DEFAULT_BASE_URLS["groq"]
+        assert str(clients[1].base_url).rstrip("/") == DEFAULT_BASE_URLS["openai"]
 
     assert all(client.is_closed for client in clients)

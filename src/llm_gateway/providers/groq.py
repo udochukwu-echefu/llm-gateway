@@ -18,6 +18,7 @@ Use the shared x-request-id header convention when present; no different header 
 """
 
 from llm_gateway.providers.base import Capabilities
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionChunk, Delta, ResponseMessage
 from llm_gateway.schemas.common import ProviderName
@@ -25,7 +26,7 @@ from llm_gateway.schemas.common import ProviderName
 
 class GroqAdapter(OpenAICompatibleAdapter):
     name: ProviderName = "groq"
-    base_url = "https://api.groq.com/openai/v1"
+    base_url = DEFAULT_BASE_URLS["groq"]
     capabilities = Capabilities(
         supports_embeddings=False,
         supports_stream_usage=True,

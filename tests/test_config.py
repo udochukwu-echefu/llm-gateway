@@ -3,7 +3,15 @@ import os
 import pytest
 from pydantic import ValidationError
 
-from llm_gateway.config import Settings
+from llm_gateway.config import ProviderSettings, ProvidersSettings, Settings
+
+
+def test_base_url_is_optional_without_populating_defaults() -> None:
+    providers = ProvidersSettings.model_validate({"groq": {"api_key": "fake-key"}})
+
+    assert ProviderSettings().base_url is None
+    assert ProviderSettings(base_url=None).base_url is None
+    assert providers.groq.base_url is None
 
 
 @pytest.fixture(autouse=True)

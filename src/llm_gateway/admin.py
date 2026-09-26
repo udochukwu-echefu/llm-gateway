@@ -3,13 +3,14 @@
 import argparse
 import asyncio
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import PostgresKeyRepository
+from llm_gateway.usage.repository import PostgresUsageRepository
 
 
 def parser() -> argparse.ArgumentParser:
@@ -28,12 +29,35 @@ def parser() -> argparse.ArgumentParser:
     listed.add_argument("org")
     listed.add_argument("team", nargs="?")
     commands.add_parser("revoke-key").add_argument("key_id")
+    usage = commands.add_parser("usage")
+    usage.add_argument("org")
+    usage.add_argument("--team")
+    usage.add_argument("--since", type=date.fromisoformat)
+    usage.add_argument("--until", type=date.fromisoformat)
+    usage.add_argument("--group-by", choices=("team", "key", "model", "day"), default="team")
     return cli
 
 
 async def execute(
-    args: argparse.Namespace, repository: PostgresKeyRepository, pepper: bytes
+    args: argparse.Namespace,
+    repository: PostgresKeyRepository,
+    pepper: bytes,
+    usage_repository: PostgresUsageRepository | None = None,
 ) -> str:
+    if args.command == "usage":
+        if args.since and args.until and args.since > args.until:
+            raise ValueError("--since must be on or before --until")
+        if usage_repository is None:
+            raise ValueError("usage repository unavailable")
+        rows = await usage_repository.report(
+            args.org, args.team, args.since, args.until, args.group_by
+        )
+        return "\n".join(
+            "  ".join(
+                f"{key}={value if value is not None else 'NULL'}" for key, value in row.items()
+            )
+            for row in rows
+        )
     if args.command == "create-org":
         org = await repository.create_org(args.name)
         return f"Created organization {org.name} ({org.id})"
@@ -98,10 +122,12 @@ async def run(args: argparse.Namespace) -> str:
         raise ValueError("GATEWAY_DATABASE_URL is required")
     engine = create_async_engine(database_url.get_secret_value())
     try:
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
         return await execute(
             args,
-            PostgresKeyRepository(async_sessionmaker(engine, expire_on_commit=False)),
+            PostgresKeyRepository(sessions),
             pepper.get_secret_value().encode(),
+            PostgresUsageRepository(sessions),
         )
     finally:
         await engine.dispose()

@@ -34,6 +34,18 @@ We have to decide how strict to be, and where provider-only features (Groq's
 
 ## Consequences
 
+### Protobuf JSON zero-omission (step 3 live-test amendment)
+
+Gemini can omit scalar zeros: a captured embedding batch omitted `data[0].index`,
+included `data[1].index = 1`, and omitted usage entirely. Missing embedding indices are
+restored from their array positions; explicit indices are preserved. Choice, streamed
+choice and tool-call delta indices default to zero, not their chunk position: these IDs
+persist across sparse chunks. Token counters in a present usage object also default to
+zero. Restored zeros are serialized even with `exclude_unset=True`. An absent usage object
+remains absent (unknown usage is not zero usage). Optional timestamps/token details remain
+optional. The audit found no required boolean response fields. Required strings and
+containers still validate normally; zero-omission does not excuse a malformed response.
+
 - Typos (`temprature`) fail loudly instead of being ignored.
 - When fallback (step 7) moves a request to another provider, options meant for the first
   provider don't break the second one.

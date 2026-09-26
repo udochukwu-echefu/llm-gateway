@@ -68,7 +68,7 @@ async def test_stream_cut_off_before_finishing_ends_with_an_error(
 
 BAD_EVENTS: list[tuple[Any, str]] = [
     ("{not json", "upstream_invalid_response"),
-    ({"id": "x", "model": "m", "choices": [{"delta": {}}]}, "upstream_invalid_response"),
+    ({"id": "x", "model": "m", "choices": [{"index": 0}]}, "upstream_invalid_response"),
     ({"error": {"message": "overloaded", "type": "server_error"}}, "upstream_stream_error"),
 ]
 

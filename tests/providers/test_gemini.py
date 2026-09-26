@@ -4,9 +4,61 @@ import httpx
 import pytest
 import respx
 
-from tests.fixtures import COMPLETION, EMBEDDINGS
+from tests.fixtures import (
+    COMPLETION,
+    EMBEDDINGS,
+    GEMINI_ZERO_OMITTING_EMBEDDINGS,
+    GEMINI_ZERO_OMITTING_TOOL_CHUNK,
+    parse_events,
+    sse,
+)
 
 pytestmark = pytest.mark.parametrize("provider_name", ["gemini"])
+
+
+async def test_captured_embedding_shape_restores_index_without_inventing_usage(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+) -> None:
+    upstream.post("/embeddings").respond(200, json=GEMINI_ZERO_OMITTING_EMBEDDINGS)
+
+    response = await client.post(
+        "/v1/embeddings",
+        json={
+            "model": "gemini/gemini-embedding-001",
+            "input": ["one", "two"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert [item["index"] for item in response.json()["data"]] == [0, 1]
+    assert "usage" not in response.json()
+
+
+async def test_streaming_tool_call_omitted_zero_indices_are_returned(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+) -> None:
+    upstream.post("/chat/completions").respond(
+        200,
+        content=b"".join(sse(GEMINI_ZERO_OMITTING_TOOL_CHUNK, "[DONE]")),
+    )
+
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gemini/model",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "stream": True,
+        },
+    )
+
+    events = parse_events(response.text)
+    assert response.status_code == 200
+    assert events[-1] == "[DONE]"
+    choice = events[0]["choices"][0]
+    assert choice["index"] == 0
+    assert choice["delta"]["tool_calls"][0]["index"] == 0
 
 
 @pytest.mark.parametrize(

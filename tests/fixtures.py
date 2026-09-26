@@ -51,6 +51,35 @@ CANONICAL_EMBEDDING_VALUES: dict[str, Any] = {
     "provider_options": {name: {"extension": name} for name in ("gemini", "openai")},
 }
 
+# Captured Gemini response shape: zero index omitted, index 1 present, usage absent.
+GEMINI_ZERO_OMITTING_EMBEDDINGS = {
+    "object": "list",
+    "model": "gemini-embedding-001",
+    "data": [
+        {"embedding": [0.1, -0.2], "object": "embedding"},
+        {"embedding": [0.3, 0.4], "object": "embedding", "index": 1},
+    ],
+}
+GEMINI_ZERO_OMITTING_TOOL_CHUNK = {
+    "id": "chatcmpl-1",
+    "model": "gemini-model",
+    "object": "chat.completion.chunk",
+    "choices": [
+        {
+            "delta": {
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "lookup", "arguments": "{}"},
+                    }
+                ]
+            },
+            "finish_reason": "tool_calls",
+        }
+    ],
+}
+
 CHAT_REQUEST: dict[str, Any] = {
     "model": "groq/llama-3.3-70b-versatile",
     "messages": [{"role": "user", "content": "Say hi"}],

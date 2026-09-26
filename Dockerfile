@@ -8,6 +8,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY README.md ./
 COPY src ./src
+COPY catalog ./catalog
 COPY alembic.ini ./
 COPY migrations ./migrations
 RUN uv sync --locked --no-dev --no-editable
@@ -18,6 +19,7 @@ RUN useradd --system --uid 10001 --no-create-home gateway
 COPY --from=build /app/.venv /app/.venv
 COPY --from=build /app/alembic.ini /app/alembic.ini
 COPY --from=build /app/migrations /app/migrations
+COPY --from=build /app/catalog /app/catalog
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER gateway

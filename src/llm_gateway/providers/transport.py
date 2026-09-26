@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.schemas.common import ResponseModel
+from llm_gateway.usage.binding import mark_rejected, mark_sent
 
 log = structlog.get_logger("llm_gateway.upstream")
 
@@ -25,6 +26,7 @@ class UpstreamClient:
         read, closed and raised as GatewayError here, so the caller only sees successes.
         """
         request = self._http.build_request("POST", path, json=payload)
+        mark_sent()
         try:
             response = await self._http.send(request, stream=True)
         except httpx.HTTPError as exc:
@@ -37,6 +39,7 @@ class UpstreamClient:
             )
         )
         if response.is_error:
+            mark_rejected()
             try:
                 await response.aread()
             except httpx.HTTPError as exc:

@@ -94,6 +94,9 @@ class UsageWriter:
             self._inflight = len(batch)
             try:
                 await self._flush(batch)
+            except asyncio.CancelledError:
+                self.lost += len(batch)
+                raise
             finally:
                 self._inflight = 0
                 self._working = False

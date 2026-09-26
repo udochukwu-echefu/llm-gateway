@@ -3,6 +3,7 @@ import uuid
 from collections.abc import Callable, Sequence
 
 from llm_gateway.catalog import load_catalog
+from llm_gateway.schemas.chat import Usage
 from llm_gateway.tenants.auth import Principal
 from llm_gateway.usage.record import UsageEvent, UsageRecord
 from llm_gateway.usage.writer import UsageWriter
@@ -19,6 +20,25 @@ def sample_record() -> UsageRecord:
         False,
     )
     return event.finish(1, 1)
+
+
+def test_disconnect_after_usage_was_received_still_has_priced_cost() -> None:
+    catalog = load_catalog()
+    event = UsageEvent(
+        Principal(uuid.uuid4(), uuid.uuid4(), "test-key"),
+        "request-1",
+        catalog.models[0],
+        catalog,
+        "chat",
+        True,
+    )
+    event.outcome = "client_disconnected"
+    event.usage = Usage(prompt_tokens=10, completion_tokens=2, total_tokens=12)
+
+    record = event.finish(2, 1)
+
+    assert record.cost_status == "priced"
+    assert record.cost_usd is not None
 
 
 async def test_batch_flushes_at_size_without_waiting_for_interval() -> None:
@@ -124,6 +144,24 @@ async def test_shutdown_drains_pending_and_rejects_late_events() -> None:
 
     assert len(received) == 1
     assert writer.dropped == 1
+
+
+async def test_shutdown_timeout_counts_inflight_record_as_lost() -> None:
+    entered = asyncio.Event()
+
+    async def sink(records: Sequence[UsageRecord]) -> None:
+        entered.set()
+        await asyncio.Event().wait()
+
+    writer = UsageWriter(sink, batch_size=1)
+    writer.start()
+    writer.enqueue(sample_record())
+    await entered.wait()
+
+    await writer.stop(0.01)
+
+    assert writer.lost == 1
+    assert writer.flushed == 0
 
 
 async def _until(condition: Callable[[], bool]) -> None:

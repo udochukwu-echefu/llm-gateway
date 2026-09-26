@@ -3,6 +3,7 @@ import json
 import httpx
 import respx
 
+from llm_gateway.catalog import Catalog
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
 from llm_gateway.providers.registry import ADAPTER_TYPES
@@ -11,7 +12,10 @@ from tests.fixtures import COMPLETION
 
 
 async def test_all_providers_are_available_in_one_app(
-    upstream: respx.MockRouter, memory_repository: MemoryKeyRepository, issued_test_key: str
+    upstream: respx.MockRouter,
+    memory_repository: MemoryKeyRepository,
+    issued_test_key: str,
+    test_catalog: Catalog,
 ) -> None:
     settings = Settings(
         _env_file=None,  # pyright: ignore[reportCallIssue]  # ignore local developer .env
@@ -22,7 +26,7 @@ async def test_all_providers_are_available_in_one_app(
             }
         ),
     )
-    app = create_app(settings, key_repository=memory_repository)
+    app = create_app(settings, key_repository=memory_repository, catalog=test_catalog)
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(

@@ -91,7 +91,7 @@ class UsageEvent:
                 cost = compute_cost(self.price, prompt or 0, completion or 0, cached or 0)
             except ValueError:
                 cost_status = "usage_missing"
-        if self.outcome == "client_disconnected":
+        if self.outcome == "client_disconnected" and usage is None:
             cost_status, cost = "stream_incomplete", None
         elif self.outcome == "upstream_error" and self.provider_rejected:
             cost_status, cost = "not_billed", Decimal(0)

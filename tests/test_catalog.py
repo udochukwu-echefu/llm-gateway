@@ -1,9 +1,13 @@
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from llm_gateway.catalog import Catalog, load_catalog
+from llm_gateway.config import Settings
+from llm_gateway.main import create_app
+from tests.conftest import MemoryKeyRepository
 
 
 def test_reviewed_catalog_loads() -> None:
@@ -12,6 +16,26 @@ def test_reviewed_catalog_loads() -> None:
     assert catalog.version
     assert {entry.provider for entry in catalog.models} == {"groq", "deepseek", "gemini", "openai"}
     assert all(isinstance(entry.input_price, Decimal) for entry in catalog.models)
+
+
+def test_catalog_version_is_required() -> None:
+    with pytest.raises(ValidationError, match="version"):
+        Catalog.model_validate({"models": []})
+
+
+def test_invalid_catalog_prevents_gateway_startup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+) -> None:
+    directory = tmp_path / "catalog"
+    directory.mkdir()
+    (directory / "models.toml").write_text('version = "v1"\n[[models]]\nprovider = "unknown"\n')
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValidationError):
+        create_app(settings, key_repository=memory_repository)
 
 
 @pytest.mark.parametrize(

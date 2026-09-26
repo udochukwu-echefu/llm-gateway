@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
-from llm_gateway.api import chat, embeddings, health
+from llm_gateway.api import chat, embeddings, health, models
+from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
 from llm_gateway.gateway_state import GatewayState
@@ -19,6 +20,8 @@ from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
 from llm_gateway.tenants.auth import authenticate
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.repository import KeyRepository, PostgresKeyRepository
+from llm_gateway.usage.repository import PostgresUsageRepository
+from llm_gateway.usage.writer import Sink, UsageWriter
 
 log = structlog.get_logger("llm_gateway")
 
@@ -28,6 +31,8 @@ def create_app(
     key_repository: KeyRepository | None = None,
     secret_store: SecretStore | None = None,
     key_cache: VerifiedKeyCache | None = None,
+    catalog: Catalog | None = None,
+    usage_sink: Sink | None = None,
 ) -> FastAPI:
     """Build the application. Run with `uvicorn llm_gateway.main:create_app --factory`."""
     settings = settings or Settings()  # pyright: ignore[reportCallIssue]  # values come from env
@@ -60,6 +65,7 @@ def create_app(
     )
     if not settings.providers.enabled():
         raise ValueError("Configure at least one provider API key in the secret store")
+    catalog = catalog if catalog is not None else load_catalog()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -71,6 +77,24 @@ def create_app(
             )
         else:
             repository = key_repository
+        sink = usage_sink
+        if sink is None:
+            if engine is None:
+
+                async def discard_test_usage(records: object) -> None:
+                    pass
+
+                sink = discard_test_usage
+            else:
+                sink = PostgresUsageRepository(
+                    async_sessionmaker(engine, expire_on_commit=False)
+                ).insert
+        writer = UsageWriter(
+            sink,
+            max_size=settings.usage_queue_size,
+            batch_size=settings.usage_batch_size,
+            interval=settings.usage_flush_interval_s,
+        )
         try:
             async with provider_pools(settings) as registry:
                 app.state.gateway = GatewayState(
@@ -81,11 +105,17 @@ def create_app(
                     if key_cache is not None
                     else VerifiedKeyCache(settings.key_cache_ttl_s, settings.key_cache_max_size),
                     pepper=pepper.get_secret_value().encode(),
+                    catalog=catalog,
+                    usage_writer=writer,
                 )
+                writer.start()
                 log.info(
                     "gateway_started", version=__version__, providers=sorted(registry.adapters)
                 )
-                yield
+                try:
+                    yield
+                finally:
+                    await writer.stop(settings.usage_shutdown_timeout_s)
         finally:
             if engine is not None:
                 await engine.dispose()
@@ -94,7 +124,7 @@ def create_app(
     app = FastAPI(title="LLM Gateway", version=__version__, lifespan=lifespan)
     app.include_router(health.router)
     v1 = APIRouter(prefix="/v1", dependencies=[Depends(authenticate)])
-    for module in (chat, embeddings):
+    for module in (chat, embeddings, models):
         v1.include_router(module.router)
     app.include_router(v1)
     app.add_exception_handler(GatewayError, gateway_error_handler)

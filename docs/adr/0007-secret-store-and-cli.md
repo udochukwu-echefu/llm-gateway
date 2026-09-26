@@ -14,7 +14,9 @@ revoke tenants and keys before an authenticated service can be used.
 Use the `SecretStore.get(name) -> SecretStr | None` protocol. Environment variables
 preserve the existing provider configuration; the file implementation reads one mounted
 file per secret, strips a single trailing newline and refuses group/other access to
-both its directory and files. Both resolve the pepper, database URL and provider keys
+both its directory and files. Kubernetes' `..data` symlinks are accepted only when
+their fully resolved regular-file targets stay inside the resolved secret directory;
+permissions are checked on the targets. Both resolve the pepper, database URL and provider keys
 at startup. Missing critical secrets fail startup. A cloud store needs only another
 implementation of this protocol.
 
@@ -25,7 +27,9 @@ one line once. There is no network-exposed admin HTTP endpoint until step 12.
 ## Consequences
 
 Local `.env` remains convenient but must never be committed. File mounts fit Docker and
-Kubernetes; restrictive permissions require setup by the operator. The CLI needs secure
+Kubernetes; deployments must set `defaultMode: 0400` (with `fsGroup` if needed for
+access) and verify that targets remain unreadable by group and others: Kubernetes'
+default `0644` is refused. The CLI needs secure
 host access and Postgres credentials, and administrative operations are not yet audited
 (step 8). Operators must migrate the database before running the CLI or gateway.
 

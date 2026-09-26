@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -20,8 +21,6 @@ def test_env_store_reads_secret(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_file_store_strips_one_newline_and_returns_none_for_missing(
     tmp_path: os.PathLike[str],
 ) -> None:
-    from pathlib import Path
-
     directory = Path(tmp_path)
     directory.chmod(0o700)
     (directory / "example").write_text("fake-file-secret\n\n")
@@ -37,8 +36,6 @@ def test_file_store_strips_one_newline_and_returns_none_for_missing(
 def test_file_store_rejects_permissions_readable_by_others(
     tmp_path: os.PathLike[str], target: str
 ) -> None:
-    from pathlib import Path
-
     directory = Path(tmp_path)
     directory.chmod(0o700)
     path = directory / "secret"
@@ -52,6 +49,46 @@ def test_file_store_rejects_permissions_readable_by_others(
         path.chmod(0o644)
         with pytest.raises(ValueError, match="accessible by others"):
             FileSecretStore(directory).get("secret")
+
+
+def test_file_store_accepts_kubernetes_atomic_symlink_layout(tmp_path: Path) -> None:
+    directory = tmp_path / "secrets"
+    directory.mkdir(mode=0o700)
+    version = directory / "..2026_09_26"
+    version.mkdir(mode=0o700)
+    (version / "api_key_pepper").write_text("fake-mounted-secret\n")
+    (version / "api_key_pepper").chmod(0o400)
+    (directory / "..data").symlink_to(version.name, target_is_directory=True)
+    (directory / "api_key_pepper").symlink_to("..data/api_key_pepper")
+
+    result = FileSecretStore(directory).get("api_key_pepper")
+
+    assert result == SecretStr("fake-mounted-secret")
+
+
+def test_file_store_rejects_symlink_escaping_secrets_directory(tmp_path: Path) -> None:
+    directory = tmp_path / "secrets"
+    directory.mkdir(mode=0o700)
+    outside = tmp_path / "outside"
+    outside.write_text("fake-outside-value")
+    outside.chmod(0o400)
+    (directory / "api_key_pepper").symlink_to(outside)
+
+    with pytest.raises(ValueError, match="must remain inside"):
+        FileSecretStore(directory).get("api_key_pepper")
+
+
+def test_file_store_checks_symlink_targets_permissions(tmp_path: Path) -> None:
+    directory = tmp_path / "secrets"
+    directory.mkdir(mode=0o700)
+    target = directory / "..2026_09_26"
+    target.mkdir(mode=0o700)
+    (target / "database_url").write_text("fake-database-url")
+    (target / "database_url").chmod(0o644)
+    (directory / "database_url").symlink_to(target / "database_url")
+
+    with pytest.raises(ValueError, match="accessible by others"):
+        FileSecretStore(directory).get("database_url")
 
 
 @pytest.mark.parametrize("missing", ["pepper", "database", "short_pepper"])

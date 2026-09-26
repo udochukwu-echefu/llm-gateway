@@ -135,7 +135,11 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_KEY_CACHE_MAX_SIZE` | `10000` | Maximum cache entries (LRU) |
 
 In file mode, names are `api_key_pepper`, `database_url`, and
-`providers__<provider>__api_key`; one trailing newline is removed. Environment mode
+`providers__<provider>__api_key`; one trailing newline is removed. Kubernetes' atomic
+`..data` symlinks work when their targets stay inside the secret directory. Kubernetes
+deployments must set `defaultMode: 0400` (and `fsGroup` if needed for access); the
+resolved files must remain unreadable by group and others. The default `0644` mode is
+refused. Environment mode
 keeps `GATEWAY_PROVIDERS__*__API_KEY` (including `.env`) working. At least one nonempty
 provider key is required. Each enabled provider has its own connection pool;
 timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.

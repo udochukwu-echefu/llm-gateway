@@ -25,10 +25,10 @@ class EnvSecretStore:
 
 class FileSecretStore:
     def __init__(self, directory: Path) -> None:
-        self.directory = directory
         self._check_mode(directory)
         if not directory.is_dir():
             raise ValueError("Secrets path must be a directory")
+        self.directory = directory.resolve(strict=True)
 
     @staticmethod
     def _check_mode(path: Path) -> None:
@@ -42,10 +42,15 @@ class FileSecretStore:
             raise ValueError("Invalid secret name")
         path = self.directory / name
         try:
-            self._check_mode(path)
+            target = path.resolve(strict=True)
         except FileNotFoundError:
+            if path.is_symlink():
+                raise ValueError("Secret symlink target does not exist") from None
             return None
-        if not path.is_file() or path.is_symlink():
+        if not target.is_relative_to(self.directory):
+            raise ValueError("Secret symlink target must remain inside secrets directory")
+        self._check_mode(target)
+        if not target.is_file():
             raise ValueError("Secret must be a regular file")
-        value = path.read_text()
+        value = target.read_text()
         return SecretStr(value.removesuffix("\n"))

@@ -15,3 +15,6 @@ ratings are qualitative for this early deployment.
 | Leaked provider key | Plausible / high | Resolve via secret store, mask in settings; never send to clients | Rotate it at the provider; an attacker can spend directly until revoked |
 | Admin CLI misuse | Plausible / high | Offline CLI; no public admin API; database account access required | No audit log until step 8; protect shell history and operator access |
 | Malicious base-URL override | Unlikely / high | Strict HTTP(S) URL validation, no embedded credentials/query/fragment | An operator with config access can still send provider keys to a hostile endpoint; lock down deployment config |
+| Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
+| Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
+| Usage records disclose business activity | Plausible / medium | Store only IDs, model, counts, cost and timings; never content or vectors | Model and spending patterns remain sensitive; restrict Postgres/report access and retention |

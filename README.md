@@ -3,7 +3,7 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 4 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 5 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key. Rate limits and
 > budgets are not yet implemented; do not expose this service publicly. See the
 > [roadmap](docs/roadmap.md).
@@ -32,7 +32,7 @@ Call it like OpenAI:
 curl -N http://127.0.0.1:8000/v1/chat/completions \
   -H 'content-type: application/json' \
   -H "authorization: Bearer $GATEWAY_CLIENT_KEY" \
-  -d '{"model": "groq/llama-3.3-70b-versatile", "stream": true,
+  -d '{"model": "groq/openai/gpt-oss-20b", "stream": true,
        "messages": [{"role": "user", "content": "Say hi in five words"}]}'
 ```
 
@@ -61,13 +61,38 @@ client.chat.completions.create(
 | Endpoint | Notes |
 |---|---|
 | `POST /v1/chat/completions` | Streaming and non-streaming; optional features depend on provider and model |
-| `POST /v1/embeddings` | Needs a provider that offers embeddings (Gemini or OpenAI; Groq and DeepSeek don't) |
+| `POST /v1/embeddings` | Only catalogued embedding models; currently `openai/text-embedding-3-small` |
+| `GET /v1/models` | Authenticated OpenAI-compatible list of reviewed models for configured providers |
 | `GET /healthz` | Liveness |
 | `GET /readyz` | Database readiness (503 when unavailable) |
 
 `/healthz` and `/readyz` are public; `/v1/*` requires `Authorization: Bearer lgw_...`.
 Missing, unknown, revoked and expired keys all receive the same 401 body. Manage keys
 offline with `gateway-admin list-keys <org> [<team>]` and `gateway-admin revoke-key <key_id>`.
+
+## Pricing and usage
+
+Edit `catalog/models.toml` through code review: verify each model's per-million-token
+standard USD prices on its provider's **official** pricing page, update `source_url`
+and `checked_on`, and increment the top-level `version`. Invalid prices, duplicate
+models, or an unknown provider prevent startup. Uncatalogued models return
+`404 model_not_found` before any provider call. Do not guess missing prices;
+`gemini-embedding-001` is currently excluded because its official price is not listed.
+The reviewed DeepSeek price uses the published **peak** rate; off-peak invoices are
+lower. Gemini 3.8 Flash's reviewed promotional rate expires on 2026-12-31.
+
+Usage records contain identity, token counts, USD cost and outcome, not request or
+response content. They are batched asynchronously into Postgres. A full queue or an
+abrupt process kill can lose records; missing cost is NULL, not zero. Reconcile with
+provider invoices rather than using these estimates as an invoice ledger.
+
+```bash
+uv run gateway-admin usage example-org --team example-team --since 2026-09-01 --until 2026-09-30 --group-by model
+# Other grouping: team (default), key, day
+```
+
+The CLI aggregates in SQL and prints request count, token sums, total USD and
+counts of `usage_missing` and `stream_incomplete` so unpriced calls stay visible.
 
 ## Development
 
@@ -76,7 +101,7 @@ uv run pytest            # tests (no network: providers are mocked)
 uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run pyright           # strict type check
-uv run pytest -m live    # opt-in smoke calls, skipped for missing environment keys
+uv run --env-file .env pytest -m live  # opt-in smoke calls, skipped for missing keys
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
 ```
 
@@ -85,15 +110,17 @@ Database tests skip locally without `GATEWAY_TEST_DATABASE_URL` and fail rather 
 in CI. Each test session creates and drops a fresh database.
 
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
-(not `.env`), and optional matching `BASE_URL` overrides. They run one chat, one stream
-with usage and, for Gemini/OpenAI, one embedding. The default suite deselects these tests
-and blocks real provider HTTP requests.
+(load `.env` explicitly with `uv run --env-file .env`), and optional matching `BASE_URL`
+overrides. They run one chat and one stream with priced records per configured provider;
+OpenAI embeddings run when configured. Gemini's embedding smoke test is skipped until
+its model has an official published price. The default suite deselects live tests and
+blocks real provider HTTP requests.
 
 Override smoke-test model IDs without editing code:
 
 ```bash
-GATEWAY_LIVE_GROQ_CHAT_MODEL=openai/gpt-oss-20b uv run pytest -m live
-GATEWAY_LIVE_GEMINI_EMBEDDING_MODEL=gemini-embedding-001 uv run pytest -m live
+GATEWAY_LIVE_GROQ_CHAT_MODEL=openai/gpt-oss-20b uv run --env-file .env pytest -m live
+GATEWAY_LIVE_OPENAI_EMBEDDING_MODEL=text-embedding-3-small uv run --env-file .env pytest -m live
 ```
 
 Every provider accepts `GATEWAY_LIVE_<PROVIDER>_CHAT_MODEL` and
@@ -105,7 +132,7 @@ provider prefix. Unset or empty overrides retain the defaults below.
 |---|---|---|
 | Groq | `openai/gpt-oss-20b` | None (unsupported endpoint) |
 | DeepSeek | `deepseek-flash` | None (unsupported endpoint) |
-| Gemini | `gemini-3.8-flash` | `gemini-embedding-001` |
+| Gemini | `gemini-3.8-flash` | `gemini-embedding-001` (skipped: no verified price) |
 | OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
 
 Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
@@ -133,6 +160,10 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_SECRETS__DIR` | unset | Required for file backend; mode 0700 directory, 0600 files |
 | `GATEWAY_KEY_CACHE_TTL_S` | `30` | Per-replica verified-key cache TTL in seconds |
 | `GATEWAY_KEY_CACHE_MAX_SIZE` | `10000` | Maximum cache entries (LRU) |
+| `GATEWAY_USAGE_QUEUE_SIZE` | `10000` | Maximum queued records; overflow drops with an error log |
+| `GATEWAY_USAGE_BATCH_SIZE` | `500` | Maximum records per insert |
+| `GATEWAY_USAGE_FLUSH_INTERVAL_S` | `1` | Maximum seconds before a partial batch is inserted |
+| `GATEWAY_USAGE_SHUTDOWN_TIMEOUT_S` | `10` | Maximum seconds to drain on shutdown |
 
 In file mode, names are `api_key_pepper`, `database_url`, and
 `providers__<provider>__api_key`; one trailing newline is removed. Kubernetes' atomic
@@ -148,6 +179,7 @@ Use `<provider>/<model>` in every request. Only the first slash is split:
 `groq/openai/gpt-oss-120b` routes to Groq with model `openai/gpt-oss-120b`.
 Unknown, unprefixed or unconfigured providers return `404 model_not_found`, listing
 configured providers. Responses and stream chunks prefix the provider's returned model ID.
+Configured but uncatalogued models also return `404 model_not_found`.
 
 Unsupported parameters return `400 unsupported_parameter` before a provider call.
 Developer instructions become system instructions on DeepSeek and Gemini. DeepSeek's
@@ -171,5 +203,7 @@ only explicit documented restrictions or nonexistent endpoints are rejected loca
   [ADR 0004: provider adapters](docs/adr/0004-provider-adapters.md),
   [ADR 0005: reasoning output](docs/adr/0005-canonical-reasoning.md),
   [ADR 0006: key security](docs/adr/0006-virtual-api-keys.md),
-  [ADR 0007: secret store and CLI](docs/adr/0007-secret-store-and-cli.md).
+   [ADR 0007: secret store and CLI](docs/adr/0007-secret-store-and-cli.md),
+   [ADR 0008: reviewed catalogue](docs/adr/0008-reviewed-model-catalogue.md),
+   [ADR 0009: usage writer](docs/adr/0009-batched-usage-writer.md).
 - [Security threat model](docs/security/threat-model.md)

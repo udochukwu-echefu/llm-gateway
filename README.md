@@ -60,9 +60,15 @@ uv run pytest            # tests (no network: providers are mocked)
 uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run pyright           # strict type check
+uv run pytest -m live    # opt-in smoke calls, skipped for missing environment keys
 ```
 
 CI runs all four on every push, then builds the Docker image and smoke-tests it.
+
+Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
+(not `.env`), and optional matching `BASE_URL` overrides. They run one chat, one stream
+with usage and, for Gemini/OpenAI, one embedding. The default suite deselects these tests
+and blocks real provider HTTP requests.
 
 ## Configuration
 
@@ -104,4 +110,6 @@ In particular, Gemini's undocumented token-limit parameters are currently reject
 - [Roadmap](docs/roadmap.md)
 - Decisions: [ADR 0001: OpenAI-compatible API](docs/adr/0001-openai-compatible-api.md),
   [ADR 0002: error mapping](docs/adr/0002-upstream-error-mapping.md),
-  [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md)
+  [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md),
+  [ADR 0004: provider adapters](docs/adr/0004-provider-adapters.md),
+  [ADR 0005: reasoning output](docs/adr/0005-canonical-reasoning.md)

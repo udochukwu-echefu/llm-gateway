@@ -278,10 +278,40 @@ is not parsed as reasoning. Access logs contain provider, model, usage and provi
 The old `upstream.py` is replaced. See [ADR 0004](adr/0004-provider-adapters.md) and
 [ADR 0005](adr/0005-canonical-reasoning.md) for decisions and documentation gaps.
 
+## Step 4: tenants, keys and secret storage
+
+A **tenant** is an organization using the gateway. Inside it are teams; a team owns its
+own client keys. Think of a shared office building: the organization rents the space,
+teams have rooms, and each app gets its own access badge. Every `/v1/*` door checks
+the badge before reading the request body. `/healthz` ("is the process alive?") stays
+public; `/readyz` ("can it actually serve traffic?") asks Postgres to answer a simple
+query. A live process can be unready when its database is down.
+
+The badge is `lgw_<public ID>_<random secret>`. Postgres stores the ID and a **hash**,
+not the secret. Hashing makes a one-way fingerprint: when the badge is presented we
+make the fingerprint again and compare it. **Encryption** would require a key to
+decrypt a stored secret, but the gateway never needs to show the badge again; keeping
+decryptable copies would increase the damage from a leak. A **pepper** is a separate
+server-only ingredient mixed into that fingerprint, like a private seasoning; it is
+not stored in Postgres. `SecretStore` fetches it, provider keys and the database URL
+from environment variables or permission-restricted mounted files.
+
+The gateway keeps recently verified badges in a small cache to avoid a database query
+every time. It rechecks the badge secret and expiry on each use; a revocation can take
+up to the cache TTL (30 seconds by default) to take effect on each copy of the app.
+Invalid badges are never cached. The `Principal` attached to an authenticated request
+contains organization, team and key IDs, also recorded in access logs without secrets.
+
+A **migration** is a versioned database change, like a step-by-step renovation plan.
+Alembic creates the organizations, teams and key tables in the first migration; the
+app does not silently invent tables at startup. `gateway-admin` creates and revokes
+them directly in Postgres without opening a network admin route. See
+[ADR 0006](adr/0006-virtual-api-keys.md), [ADR 0007](adr/0007-secret-store-and-cli.md)
+and the [threat model](security/threat-model.md).
+
 ## What the gateway deliberately does NOT do yet
 
-- **No authentication of clients.** Anyone who can reach it can use our key. Only run it
-  on your own machine until step 4.
-- No limits, cost tracking, retries, or caching (steps 5–10).
+- No rate limits, budgets, cost tracking, retries, or response caching (steps 5–10).
+- No HTTP admin API or audit log yet (steps 12 and 8).
 
 See [roadmap.md](roadmap.md) for the order.

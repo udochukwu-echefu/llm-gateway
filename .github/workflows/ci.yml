@@ -12,6 +12,21 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gateway
+          POSTGRES_PASSWORD: ci-only-example
+          POSTGRES_DB: gateway
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gateway -d gateway"
+          --health-interval 2s --health-timeout 2s --health-retries 15
+    env:
+      CI: "true"
+      GATEWAY_TEST_DATABASE_URL: postgresql+asyncpg://gateway:ci-only-example@127.0.0.1:5432/gateway
+      GATEWAY_DATABASE_URL: postgresql+asyncpg://gateway:ci-only-example@127.0.0.1:5432/gateway
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -25,8 +40,12 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check
         run: uv run pyright
+      - name: Apply migrations
+        run: uv run alembic upgrade head
       - name: Test
         run: uv run pytest -q
+      - name: Database tests
+        run: uv run pytest -q -m db
 
   docker:
     runs-on: ubuntu-latest
@@ -37,7 +56,7 @@ jobs:
         run: docker build -t llm-gateway:ci .
       - name: Smoke test
         run: |
-          docker run -d --name gateway -p 8000:8000 -e GATEWAY_PROVIDERS__GROQ__API_KEY=ci-placeholder llm-gateway:ci
+          docker run -d --name gateway -p 8000:8000 -e GATEWAY_PROVIDERS__GROQ__API_KEY=ci-placeholder -e GATEWAY_API_KEY_PEPPER=ci-only-fake-pepper-at-least-32-bytes -e GATEWAY_DATABASE_URL=postgresql+asyncpg://fake:fake@127.0.0.1:1/fake llm-gateway:ci
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/healthz && exit 0
             sleep 1

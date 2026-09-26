@@ -289,6 +289,7 @@ class ResponseToolCall(ResponseModel):
 class ResponseMessage(ResponseModel):
     role: str = "assistant"
     content: str | None = None
+    reasoning_content: str | None = None
     refusal: str | None = None
     tool_calls: list[ResponseToolCall] | None = None
 
@@ -328,6 +329,7 @@ class Delta(ResponseModel):
 
     role: str | None = None
     content: str | None = None
+    reasoning_content: str | None = None
     refusal: str | None = None
     tool_calls: list[ToolCallDelta] | None = None
 

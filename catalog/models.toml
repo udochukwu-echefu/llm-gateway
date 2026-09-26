@@ -1,4 +1,4 @@
-version = "2026-09-27.1"
+version = "2026-09-27.2"
 
 [[models]]
 provider = "groq"
@@ -58,6 +58,18 @@ currency = "USD"
 input_price = "1.50"
 cached_input_price = "0.15"
 output_price = "7.50"
+source_url = "https://ai.google.dev/gemini-api/docs/pricing"
+checked_on = 2026-09-27
+
+[[models]]
+provider = "gemini"
+model = "gemini-embedding-2"
+kind = "embedding"
+[[models.periods]]
+effective_from = 2026-09-26
+currency = "USD"
+# Text-only standard API input; image, audio and video have separate prices.
+input_price = "0.20"
 source_url = "https://ai.google.dev/gemini-api/docs/pricing"
 checked_on = 2026-09-27
 

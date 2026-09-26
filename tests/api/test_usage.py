@@ -211,6 +211,58 @@ async def test_missing_embedding_usage_keeps_null_cost(
     assert record.cost_usd is None
 
 
+async def test_gemini_embedding_without_usage_is_not_given_an_estimated_token_count(
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+    issued_test_key: str,
+    test_catalog: Catalog,
+    upstream: respx.MockRouter,
+) -> None:
+    from tests.conftest import UPSTREAM_KEY, UPSTREAM_URL
+
+    records: list[UsageRecord] = []
+
+    async def sink(batch: Sequence[UsageRecord]) -> None:
+        records.extend(batch)
+
+    providers = type(settings.providers).model_validate(
+        {
+            **settings.providers.model_dump(),
+            "gemini": {"base_url": UPSTREAM_URL, "api_key": UPSTREAM_KEY},
+        }
+    )
+    app = create_app(
+        settings.model_copy(update={"providers": providers, "usage_batch_size": 1}),
+        key_repository=memory_repository,
+        catalog=test_catalog,
+        usage_sink=sink,
+    )
+    upstream.post("/embeddings").respond(
+        200, json={key: value for key, value in EMBEDDINGS.items() if key != "usage"}
+    )
+
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://gateway.test",
+            headers={"authorization": f"Bearer {issued_test_key}"},
+        ) as client,
+    ):
+        response = await client.post(
+            "/v1/embeddings", json={"model": "gemini/gemini-embedding-2", "input": "hello"}
+        )
+        record = await wait_for_record(records)
+
+    assert response.status_code == 200
+    assert (record.model, record.cost_status, record.prompt_tokens, record.cost_usd) == (
+        "gemini-embedding-2",
+        "usage_missing",
+        None,
+        None,
+    )
+
+
 async def test_stream_cost_is_recorded_after_completion(
     recorded_client: httpx.AsyncClient,
     recorded_app: tuple[FastAPI, list[UsageRecord]],

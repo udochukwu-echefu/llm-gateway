@@ -79,8 +79,6 @@ async def test_live_embeddings(
 ) -> None:
     if live_provider.embedding_model is None:
         pytest.skip(f"{live_provider.name} does not support embeddings")
-    if live_provider.name == "gemini":
-        pytest.skip("gemini-embedding-001 has no verifiable price on Google's current pricing page")
 
     response = await live_client.post(
         "/v1/embeddings",
@@ -94,5 +92,12 @@ async def test_live_embeddings(
     assert response.json()["data"][0]["embedding"]
     assert response.json()["model"].startswith(f"{live_provider.name}/")
     record = await _record(live_records)
+    assert record.model == live_provider.embedding_model
+    if live_provider.name == "gemini":
+        # Google's OpenAI-compatible embedding response currently omits usage.
+        assert record.cost_status == "usage_missing"
+        assert record.cost_usd is None
+        return
     assert record.cost_status == "priced"
     assert record.cost_usd is not None
+    assert record.cost_usd > 0

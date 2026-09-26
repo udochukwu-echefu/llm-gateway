@@ -14,6 +14,7 @@ from llm_gateway.cost import compute_cost
         ("openai/gpt-oss-20b", 10, 2, 4, "0.00000135"),
         ("openai/gpt-oss-20b", 0, 10, 0, "0.0000030"),
         ("text-embedding-3-small", 3, 0, 0, "0.00000006"),
+        ("gemini-embedding-2", 3, 0, 0, "0.00000060"),
         ("gpt-4.1-nano", 0, 0, 0, "0"),
     ],
 )

@@ -81,6 +81,12 @@ Invalid prices, duplicate
 models, or an unknown provider prevent startup. Uncatalogued models return
 `404 model_not_found` before any provider call. Do not guess missing prices;
 `gemini-embedding-001` is currently excluded because its official price is not listed.
+`gemini-embedding-2` is catalogued at Google's paid standard **text** input rate
+of $0.20 per million tokens (checked 2026-09-27); non-text media have different
+prices and are not supported by this text-only embedding endpoint.
+Google's OpenAI-compatible embedding response currently omits token usage, so
+Gemini embedding records have `usage_missing`/NULL cost until usage is available;
+this price alone cannot establish actual spend.
 The reviewed DeepSeek price uses the published **peak** rate; off-peak invoices are
 lower. Gemini 3.8 Flash's published rate increase on 2027-01-01 is already
 entered as a second period.

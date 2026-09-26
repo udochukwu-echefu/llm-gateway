@@ -317,6 +317,12 @@ the gateway refuses the request before calling the provider. `/v1/models` shows
 only items whose providers are configured. Editing the file needs code review;
 the version is stamped onto each usage receipt so later price changes don't
 rewrite yesterday's spend.
+Gemini Embedding 2 has a published text-input rate; the gateway lists it for
+text embeddings only. Images, audio and video have different prices, so those
+cannot safely use the text price.
+Google's embedding response currently omits token usage on its OpenAI-compatible
+endpoint. These calls still succeed but their receipts have unknown cost rather
+than an invented token estimate.
 Each model may have several price periods. A request picks the rate effective
 at its start time in UTC, even if its response finishes after midnight. Future
 rates can be reviewed before they take effect without repricing old receipts.

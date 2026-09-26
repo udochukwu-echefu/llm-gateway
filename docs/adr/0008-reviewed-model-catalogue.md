@@ -44,6 +44,8 @@ represent hour-of-day schedules; add time-of-day/holiday-aware pricing as a
 future catalogue feature before treating DeepSeek estimates as exact invoices.
 Google's current official pricing page has no
 `gemini-embedding-001` row, so this model is excluded instead of inventing a price.
+Gemini Embedding 2 is priced for text input only; its multimodal rates differ
+and are outside this text-only embedding API.
 
 ## Alternatives considered
 

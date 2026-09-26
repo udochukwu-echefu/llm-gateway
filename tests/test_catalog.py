@@ -21,6 +21,10 @@ def test_reviewed_catalog_loads() -> None:
         for entry in catalog.models
         for period in entry.periods
     )
+    gemini = catalog.find("gemini", "gemini-embedding-2", "embedding")
+    assert gemini is not None
+    assert gemini.periods[0].input_price == Decimal("0.20")
+    assert str(gemini.periods[0].source_url) == "https://ai.google.dev/gemini-api/docs/pricing"
 
 
 def test_catalog_version_is_required() -> None:

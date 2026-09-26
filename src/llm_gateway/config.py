@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import (
@@ -52,6 +53,19 @@ class ProvidersSettings(BaseModel):
         ]
 
 
+class SecretsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    backend: Literal["env", "file"] = "env"
+    dir: Path | None = None
+
+    @model_validator(mode="after")
+    def _file_needs_directory(self) -> Self:
+        if self.backend == "file" and self.dir is None:
+            raise ValueError("GATEWAY_SECRETS__DIR is required for file backend")
+        return self
+
+
 class Settings(BaseSettings):
     """Runtime configuration, read from GATEWAY_* environment variables (and `.env` locally).
 
@@ -63,10 +77,15 @@ class Settings(BaseSettings):
     )
 
     providers: ProvidersSettings = Field(default_factory=ProvidersSettings)
+    secrets: SecretsSettings = Field(default_factory=SecretsSettings)
+    api_key_pepper: SecretStr | None = None
+    database_url: SecretStr | None = None
+    key_cache_ttl_s: float = Field(default=30, ge=0)
+    key_cache_max_size: int = Field(default=10_000, ge=0)
 
     @model_validator(mode="after")
     def _has_provider(self) -> Self:
-        if not self.providers.enabled():
+        if self.secrets.backend == "env" and not self.providers.enabled():
             raise ValueError("Configure at least one GATEWAY_PROVIDERS__<PROVIDER>__API_KEY")
         return self
 

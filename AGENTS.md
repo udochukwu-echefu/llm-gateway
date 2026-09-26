@@ -17,6 +17,8 @@ uv run pytest -q             # tests (must not touch the network)
 uv run ruff check .          # lint
 uv run ruff format .         # format
 uv run pyright               # strict type check
+docker compose up -d         # start local Postgres
+GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
 ```
 
 ## Definition of done (every task)
@@ -34,6 +36,8 @@ All of these must hold before you report a task as finished:
 6. `docs/roadmap.md` and `README.md` are updated if behaviour or configuration changed.
 7. Your report lists what you built, every decision the spec left open and what you chose,
    anything you could not verify, and any spec requirement you did not meet.
+8. Start Postgres with `docker compose up -d` and run database tests with
+   `GATEWAY_TEST_DATABASE_URL` set; report that result separately.
 
 ## Code organisation
 

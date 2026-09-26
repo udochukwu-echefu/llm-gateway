@@ -8,12 +8,17 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY README.md ./
 COPY src ./src
+COPY alembic.ini ./
+COPY migrations ./migrations
 RUN uv sync --locked --no-dev --no-editable
 
 # Runtime stage: only the virtualenv, running as a non-root user.
 FROM python:3.13-slim
 RUN useradd --system --uid 10001 --no-create-home gateway
 COPY --from=build /app/.venv /app/.venv
+COPY --from=build /app/alembic.ini /app/alembic.ini
+COPY --from=build /app/migrations /app/migrations
+WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER gateway
 EXPOSE 8000

@@ -1,16 +1,40 @@
+import asyncio
 import os
+import uuid
 from collections.abc import AsyncIterator, Iterator
 
 import httpx
 import pytest
 import respx
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
+from llm_gateway.tenants.keys import issue_key
+from llm_gateway.tenants.repository import KeyRecord
 
 UPSTREAM_URL = "https://upstream.test/v1"
 UPSTREAM_KEY = "sk-upstream-test"
+TEST_PEPPER = "fake-pepper-for-tests-only-32-bytes-minimum"
+TEST_DATABASE_URL = "postgresql+asyncpg://fake:fake@127.0.0.1:1/fake"
+
+
+class MemoryKeyRepository:
+    def __init__(self) -> None:
+        self.records: dict[str, KeyRecord] = {}
+        self.available = True
+
+    async def get_key(self, key_id: str) -> KeyRecord | None:
+        return self.records.get(key_id)
+
+    async def ping(self) -> None:
+        if not self.available:
+            raise ConnectionError("database unavailable")
 
 
 @pytest.fixture(autouse=True)
@@ -22,8 +46,14 @@ def offline_by_default(
         yield
         return
     for name in os.environ:
-        if name.startswith("GATEWAY_PROVIDERS"):
+        if name.startswith("GATEWAY_PROVIDERS") or name in {
+            "GATEWAY_DATABASE_URL",
+            "GATEWAY_API_KEY_PEPPER",
+            "GATEWAY_SECRETS__BACKEND",
+        }:
             monkeypatch.delenv(name)
+    monkeypatch.setenv("GATEWAY_DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.setenv("GATEWAY_API_KEY_PEPPER", TEST_PEPPER)
     with respx.mock(assert_all_called=False):
         yield
 
@@ -42,15 +72,36 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def app(settings: Settings) -> FastAPI:
-    return create_app(settings)
+def issued_test_key() -> str:
+    return issue_key(TEST_PEPPER.encode()).full_key
 
 
 @pytest.fixture
-async def client(app: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+def memory_repository(issued_test_key: str) -> MemoryKeyRepository:
+    repository = MemoryKeyRepository()
+    _, key_id, secret = issued_test_key.split("_", 2)
+    from llm_gateway.tenants.keys import hash_secret
+
+    repository.records[key_id] = KeyRecord(
+        key_id, hash_secret(TEST_PEPPER.encode(), secret), uuid.uuid4(), uuid.uuid4()
+    )
+    return repository
+
+
+@pytest.fixture
+def app(settings: Settings, memory_repository: MemoryKeyRepository) -> FastAPI:
+    return create_app(settings, key_repository=memory_repository)
+
+
+@pytest.fixture
+async def client(app: FastAPI, issued_test_key: str) -> AsyncIterator[httpx.AsyncClient]:
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://gateway.test") as c:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://gateway.test",
+            headers={"authorization": f"Bearer {issued_test_key}"},
+        ) as c:
             yield c
 
 
@@ -59,3 +110,49 @@ def upstream() -> Iterator[respx.MockRouter]:
     # Any request to an unmocked URL fails the test, so nothing can reach a real provider.
     with respx.mock(base_url=UPSTREAM_URL, assert_all_called=False) as router:
         yield router
+
+
+@pytest.fixture(scope="session")
+def migrated_database() -> Iterator[str]:
+    """Migrate an isolated database; never reuse development or CI's main schema."""
+    base_url = os.getenv("GATEWAY_TEST_DATABASE_URL")
+    if not base_url:
+        if os.getenv("CI", "").lower() == "true":
+            pytest.fail("CI requires GATEWAY_TEST_DATABASE_URL for database tests")
+        pytest.skip("GATEWAY_TEST_DATABASE_URL unset; Postgres tests skipped locally")
+    name = f"gateway_test_{uuid.uuid4().hex}"
+    url = make_url(base_url)
+    admin_url = url.set(database="postgres").render_as_string(hide_password=False)
+    test_url = url.set(database=name).render_as_string(hide_password=False)
+
+    async def create_database() -> None:
+        engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT")
+        try:
+            async with engine.connect() as connection:
+                await connection.execute(text(f'CREATE DATABASE "{name}"'))
+        finally:
+            await engine.dispose()
+
+    async def drop_database() -> None:
+        engine = create_async_engine(admin_url, isolation_level="AUTOCOMMIT")
+        try:
+            async with engine.connect() as connection:
+                await connection.execute(text(f'DROP DATABASE "{name}" WITH (FORCE)'))
+        finally:
+            await engine.dispose()
+
+    try:
+        asyncio.run(create_database())
+    except Exception as exc:
+        pytest.fail(f"Postgres unavailable for db tests: {type(exc).__name__}")
+    previous = os.environ.get("GATEWAY_DATABASE_URL")
+    try:
+        os.environ["GATEWAY_DATABASE_URL"] = test_url
+        command.upgrade(Config("alembic.ini"), "head")
+        yield test_url
+    finally:
+        if previous is None:
+            os.environ.pop("GATEWAY_DATABASE_URL", None)
+        else:
+            os.environ["GATEWAY_DATABASE_URL"] = previous
+        asyncio.run(drop_database())

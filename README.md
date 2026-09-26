@@ -3,18 +3,26 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 3 of 12.** Chat completions and embeddings in OpenAI's format, validated
-> end to end, routed per request to Groq, DeepSeek, Gemini or OpenAI. There is no
-> client authentication yet, so run it only on your own machine. See the
+> **Status: step 4 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> Gemini or OpenAI. Every `/v1` request requires a gateway-issued key. Rate limits and
+> budgets are not yet implemented; do not expose this service publicly. See the
 > [roadmap](docs/roadmap.md).
 
 ## Quick start
 
-Requires [uv](https://docs.astral.sh/uv/).
+Requires [uv](https://docs.astral.sh/uv/) and Docker Desktop. Examples below use
+**local-only fake credentials**; replace the pepper and provider key privately.
 
 ```bash
 uv sync
-cp .env.example .env        # then put your provider key in .env
+docker compose up -d
+cp .env.example .env        # set a unique 32+ byte pepper and at least one provider key
+set -a; . ./.env; set +a     # CLI reads environment variables; keep .env private
+uv run alembic upgrade head
+uv run gateway-admin create-org example-org
+uv run gateway-admin create-team example-org example-team
+uv run gateway-admin create-key example-org example-team example-client
+# Save the printed key: it is shown only once; set it in your shell as GATEWAY_CLIENT_KEY.
 uv run uvicorn llm_gateway.main:create_app --factory --no-access-log --reload
 ```
 
@@ -23,6 +31,7 @@ Call it like OpenAI:
 ```bash
 curl -N http://127.0.0.1:8000/v1/chat/completions \
   -H 'content-type: application/json' \
+  -H "authorization: Bearer $GATEWAY_CLIENT_KEY" \
   -d '{"model": "groq/llama-3.3-70b-versatile", "stream": true,
        "messages": [{"role": "user", "content": "Say hi in five words"}]}'
 ```
@@ -32,7 +41,9 @@ Or point any OpenAI SDK at it:
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key="unused-until-step-4")
+import os
+
+client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key=os.environ["GATEWAY_CLIENT_KEY"])
 ```
 
 Provider-only options go in `provider_options`, and only the serving provider's are sent:
@@ -52,6 +63,11 @@ client.chat.completions.create(
 | `POST /v1/chat/completions` | Streaming and non-streaming; optional features depend on provider and model |
 | `POST /v1/embeddings` | Needs a provider that offers embeddings (Gemini or OpenAI; Groq and DeepSeek don't) |
 | `GET /healthz` | Liveness |
+| `GET /readyz` | Database readiness (503 when unavailable) |
+
+`/healthz` and `/readyz` are public; `/v1/*` requires `Authorization: Bearer lgw_...`.
+Missing, unknown, revoked and expired keys all receive the same 401 body. Manage keys
+offline with `gateway-admin list-keys <org> [<team>]` and `gateway-admin revoke-key <key_id>`.
 
 ## Development
 
@@ -61,9 +77,12 @@ uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run pyright           # strict type check
 uv run pytest -m live    # opt-in smoke calls, skipped for missing environment keys
+GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
 ```
 
-CI runs all four on every push, then builds the Docker image and smoke-tests it.
+CI runs all four plus migrations and Postgres tests, then builds and smoke-tests the image.
+Database tests skip locally without `GATEWAY_TEST_DATABASE_URL` and fail rather than skip
+in CI. Each test session creates and drops a fresh database.
 
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
 (not `.env`), and optional matching `BASE_URL` overrides. They run one chat, one stream
@@ -108,8 +127,21 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
+| `GATEWAY_DATABASE_URL` | required | Postgres asyncpg URL (contains a password) |
+| `GATEWAY_API_KEY_PEPPER` | required | Private 32+ byte HMAC pepper; rotating it invalidates all keys |
+| `GATEWAY_SECRETS__BACKEND` | `env` | `env` or `file` |
+| `GATEWAY_SECRETS__DIR` | unset | Required for file backend; mode 0700 directory, 0600 files |
+| `GATEWAY_KEY_CACHE_TTL_S` | `30` | Per-replica verified-key cache TTL in seconds |
+| `GATEWAY_KEY_CACHE_MAX_SIZE` | `10000` | Maximum cache entries (LRU) |
 
-At least one nonempty key is required. Each enabled provider has its own connection pool;
+In file mode, names are `api_key_pepper`, `database_url`, and
+`providers__<provider>__api_key`; one trailing newline is removed. Kubernetes' atomic
+`..data` symlinks work when their targets stay inside the secret directory. Kubernetes
+deployments must set `defaultMode: 0400` (and `fsGroup` if needed for access); the
+resolved files must remain unreadable by group and others. The default `0644` mode is
+refused. Environment mode
+keeps `GATEWAY_PROVIDERS__*__API_KEY` (including `.env`) working. At least one nonempty
+provider key is required. Each enabled provider has its own connection pool;
 timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.
 
 Use `<provider>/<model>` in every request. Only the first slash is split:
@@ -137,4 +169,7 @@ only explicit documented restrictions or nonexistent endpoints are rejected loca
   [ADR 0002: error mapping](docs/adr/0002-upstream-error-mapping.md),
   [ADR 0003: canonical schema](docs/adr/0003-canonical-schema.md),
   [ADR 0004: provider adapters](docs/adr/0004-provider-adapters.md),
-  [ADR 0005: reasoning output](docs/adr/0005-canonical-reasoning.md)
+  [ADR 0005: reasoning output](docs/adr/0005-canonical-reasoning.md),
+  [ADR 0006: key security](docs/adr/0006-virtual-api-keys.md),
+  [ADR 0007: secret store and CLI](docs/adr/0007-secret-store-and-cli.md).
+- [Security threat model](docs/security/threat-model.md)

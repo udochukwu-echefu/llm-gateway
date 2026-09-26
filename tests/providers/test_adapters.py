@@ -10,9 +10,12 @@ from tests.fixtures import COMPLETION, STREAM, sse
 
 @pytest.mark.parametrize("name", tuple(ADAPTER_TYPES))
 async def test_adapters_return_canonical_models(name: ProviderName) -> None:
-    request = ChatCompletionRequest.model_validate({
-        "model": f"{name}/model", "messages": [{"role": "user", "content": "Hi"}],
-    })
+    request = ChatCompletionRequest.model_validate(
+        {
+            "model": f"{name}/model",
+            "messages": [{"role": "user", "content": "Hi"}],
+        }
+    )
     with respx.mock(base_url="https://provider.test/v1") as router:
         route = router.post("/chat/completions").respond(200, json=COMPLETION)
         async with httpx.AsyncClient(base_url="https://provider.test/v1") as http:

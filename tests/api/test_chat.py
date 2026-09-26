@@ -21,7 +21,7 @@ from tests.fixtures import (
 
 
 async def test_non_streaming_request_is_forwarded_as_sent(
-    client: httpx.AsyncClient, upstream: respx.MockRouter
+    client: httpx.AsyncClient, upstream: respx.MockRouter, issued_test_key: str
 ) -> None:
     route = upstream.post("/chat/completions").respond(
         200, json=COMPLETION, headers={"x-request-id": "req_upstream_1"}
@@ -31,7 +31,7 @@ async def test_non_streaming_request_is_forwarded_as_sent(
     response = await client.post(
         "/v1/chat/completions",
         content=body,
-        headers={"content-type": "application/json", "authorization": "Bearer client-key"},
+        headers={"content-type": "application/json", "authorization": f"Bearer {issued_test_key}"},
     )
 
     assert response.status_code == 200
@@ -237,7 +237,7 @@ async def test_stream_interrupted_mid_way_ends_with_an_error_event(
 
 
 async def test_client_disconnect_mid_stream_releases_the_upstream_connection(
-    app: FastAPI, upstream: respx.MockRouter
+    app: FastAPI, upstream: respx.MockRouter, issued_test_key: str
 ) -> None:
     class StalledStream(httpx.AsyncByteStream):
         """Sends one chunk, then stalls like a slow model would."""
@@ -285,7 +285,10 @@ async def test_client_disconnect_mid_stream_releases_the_upstream_connection(
         "raw_path": b"/v1/chat/completions",
         "query_string": b"",
         "root_path": "",
-        "headers": [(b"content-type", b"application/json")],
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"authorization", f"Bearer {issued_test_key}".encode()),
+        ],
         "client": ("127.0.0.1", 50000),
         "server": ("gateway.test", 80),
     }

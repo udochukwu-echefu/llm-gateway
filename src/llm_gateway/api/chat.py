@@ -10,7 +10,7 @@ from llm_gateway.schemas.chat import ChatCompletionRequest
 router = APIRouter()
 
 
-@router.post("/v1/chat/completions")
+@router.post("/chat/completions")
 async def chat_completions(request: Request) -> Response:
     settings: Settings = request.app.state.settings
     registry: ProviderRegistry = request.app.state.providers

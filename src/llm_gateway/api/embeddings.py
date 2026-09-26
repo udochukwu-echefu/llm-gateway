@@ -9,7 +9,7 @@ from llm_gateway.schemas.embeddings import EmbeddingRequest
 router = APIRouter()
 
 
-@router.post("/v1/embeddings")
+@router.post("/embeddings")
 async def embeddings(request: Request) -> Response:
     settings: Settings = request.app.state.settings
     registry: ProviderRegistry = request.app.state.providers

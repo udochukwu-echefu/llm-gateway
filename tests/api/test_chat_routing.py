@@ -6,10 +6,13 @@ import respx
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
 from llm_gateway.providers.registry import ADAPTER_TYPES
+from tests.conftest import MemoryKeyRepository
 from tests.fixtures import COMPLETION
 
 
-async def test_all_providers_are_available_in_one_app(upstream: respx.MockRouter) -> None:
+async def test_all_providers_are_available_in_one_app(
+    upstream: respx.MockRouter, memory_repository: MemoryKeyRepository, issued_test_key: str
+) -> None:
     settings = Settings(
         _env_file=None,  # pyright: ignore[reportCallIssue]  # ignore local developer .env
         providers=ProvidersSettings.model_validate(
@@ -19,11 +22,13 @@ async def test_all_providers_are_available_in_one_app(upstream: respx.MockRouter
             }
         ),
     )
-    app = create_app(settings)
+    app = create_app(settings, key_repository=memory_repository)
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://gateway.test"
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://gateway.test",
+            headers={"authorization": f"Bearer {issued_test_key}"},
         ) as client,
     ):
         for name in ADAPTER_TYPES:

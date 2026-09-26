@@ -32,6 +32,8 @@ class UsageWriter:
         self.clock = clock
         self.accepting = True
         self.dropped = 0
+        self._drops_since_log = 0
+        self._last_drop_log: float | None = None
         self.lost = 0
         self.flushed = 0
         self._task: asyncio.Task[None] | None = None
@@ -49,7 +51,12 @@ class UsageWriter:
             self.queue.put_nowait(record)
         except asyncio.QueueFull:
             self.dropped += 1
-            log.error("usage_dropped", request_id=record.request_id, drops=self.dropped)
+            self._drops_since_log += 1
+            now = self.clock()
+            if self._last_drop_log is None or now - self._last_drop_log >= 1:
+                log.error("usage_dropped", drops=self._drops_since_log, total_drops=self.dropped)
+                self._last_drop_log = now
+                self._drops_since_log = 0
 
     async def stop(self, drain_seconds: float = 10.0) -> None:
         self.accepting = False

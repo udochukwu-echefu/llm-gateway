@@ -345,6 +345,9 @@ has a fixed capacity so an outage cannot fill all memory. The worker files a
 round-trips. If the tray fills, the record is dropped and logged, not the user's
 response. Shutdown drains what it can, but a process killed without warning
 loses receipts still in memory. This is not a durable invoice ledger.
+The first queue drop logs immediately; later drops are grouped into at most
+one summary per second when another drop occurs, rather than flooding logs
+while the queue is full. The shutdown log still reports the total lost.
 
 Each provider-bound call has one metadata-only record: tenant IDs, model, tokens,
 cost, outcome and timing, never prompts or vectors. Even provider error statuses

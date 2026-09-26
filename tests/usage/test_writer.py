@@ -1,6 +1,9 @@
 import asyncio
 import uuid
 from collections.abc import Callable, Sequence
+from unittest.mock import Mock
+
+import pytest
 
 from llm_gateway.catalog import load_catalog
 from llm_gateway.schemas.chat import Usage
@@ -83,6 +86,41 @@ async def test_queue_full_drops_immediately_and_counts_loss() -> None:
 
     assert writer.dropped == 1
     assert writer.queue.qsize() == 1
+
+
+def test_queue_full_logs_first_drop_then_at_most_one_summary_per_second(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [0.0]
+    messages = Mock()
+    monkeypatch.setattr("llm_gateway.usage.writer.log.error", messages)
+
+    async def sink(records: Sequence[UsageRecord]) -> None:
+        pass
+
+    writer = UsageWriter(sink, max_size=1, clock=lambda: clock[0])
+    writer.enqueue(sample_record())
+    writer.enqueue(sample_record())
+    assert messages.call_count == 1
+    assert messages.call_args.kwargs["drops"] == 1
+
+    clock[0] = 0.99
+    for _ in range(100):
+        writer.enqueue(sample_record())
+    assert messages.call_count == 1
+
+    clock[0] = 1.0
+    writer.enqueue(sample_record())
+    assert messages.call_count == 2
+    assert messages.call_args.kwargs == {"drops": 101, "total_drops": 102}
+
+    clock[0] = 1.99
+    writer.enqueue(sample_record())
+    assert messages.call_count == 2
+    clock[0] = 2.0
+    writer.enqueue(sample_record())
+    assert messages.call_count == 3
+    assert messages.call_args.kwargs == {"drops": 2, "total_drops": 104}
 
 
 async def test_database_retries_then_succeeds_without_losing_records() -> None:

@@ -5,7 +5,8 @@ stream_options.include_usage (extra_body example), tools, structured output,
 reasoning_effort and service_tier. System instructions are documented; developer is not,
 so translate to system. Undocumented parameters, including both token-limit spellings
 and embedding options, are forwarded unchanged; absence is not evidence of non-support.
-No request-ID header or separate reasoning output representation was verified: no mapping.
+Use the shared x-request-id convention when present; no different header is documented.
+No separate reasoning output representation was verified: no mapping.
 """
 
 from llm_gateway.providers.base import Capabilities

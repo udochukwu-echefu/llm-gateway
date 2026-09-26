@@ -14,7 +14,7 @@ inventory. Undocumented parameters such as safety_identifier are forwarded uncha
 https://console.groq.com/docs/reasoning documents message.reasoning.
 https://github.com/groq/groq-python/blob/main/src/groq/types/chat/chat_completion_chunk.py
 documents delta.reasoning. Raw think tags are deliberately not parsed.
-No request-ID response header was verified; use None (x_groq is body metadata).
+Use the shared x-request-id header convention when present; no different header is documented.
 """
 
 from llm_gateway.providers.base import Capabilities

@@ -260,8 +260,8 @@ even though the web server has cancelled the request.
 
 `reasoning_content` is the optional separate reasoning text. DeepSeek already uses that
 name; Groq's `reasoning` is translated. Ordinary content, including quoted `<think>` tags,
-is not parsed as reasoning. Access logs contain provider, model, usage and verified
-provider request IDs, never prompts, answers or keys.
+is not parsed as reasoning. Access logs contain provider, model, usage and provider
+`x-request-id` when present (otherwise None), never prompts, answers or keys.
 
 | File | Job |
 |---|---|

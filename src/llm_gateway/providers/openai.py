@@ -17,7 +17,6 @@ from llm_gateway.schemas.common import ProviderName
 class OpenAIAdapter(OpenAICompatibleAdapter):
     name: ProviderName = "openai"
     base_url = "https://api.openai.com/v1"
-    request_id_header = "x-request-id"
     capabilities = Capabilities(
         supports_embeddings=True,
         supports_stream_usage=True,

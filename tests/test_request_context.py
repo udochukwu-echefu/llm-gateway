@@ -78,7 +78,7 @@ async def test_access_log_has_context_but_never_prompt_content(
     assert access["request_id"] == "trace-1"
     assert access["status"] == 200
     assert access["model"] == CHAT_REQUEST["model"]
-    assert access["upstream_request_id"] is None  # Groq has no verified request-ID header
+    assert access["upstream_request_id"] == "req_upstream_1"
     assert access["provider"] == "groq"
     assert access["completed"] is True
     assert isinstance(access["duration_ms"], float)

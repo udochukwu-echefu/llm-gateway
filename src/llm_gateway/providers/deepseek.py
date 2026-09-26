@@ -12,7 +12,8 @@ response_format.type: "Must be one of `text` or `json_object`."
 Embeddings are rejected because no embeddings endpoint exists in the official API reference
 at https://api-docs.deepseek.com/api/create-chat-completion (endpoint inventory).
 The token-limit conflict is a gateway translation ambiguity, not a provider restriction.
-Undocumented parameters are forwarded. No request-ID header was verified.
+Undocumented parameters are forwarded. Use the shared x-request-id convention when present;
+no different request-ID header is documented.
 """
 
 from llm_gateway.providers.base import Capabilities

@@ -35,8 +35,8 @@ need to know those details.
 - Each enabled provider gets one lifespan-owned client with its own pool. `AsyncExitStack`
   closes already-created clients on partial startup failure too. Timeout and size limits
   are shared settings. Stream shutdown is cancellation-shielded, including disconnects.
-- Record provider/model and verified request-ID headers before checking status. Only
-  OpenAI's `x-request-id` was verified; other adapters record `None`, not a guessed header.
+- Record provider/model and `x-request-id` before checking status for every adapter;
+  record `None` when absent. Override the header only if official docs name a different one.
 - Preserve existing stream termination behavior: explicit `[DONE]` succeeds; EOF after a
   finish reason succeeds; otherwise EOF is truncation. Decode/transport failures become
   `GatewayError` and the API sends one terminal error event without a success marker.
@@ -66,7 +66,8 @@ penalties and the response format outside its documented text/json_object enum. 
 documented logprob/bias/name/penalty restrictions and n=1, but forwards safety_identifier.
 Adapter docstrings quote the evidence. Developer/system and DeepSeek token-limit
 translations remain the agreed canonical translations; no speculative reasoning is added.
-Gemini/DeepSeek/Groq request-ID response headers were not verified and remain unset.
+Gemini/DeepSeek/Groq do not document a different request-ID header; the shared
+`x-request-id` convention is read when present, without assuming it always exists.
 
 ## Alternatives considered
 

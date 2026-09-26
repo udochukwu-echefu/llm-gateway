@@ -14,6 +14,35 @@ from llm_gateway.schemas.common import ProviderName
 from tests.fixtures import COMPLETION, EMBEDDINGS, STREAM, USAGE_CHUNK, parse_events, prefixed, sse
 
 
+@pytest.mark.parametrize("status", [200, 401])
+@pytest.mark.parametrize("request_id", ["provider-request", None])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_request_id_contract(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+    provider_name: ProviderName,
+    status: int,
+    request_id: str | None,
+    stream: bool,
+) -> None:
+    headers = {"x-request-id": request_id} if request_id else {}
+    wire = b"".join(sse(*STREAM, "[DONE]")) if stream else json.dumps(COMPLETION).encode()
+    upstream.post("/chat/completions").respond(status, content=wire, headers=headers)
+
+    with capture_logs(processors=[structlog.contextvars.merge_contextvars]) as logs:
+        await client.post(
+            "/v1/chat/completions",
+            json={
+                "model": f"{provider_name}/model",
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": stream,
+            },
+        )
+
+    access = next(entry for entry in logs if entry["event"] == "request")
+    assert access["upstream_request_id"] == request_id
+
+
 async def test_chat_contract(
     client: httpx.AsyncClient,
     upstream: respx.MockRouter,

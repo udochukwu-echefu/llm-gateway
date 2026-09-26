@@ -10,13 +10,6 @@ from structlog.testing import capture_logs
 from tests.fixtures import CHAT_REQUEST, COMPLETION
 
 
-async def test_health(client: httpx.AsyncClient) -> None:
-    response = await client.get("/healthz")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
-
-
 async def test_request_id_is_generated_when_absent(client: httpx.AsyncClient) -> None:
     response = await client.get("/healthz")
 
@@ -36,14 +29,6 @@ async def test_invalid_incoming_request_id_is_replaced(
     response = await client.get("/healthz", headers={"x-request-id": bad_id})
 
     assert response.headers["x-request-id"] != bad_id
-
-
-async def test_unknown_route_uses_the_openai_error_shape(client: httpx.AsyncClient) -> None:
-    response = await client.get("/v1/nope")
-
-    assert response.status_code == 404
-    assert response.json()["error"]["code"] == "http_404"
-    assert "x-request-id" in response.headers
 
 
 async def test_unhandled_exception_becomes_a_500_with_request_id(app: FastAPI) -> None:

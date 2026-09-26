@@ -184,6 +184,7 @@ async def test_only_serving_provider_options_are_sent(
 
     sent = json.loads(route.calls.last.request.content)
     assert {key for key in sent if key.startswith("option_")} == {f"option_{provider_name}"}
+    assert sent[f"option_{provider_name}"] is True
 
 
 async def test_developer_role_contract(

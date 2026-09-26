@@ -36,7 +36,7 @@ async def authenticate(request: Request) -> None:
         record = await repository.get_key(key_id)
     actual = hash_secret(request.app.state.pepper, secret)
     if not verify_hash(record.secret_hash if record else None, actual):
-        _reject("unknown_or_wrong_secret")
+        _reject("unknown_key_id" if record is None else "wrong_secret")
     if record.revoked_at is not None:
         _reject("revoked")
     if record.expires_at is not None and record.expires_at <= datetime.now(UTC):

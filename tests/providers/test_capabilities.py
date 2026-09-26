@@ -6,11 +6,68 @@ import pytest
 import respx
 
 from llm_gateway.errors import GatewayError
+from llm_gateway.providers.base import Capabilities
 from llm_gateway.providers.openai import OpenAIAdapter
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.schemas.chat import ChatCompletionRequest
 from llm_gateway.schemas.common import ProviderName
 from tests.fixtures import COMPLETION, STREAM, sse
+
+
+@pytest.mark.parametrize("provider_name", ["openai"])
+@pytest.mark.parametrize(
+    ("capabilities", "endpoint", "fields", "parameter"),
+    [
+        pytest.param(
+            replace(OpenAIAdapter.capabilities, supports_stream_usage=False),
+            "chat/completions",
+            {
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            },
+            "stream_options.include_usage",
+            id="stream_usage",
+        ),
+        pytest.param(
+            replace(OpenAIAdapter.capabilities, supports_token_inputs=False),
+            "embeddings",
+            {"input": [1, 2]},
+            "input (token IDs)",
+            id="token_inputs",
+        ),
+        pytest.param(
+            replace(
+                OpenAIAdapter.capabilities,
+                unsupported_embedding_parameters=frozenset({"dimensions"}),
+            ),
+            "embeddings",
+            {"input": "Hi", "dimensions": 2},
+            "dimensions",
+            id="embedding_parameter",
+        ),
+    ],
+)
+async def test_optional_capability_rejection_is_an_http_400(
+    client: httpx.AsyncClient,
+    upstream: respx.MockRouter,
+    monkeypatch: pytest.MonkeyPatch,
+    capabilities: Capabilities,
+    endpoint: str,
+    fields: dict[str, object],
+    parameter: str,
+) -> None:
+    # These restrictions are not enabled on today's four adapters, but their shared
+    # branches must still reject individually without making an HTTP call.
+    monkeypatch.setattr(OpenAIAdapter, "capabilities", capabilities)
+    upstream.post(f"/{endpoint}").respond(200, json={})
+
+    response = await client.post(f"/v1/{endpoint}", json={"model": "openai/model", **fields})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "unsupported_parameter"
+    assert f"'{parameter}'" in response.json()["error"]["message"]
+    assert not upstream.calls
 
 
 async def test_message_names_follow_explicit_capability(

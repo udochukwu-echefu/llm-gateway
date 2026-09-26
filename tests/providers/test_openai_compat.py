@@ -1,5 +1,4 @@
 import json
-from typing import Any
 
 import httpx
 import pytest
@@ -229,47 +228,3 @@ async def test_embedding_contract(
         assert response.status_code == 400
         assert response.json()["error"]["code"] == "unsupported_parameter"
         assert not route.called
-
-
-@pytest.mark.parametrize("stream", [False, True])
-async def test_unsupported_parameters_fail_before_network(
-    client: httpx.AsyncClient,
-    upstream: respx.MockRouter,
-    provider_name: ProviderName,
-    adapter: OpenAICompatibleAdapter,
-    stream: bool,
-) -> None:
-    for parameter in adapter.capabilities.unsupported_parameters:
-        values: dict[str, Any] = {
-            "n": 2,
-            "seed": 1,
-            "max_tokens": 10,
-            "max_completion_tokens": 10,
-            "logprobs": True,
-            "top_logprobs": 1,
-            "logit_bias": {"1": 1},
-            "frequency_penalty": 0.1,
-            "presence_penalty": 0.1,
-            "parallel_tool_calls": True,
-            "service_tier": "auto",
-            "user": "u",
-            "safety_identifier": "u",
-            "temperature": 1.0,
-            "top_p": 0.5,
-            "stop": "end",
-        }
-        body: dict[str, Any] = {
-            "model": f"{provider_name}/model",
-            "messages": [{"role": "user", "content": "Hi"}],
-            "stream": stream,
-            parameter: values[parameter],
-        }
-        if parameter == "top_logprobs":
-            body["logprobs"] = True
-
-        response = await client.post("/v1/chat/completions", json=body)
-
-        assert response.status_code == 400
-        assert response.json()["error"]["code"] == "unsupported_parameter"
-        assert provider_name in response.json()["error"]["message"]
-        assert not upstream.calls

@@ -3,9 +3,10 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 6 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 7 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
-> team limits and budgets across replicas. See the
+> team limits and budgets across replicas. Bounded retries, local circuit breakers and
+> approved opt-in fallback recover from provider failures. See the
 > [roadmap](docs/roadmap.md).
 
 ## Quick start
@@ -269,3 +270,53 @@ only explicit documented restrictions or nonexistent endpoints are rejected loca
    [ADR 0010: Redis limits](docs/adr/0010-redis-limits.md),
    [ADR 0011: budgets and failure mode](docs/adr/0011-budgets-and-failure.md).
 - [Security threat model](docs/security/threat-model.md)
+
+## Resilience and approved fallback
+
+Run `uv run alembic upgrade head` before deploying this step (migration 0004 adds
+`attempt` and `fallback_from` to usage receipts). Usage reports count provider attempts;
+use their shared request ID to group a client request.
+
+To approve fallback, add `fallbacks` on the source model entry in `catalog/models.toml`,
+**before** its `[[models.periods]]` price tables. For example, on the existing
+`groq/openai/gpt-oss-20b` entry:
+
+```toml
+fallbacks = ["deepseek/deepseek-flash", "groq/openai/gpt-oss-120b"]
+```
+
+Every target must be catalogued with the same kind; self-references and cycles fail
+startup. No fallback is enabled in the shipped catalogue. Approval permits sending
+prompts to the target company: check contracts and residency before enabling it.
+Only the source's direct list is tried, in order, skipping unconfigured providers,
+open circuits and unsupported capabilities. Targets use their own `provider_options`.
+
+Clients can refuse alternatives with `x-lgw-fallback: disabled`. The returned `model`
+identifies what actually served the request. When any retry or fallback occurred,
+`x-lgw-attempts` reports network attempts and `x-lgw-fallback-from` reports the original
+model (both headers also appear for retries on the original provider and terminal errors).
+An open circuit with no usable fallback returns the normal OpenAI error envelope with
+HTTP 503 and code `provider_unavailable`. Exhausted calls retain their mapped provider
+error; the overall deadline returns `504 upstream_timeout`. Mid-stream errors remain
+terminal SSE events and never retry or switch models.
+
+All settings below use the `GATEWAY_RESILIENCE__` prefix. Invalid settings fail startup.
+
+| Suffix | Default | Meaning |
+|---|---|---|
+| `MAX_RETRIES` | `2` | Extra attempts allowed per target, subject to budget |
+| `RETRY_BASE_S` | `0.25` | Initial full-jitter upper bound |
+| `RETRY_CAP_S` | `2` | Maximum jitter or honored Retry-After delay |
+| `RETRY_READ_TIMEOUTS` | `false` | Opt into potentially duplicate-billed read retries |
+| `RETRY_BUDGET_RATIO` | `0.2` | Retries divided by first attempts, per provider/replica |
+| `RETRY_WINDOW_S` | `60` | Rolling retry-credit window; no initial credit |
+| `DEADLINE_S` | `60` | Total provider execution time, until first chunk for streams |
+| `BREAKER_WINDOW_S` | `30` | Rolling observation window |
+| `BREAKER_MIN_CALLS` | `10` | Minimum attempts before opening |
+| `BREAKER_FAILURE_RATIO` | `0.5` | Failure fraction that opens the circuit |
+| `BREAKER_OPEN_S` | `30` | Time before the one half-open probe |
+
+Connect failures and selected 429/5xx statuses may retry; other 4xx never do. A
+Retry-After above the cap exhausts that target immediately. Redis is not involved in
+recovery policy. See [ADR 0012](docs/adr/0012-safe-retries.md) and
+[ADR 0013](docs/adr/0013-breakers-and-approved-fallbacks.md) for billing limits and semantics.

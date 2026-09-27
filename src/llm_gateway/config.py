@@ -14,6 +14,7 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
+from llm_gateway.resilience.configuration import ResilienceSettings
 from llm_gateway.schemas.common import ProviderName
 
 
@@ -101,6 +102,7 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
+    resilience: ResilienceSettings = Field(default_factory=ResilienceSettings)
     trusted_proxy_hops: int = Field(default=0, ge=0)
     key_cache_ttl_s: float = Field(default=30, ge=0)
     key_cache_max_size: int = Field(default=10_000, ge=0)

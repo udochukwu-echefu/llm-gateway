@@ -43,6 +43,7 @@ class ModelPrice(BaseModel):
     model: str = Field(min_length=1)
     kind: Literal["chat", "embedding"]
     periods: list[PricePeriod] = Field(min_length=1)
+    fallbacks: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _valid_periods(self) -> Self:
@@ -76,6 +77,35 @@ class Catalog(BaseModel):
         keys = [(entry.provider, entry.model) for entry in self.models]
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate provider/model in catalogue")
+        return self
+
+    @model_validator(mode="after")
+    def _valid_fallbacks(self) -> Self:
+        entries = {f"{entry.provider}/{entry.model}": entry for entry in self.models}
+        for name, entry in entries.items():
+            for target in entry.fallbacks:
+                if target == name:
+                    raise ValueError("fallback cannot reference itself")
+                if target not in entries:
+                    raise ValueError("unknown fallback target")
+                if entries[target].kind != entry.kind:
+                    raise ValueError("fallback must have the same kind")
+        visited: set[str] = set()
+        visiting: set[str] = set()
+
+        def visit(name: str) -> None:
+            if name in visiting:
+                raise ValueError("fallback cycle")
+            if name in visited:
+                return
+            visiting.add(name)
+            for target in entries[name].fallbacks:
+                visit(target)
+            visiting.remove(name)
+            visited.add(name)
+
+        for name in entries:
+            visit(name)
         return self
 
     def find(self, provider: ProviderName, model: str, kind: str) -> ModelPrice | None:

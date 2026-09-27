@@ -31,3 +31,20 @@ def test_gemini_request_selects_price_at_start_even_if_it_finishes_after_midnigh
     assert new_record.cost_usd == Decimal("0.0000300")
     assert old_record.cost_usd * 2 == new_record.cost_usd
     assert old_record.catalog_version == new_record.catalog_version == catalog.version
+
+
+def test_known_tokens_on_a_failed_attempt_are_still_priced() -> None:
+    catalog = load_catalog()
+    price = catalog.find("deepseek", "deepseek-flash", "chat")
+    assert price is not None
+    event = UsageEvent(
+        Principal(uuid.uuid4(), uuid.uuid4(), "test-key"), "failed", price, catalog, "chat", False
+    )
+    event.outcome = "upstream_error"
+    event.provider_rejected = True
+    event.usage = Usage(prompt_tokens=9, completion_tokens=1, total_tokens=10)
+
+    record = event.finish(1, 1)
+
+    assert record.cost_status == "priced"
+    assert record.cost_usd == Decimal("0.0000039")

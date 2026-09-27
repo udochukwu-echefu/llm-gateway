@@ -19,6 +19,7 @@ from llm_gateway.limits.service import LimitService
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
 from llm_gateway.providers.pools import provider_pools
+from llm_gateway.resilience.service import ResilienceService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
 from llm_gateway.tenants.auth import authenticate
 from llm_gateway.tenants.cache import VerifiedKeyCache
@@ -149,6 +150,7 @@ def create_app(
                     pepper=pepper.get_secret_value().encode(),
                     catalog=catalog,
                     usage_writer=writer,
+                    resilience=ResilienceService(registry, catalog, settings.resilience),
                     limits=limits,
                 )
                 writer.start()

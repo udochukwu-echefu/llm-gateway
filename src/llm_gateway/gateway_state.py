@@ -8,6 +8,7 @@ from llm_gateway.catalog import Catalog
 from llm_gateway.config import Settings
 from llm_gateway.limits.service import LimitService
 from llm_gateway.providers.registry import ProviderRegistry
+from llm_gateway.resilience.service import ResilienceService
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.repository import KeyRepository
 from llm_gateway.usage.writer import UsageWriter
@@ -22,6 +23,7 @@ class GatewayState:
     pepper: bytes
     catalog: Catalog
     usage_writer: UsageWriter
+    resilience: ResilienceService
     limits: LimitService | None = None
 
 

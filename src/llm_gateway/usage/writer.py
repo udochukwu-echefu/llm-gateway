@@ -70,8 +70,6 @@ class UsageWriter:
         self._stop.set()
         if self._task is not None:
             try:
-                if self.queue.empty() and not self._working:
-                    self._task.cancel()
                 await asyncio.wait_for(self._task, drain_seconds)
             except asyncio.CancelledError:
                 pass

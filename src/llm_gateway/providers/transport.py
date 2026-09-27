@@ -48,7 +48,11 @@ class UpstreamClient:
                 raise transport_error(exc) from exc
             finally:
                 await response.aclose()
-            raise status_error(response)
+            error = status_error(response)
+            error.upstream_status = response.status_code
+            if retry_after := response.headers.get("retry-after"):
+                error.headers["retry-after"] = retry_after
+            raise error
         return response
 
 
@@ -89,6 +93,7 @@ def transport_error(exc: httpx.HTTPError) -> GatewayError:
             "The gateway is at capacity. Retry shortly.",
             type="server_error",
             code="gateway_overloaded",
+            transport_kind=type(exc).__name__,
         )
     if isinstance(exc, httpx.TimeoutException):
         return GatewayError(
@@ -96,12 +101,14 @@ def transport_error(exc: httpx.HTTPError) -> GatewayError:
             "The model provider did not respond in time.",
             type="upstream_error",
             code="upstream_timeout",
+            transport_kind=type(exc).__name__,
         )
     return GatewayError(
         502,
         "The model provider could not be reached.",
         type="upstream_error",
         code="upstream_unavailable",
+        transport_kind=type(exc).__name__,
     )
 
 

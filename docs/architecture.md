@@ -424,9 +424,70 @@ allow it to override the socket address. Valid badges do not reset bad-guess cou
 
 See [ADR 0010](adr/0010-redis-limits.md) and [ADR 0011](adr/0011-budgets-and-failure.md).
 
+## Step 7: recover carefully when a provider fails
+
+A **retry** asks the same provider again. That is safe when a connection never reached
+it, but a lost answer might already have been generated and billed. We retry only the
+agreed connection failures and selected overload/server statuses, up to twice. Read
+timeouts do not retry unless an operator explicitly enables them. Even a server error
+cannot guarantee a free repeat; compare receipts with provider invoices.
+
+Imagine a crowd rushing a door just as it reopens. If everyone retries after exactly
+one second, the provider gets knocked over again: the **thundering herd**. **Full jitter**
+means each caller waits a different random time, from zero to a growing maximum
+(default 0.25 seconds, then 0.5, capped at 2). Retry-After supplies the provider's own
+wait instead; waits above the cap move straight to the next approved alternative.
+A **retry budget** permits only one retry for every five first attempts in the last
+minute. Otherwise a small outage could triple the traffic and overwhelm the surviving
+capacity. A fresh process begins without retry credit. One 60-second stopwatch covers
+all attempts and waits; each attempt gets only the time remaining. For streaming, this
+stopwatch stops at the first chunk, while the normal silence timeout remains.
+
+A **circuit breaker** is a fuse box for each provider. After at least ten attempts in
+30 seconds, if half have failed, the fuse opens and stops sending traffic for 30 seconds.
+Then it lets exactly one probe through: the **half-open** state. A good response closes
+the fuse; another failure opens it again. Concurrent requests cannot all become probes.
+Every gateway replica has its own fuse box in memory. They learn independently, which
+may allow one probe per replica, but they still work when Redis is unavailable.
+
+**Fallback** is like a substitute teacher: the approved substitute can keep the class
+going, but may teach differently, and the class should be told. Here it also means
+sending the user's prompt to a different company. The reviewed catalogue explicitly
+lists approved alternatives in order. An empty list means no substitute. The gateway
+skips an unavailable provider or one that cannot teach this lesson—for example, a
+DeepSeek target cannot serve a json_schema request. Only the chosen provider's options
+are sent. Alternatives have the same kind (chat or embeddings), exist in the catalogue,
+and cannot refer to themselves or form a loop. Only the original model's direct list
+is used; a substitute cannot nominate an unapproved substitute of its own.
+
+Clients can say `x-lgw-fallback: disabled`. The returned `model` names the actual model.
+If retries or fallback occurred, `x-lgw-attempts` counts network attempts and
+`x-lgw-fallback-from` identifies the requested model. An open fuse with no usable
+substitute returns `503 provider_unavailable`. Client errors never trigger fallback.
+Once a provider stream opens, errors end that stream; they cannot restart an answer.
+
+Accounting now writes one receipt per attempt, with an `attempt` number and optional
+`fallback_from`, all sharing the client request ID. A failure does not disappear when
+a later attempt succeeds. Redis adds all known token counts and costs, while the one
+concurrency lease covers the entire client request. Failed calls can still have unknown
+costs; the best-effort writer has not become an invoice ledger.
+
+| File | Job |
+|---|---|
+| `resilience/service.py` | Executes retries and approved targets for both endpoints. |
+| `resilience/retry.py` | Classifies failures, computes delays and reserves retry credit. |
+| `resilience/breaker.py` | Owns each provider's local fuse and exclusive probe. |
+| `resilience/fallback.py` | Resolves a catalogue target and reuses capability validation. |
+| `resilience/attempt.py` | Binds one receipt to one network operation. |
+| `resilience/stream.py` | Enforces first-chunk deadline and observes streaming outcomes. |
+| `usage/finalization.py` | Settles every receipt and releases the single lease. |
+
+See [ADR 0012](adr/0012-safe-retries.md) and
+[ADR 0013](adr/0013-breakers-and-approved-fallbacks.md).
+
 ## What the gateway deliberately does NOT do yet
 
-- No retries or response caching (steps 7–10).
+- No response caching (step 10).
 - No HTTP admin API or audit log yet (steps 12 and 8).
 
 See [roadmap.md](roadmap.md) for the order.

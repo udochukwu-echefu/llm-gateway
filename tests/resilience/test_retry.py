@@ -53,3 +53,10 @@ def test_retry_after_is_honoured_or_exhausted(value: str, expected: float | None
 def test_invalid_resilience_settings_fail_startup(values: dict[str, float]) -> None:
     with pytest.raises(ValidationError):
         ResilienceSettings.model_validate(values)
+
+
+def test_malformed_retry_after_uses_jitter() -> None:
+    error = GatewayError(
+        503, "wait", type="upstream_error", code="failed", headers={"retry-after": "not-a-date"}
+    )
+    assert retry_delay(error, 0, ResilienceSettings(), lambda: 0.5) == 0.125

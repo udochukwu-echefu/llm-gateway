@@ -72,7 +72,7 @@ def retry_delay(
                 when = parsedate_to_datetime(value)
                 delay = when.replace(tzinfo=when.tzinfo or UTC).timestamp() - wall_clock()
             except (ValueError, TypeError, OverflowError):
-                delay = 0
+                delay = -1
         if delay > settings.retry_cap_s:
             return None
         if delay >= 0:

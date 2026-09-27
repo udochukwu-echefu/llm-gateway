@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+import time
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -248,3 +249,51 @@ async def test_redis_failure_obeys_fail_mode(
             await service.admission(uuid.uuid4(), limits(rpm=1))
         assert failure.value.status_code == 503
         assert failure.value.code == "limits_unavailable"
+
+
+@pytest.mark.parametrize(("mode", "status"), [("open", None), ("closed", 503)])
+async def test_slow_budget_rebuild_has_one_total_deadline(
+    test_redis: Redis,
+    mode: str,
+    status: int | None,
+) -> None:
+    team = uuid.uuid4()
+    entered = asyncio.Event()
+
+    async def slow_spend(team_id: uuid.UUID, start: datetime, end: datetime) -> Decimal:
+        entered.set()
+        await asyncio.Event().wait()
+        return Decimal(0)
+
+    service = LimitService(test_redis, fail_mode=mode, rebuild_timeout=0.04, spend_total=slow_spend)
+    started = time.perf_counter()
+
+    if status is None:
+        lease, _ = await service.admission(team, limits(budget="1"))
+        assert lease is not None
+        await service.finish(team, lease, None, limits(budget="1"))
+    else:
+        with pytest.raises(GatewayError) as failure:
+            await service.admission(team, limits(budget="1"))
+        assert failure.value.status_code == status
+        assert failure.value.code == "limits_unavailable"
+
+    assert entered.is_set()
+    assert time.perf_counter() - started < 0.3
+    assert await test_redis.exists(f"lgw:budget:{team}:{datetime.now(UTC):%Y-%m}:lock") == 0
+
+
+async def test_budget_rebuild_lock_wait_shares_the_same_deadline(test_redis: Redis) -> None:
+    team = uuid.uuid4()
+    now = datetime.now(UTC)
+    key = f"lgw:budget:{team}:{now:%Y-%m}"
+    await test_redis.set(f"{key}:lock", "other-owner", ex=5)
+    service = LimitService(test_redis, fail_mode="closed", rebuild_timeout=0.04)
+    started = time.perf_counter()
+
+    with pytest.raises(GatewayError) as failure:
+        await service.admission(team, limits(budget="1"))
+
+    assert failure.value.code == "limits_unavailable"
+    assert time.perf_counter() - started < 0.3
+    assert await test_redis.get(f"{key}:lock") == b"other-owner"

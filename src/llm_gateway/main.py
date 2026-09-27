@@ -105,6 +105,7 @@ def create_app(
                 fail_mode=settings.limits.fail_mode,
                 lease_ttl=settings.limits.lease_ttl_s,
                 ip_limit=settings.limits.ip_failures_per_minute,
+                rebuild_timeout=settings.limits.budget_rebuild_timeout_s,
                 spend_total=usage_repository.month_spend if usage_repository is not None else None,
             )
         sink = usage_sink

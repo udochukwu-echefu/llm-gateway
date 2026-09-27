@@ -407,6 +407,9 @@ yet be durable. Fail **open** means Redis trouble permits traffic (availability 
 fail **closed** means 503 until Redis recovers (cost control wins). Redis errors are
 logged without flooding. `/readyz` checks Redis but reports ready during an outage
 in open mode.
+The first request after a lost budget key can briefly wait for a Postgres rebuild.
+That rebuild has one deadline (200 ms by default, including any lock wait); a timeout
+uses the same open/closed policy rather than holding up the request indefinitely.
 
 Failed badge checks are also counted by socket IP *before* database lookup. An
 untrusted `X-Forwarded-For` is just client-supplied text; if we believed it, an attacker

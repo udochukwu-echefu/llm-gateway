@@ -39,6 +39,7 @@ class LimitService:
         fail_mode: str = "open",
         lease_ttl: int = 900,
         ip_limit: int = 20,
+        rebuild_timeout: float = 0.2,
         clock: Callable[[], float] = time.time,
         spend_total: Callable[[uuid.UUID, datetime, datetime], Awaitable[Decimal]] | None = None,
     ) -> None:
@@ -47,6 +48,7 @@ class LimitService:
         self.fail_mode = fail_mode
         self.lease_ttl = lease_ttl
         self.ip_limit = ip_limit
+        self.rebuild_timeout = rebuild_timeout
         self.clock = clock
         self.spend_total = spend_total
         self._last_error = 0.0
@@ -59,7 +61,7 @@ class LimitService:
             return await operation()
         except Exception as exc:
             if self.clock() - self._last_error >= 1 or self._last_error == 0:
-                log.error("limits_redis_unavailable", error_type=type(exc).__name__)
+                log.error("limits_dependency_unavailable", error_type=type(exc).__name__)
                 self._last_error = self.clock()
             if self.fail_mode == "closed":
                 raise GatewayError(
@@ -186,7 +188,8 @@ class LimitService:
     ) -> list[int]:
         key = f"lgw:budget:{team}:{now:%Y-%m}"
         if not cast(int, await self.client.exists(key)):
-            await self._initialize_budget(team, key, now)
+            async with asyncio.timeout(self.rebuild_timeout):
+                await self._initialize_budget(team, key, now)
         ttl = max(1, math.ceil((month_end(now) - now).total_seconds()) + 60)
         result = await self.scripts.call(
             "budget",
@@ -204,8 +207,9 @@ class LimitService:
 
     async def _initialize_budget(self, team: uuid.UUID, key: str, now: datetime) -> None:
         lock = f"{key}:lock"
+        owner = uuid.uuid4().hex
         for _ in range(50):
-            if cast(bool, await self.client.set(lock, "1", nx=True, ex=5)):
+            if cast(bool, await self.client.set(lock, owner, nx=True, ex=5)):
                 try:
                     if not cast(int, await self.client.exists(key)):
                         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -221,7 +225,7 @@ class LimitService:
                             ex=max(1, math.ceil((month_end(now) - now).total_seconds()) + 60),
                         )
                 finally:
-                    await self.client.delete(lock)
+                    await self.scripts.call("unlock", [lock], [owner])
                 return
             if cast(int, await self.client.exists(key)):
                 return
@@ -256,7 +260,8 @@ class LimitService:
         # Initialization also makes the month visible to all other replicas before incrementing.
         async def add_cost() -> None:
             if not cast(int, await self.client.exists(key)):
-                await self._initialize_budget(team, key, now)
+                async with asyncio.timeout(self.rebuild_timeout):
+                    await self._initialize_budget(team, key, now)
             threshold = (
                 picos(limits.monthly_budget_usd * limits.alert_threshold)
                 if limits.monthly_budget_usd

@@ -203,6 +203,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_LIMITS__IP_FAILURES_PER_MINUTE` | `20` | Failed authentications per client IP |
 | `GATEWAY_LIMITS__LEASE_TTL_S` | `900` | Lease expiry; active requests renew periodically; set longer than any expected renewal stall |
 | `GATEWAY_LIMITS__REDIS_TIMEOUT_S` | `0.05` | Redis socket timeout in seconds |
+| `GATEWAY_LIMITS__BUDGET_REBUILD_TIMEOUT_S` | `0.2` | Total budget rebuild deadline (Postgres query and Redis lock wait); timeout follows fail mode |
 | `GATEWAY_LIMITS__FAIL_MODE` | `open` | `open` permits traffic if Redis fails; `closed` returns 503 |
 | `GATEWAY_TRUSTED_PROXY_HOPS` | `0` | Number of trusted proxy hops from right of X-Forwarded-For; 0 trusts only socket |
 | `GATEWAY_API_KEY_PEPPER` | required | Private 32+ byte HMAC pepper; rotating it invalidates all keys |

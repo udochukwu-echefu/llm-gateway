@@ -439,7 +439,7 @@ means each caller waits a different random time, from zero to a growing maximum
 wait instead; waits above the cap move straight to the next approved alternative.
 A **retry budget** permits only one retry for every five first attempts in the last
 minute. Otherwise a small outage could triple the traffic and overwhelm the surviving
-capacity. A fresh process begins without retry credit. One 60-second stopwatch covers
+capacity. Step 8 adds a minimum allowance of ten retries per provider per window. One 60-second stopwatch covers
 all attempts and waits; each attempt gets only the time remaining. For streaming, this
 stopwatch stops at the first chunk, while the normal silence timeout remains.
 
@@ -485,9 +485,74 @@ costs; the best-effort writer has not become an invoice ledger.
 See [ADR 0012](adr/0012-safe-retries.md) and
 [ADR 0013](adr/0013-breakers-and-approved-fallbacks.md).
 
+## Step 8: see the service and account for administrative changes
+
+**Metrics, logs and traces** answer different questions. Metrics are a car's dashboard:
+traffic, errors, speed and fuel consumption at a glance. Logs are its trip diary: individual
+metadata entries explaining events. A trace is the GPS track of one journey: a server
+request contains authentication, admission checks, each provider attempt and usage enqueue.
+A trace ID joins that journey to JSON logs from the gateway, uvicorn and other libraries.
+No prompts, answers, vectors, credentials or exception messages go into traces.
+
+**Cardinality** is the number of different labelled series. A counter for four providers
+is small; a counter for millions of request IDs is not. Metrics use only fixed routes,
+configured providers, reviewed catalogue models and bounded outcomes/reasons. Unknown paths
+become `other`. They never use team, key, user, request or IP labels. Per-team reporting
+stays in Postgres. Each app owns an injected registry, so tests and app instances cannot
+share accidental global counters. The metrics socket defaults to `127.0.0.1:9464`, separate
+from the customer API; traffic and spend should not be public.
+
+A **percentile** describes the slow tail. p99 is the duration below which 99 of 100 requests
+finish. An average can look healthy while one customer in a hundred waits much longer.
+The dashboard shows p50 and p99. Gateway overhead subtracts time awaiting providers from
+elapsed request time; for streams both measurements stop at the first nonempty body byte.
+Provider reads are timed while awaiting each chunk, excluding client backpressure between
+chunks. Retries contribute all their provider waits; backoff remains gateway overhead.
+The target is overhead below 10 ms at p99: the gateway controls its own delay, not how fast
+a model generates an answer. This implementation measures overhead; it does not claim the
+step 12 load-test target has already been proven.
+
+Token and cost counters record known per-attempt usage, even when the receipt queue drops a
+record. Cached tokens are a subset of input and reasoning tokens a subset of output; don't
+add those subsets twice. `cost_usd_total` is a monitoring trend, **not the accounting record**;
+Postgres is the accounting record, with the best-effort limitations explained in step 5.
+Queue depth, drops and losses make missing receipts visible. Circuit states are 0 closed,
+1 half-open and 2 open. Prometheus alert rules flag persistent circuits, error rates,
+overhead, receipt losses and rising Redis errors. Delivery to a paging service is deferred.
+
+Tracing uses manual spans and an application-owned OpenTelemetry provider. Without an OTLP
+endpoint there is no exporter or exporter thread. Incoming W3C `traceparent` is accepted;
+external providers do not receive trace context unless an operator explicitly opts in.
+The local profile runs a provisioned Grafana dashboard, Prometheus and Jaeger. The container's
+metrics socket binds internally to all interfaces so Prometheus can scrape it, but it has
+no published host port. All published local UI and API ports bind to loopback.
+
+**The audit hash chain** is a numbered notebook where every page includes a fingerprint of
+the previous page. Editing an old page changes its fingerprint and breaks the next link.
+Each event hashes its previous hash plus canonical JSON: sorted keys, compact UTF-8, UTC
+microsecond timestamps, and no floating-point amounts. An advisory lock is the notebook's
+single pen: one transaction owns it until commit or rollback, so concurrent operators
+cannot write two different next pages. Sequence IDs can have gaps after rolled-back writes;
+verification follows the hash links, not consecutive numbers.
+
+Every admin change and its event commit together. A database trigger rejects updates and
+deletes; verification reports the first broken link. Details are an allowlist of numeric
+limit/budget changes, never arbitrary command arguments, names, keys, hashes or URLs.
+The actor comes from `GATEWAY_ADMIN_ACTOR`, or OS username and hostname. It identifies an
+operator's claim, not an authenticated person. A database owner can disable the trigger and
+rewrite the whole chain or remove its tail; detecting that requires an externally retained
+trusted hash/checkpoint. This is tamper evidence, not protection against the database owner.
+
+The retry budget now has a minimum allowance of ten retries per provider per rolling minute,
+or 20% of first attempts when that is larger. The amounts are not added. This lets low-traffic
+requests recover without removing the proportional protection at higher traffic. Cancellation
+is recorded as `client_disconnected`; unexpected attempt failures as `gateway_error`, and
+both abandon an exclusive half-open probe safely. See ADRs 0012, 0014 and 0015.
+
 ## What the gateway deliberately does NOT do yet
 
 - No response caching (step 10).
-- No HTTP admin API or audit log yet (steps 12 and 8).
+- No HTTP admin API yet (step 12).
 
 See [roadmap.md](roadmap.md) for the order.
+

@@ -22,7 +22,11 @@ groups:
         annotations:
           summary: Usage receipts were dropped or lost; reconcile accounting
       - alert: GatewayHighOverhead
-        expr: histogram_quantile(0.99, sum by (le, route) (rate(lgw_gateway_overhead_seconds_bucket[5m]))) > 0.01
+        # After quiet periods, cold key lookups and budget rebuilds can dominate
+        # sparse p99 samples. Require at least 1 request/s per route over 5m.
+        expr: >-
+          (histogram_quantile(0.99, sum by (le, route) (rate(lgw_gateway_overhead_seconds_bucket[5m]))) > 0.01)
+          and on(route) (sum by (route) (rate(lgw_requests_total[5m])) >= 1)
         for: 10m
         labels:
           severity: warning

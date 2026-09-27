@@ -26,6 +26,13 @@ lifetime. Known tokens and costs count once per receipt before queue admission, 
 receipt does not hide actual measured spend. Cost counters are monitoring trends; Postgres
 is the accounting record and still subject to ADR 0009's loss limitations.
 
+Evaluate the high-overhead alert only for routes averaging at least 1 request/s over
+five minutes, matching the traffic guard to the histogram's window and route label.
+After quiet periods, cold Postgres key lookups and budget rebuilds can take roughly
+40 ms and dominate p99 in small samples; a 20-request burst triggered a pending alert.
+The traffic guard avoids treating those sparse cold paths as sustained overhead trouble;
+the 10 ms p99 threshold and ten-minute alert duration remain unchanged.
+
 Use manual OpenTelemetry server, authenticate, limits.admission, client attempt and
 usage.enqueue spans. Each app owns its provider; no global tracer provider or automatic HTTP
 instrumentation. Only `GATEWAY_TRACING__OTLP_ENDPOINT` enables the OTLP/HTTP exporter (supply

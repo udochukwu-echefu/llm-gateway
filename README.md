@@ -3,9 +3,9 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 5 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
-> Gemini or OpenAI. Every `/v1` request requires a gateway-issued key. Rate limits and
-> budgets are not yet implemented; do not expose this service publicly. See the
+> **Status: step 6 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
+> team limits and budgets across replicas. See the
 > [roadmap](docs/roadmap.md).
 
 ## Quick start
@@ -64,7 +64,7 @@ client.chat.completions.create(
 | `POST /v1/embeddings` | Only catalogued embedding models; currently `openai/text-embedding-3-small` |
 | `GET /v1/models` | Authenticated OpenAI-compatible list of reviewed models for configured providers |
 | `GET /healthz` | Liveness |
-| `GET /readyz` | Database readiness (503 when unavailable) |
+| `GET /readyz` | Database and Redis readiness (Redis outage keeps it ready in fail-open mode) |
 
 `/healthz` and `/readyz` are public; `/v1/*` requires `Authorization: Bearer lgw_...`.
 Missing, unknown, revoked and expired keys all receive the same 401 body. Manage keys
@@ -104,6 +104,35 @@ uv run gateway-admin usage example-org --team example-team --since 2026-09-01 --
 The CLI aggregates in SQL and prints request count, token sums, total USD and
 counts of `usage_missing` and `stream_incomplete` so unpriced calls stay visible.
 
+## Team limits and budgets
+
+`docker compose up -d` starts Postgres **and Redis**. Use `GATEWAY_REDIS_URL` for
+deployments with a separate Redis; like the database URL it may contain a password
+and is resolved by the secret store. Migrate before administering limits:
+
+```bash
+uv run gateway-admin set-limits example-org example-team --rpm 60 --tpm 120000 --max-concurrency 4
+uv run gateway-admin set-budget example-org example-team 25.00 --alert-at 0.8
+uv run gateway-admin show-limits example-org example-team
+uv run gateway-admin clear-limits example-org example-team
+```
+
+NULL team values inherit global defaults. A zero (or unset) default means unlimited.
+Limit updates become visible when the verified-key cache expires (30 seconds by default).
+RPM checks at admission; TPM adds actual tokens only once the response ends. A finite
+concurrency limit bounds the number of in-flight calls that can overshoot TPM. Monthly
+USD budgets block at 100%; one `budget_alert` warning per team and month occurs at
+the threshold. Unknown or missing usage and in-flight calls are not included; this
+is not an exact billing ceiling.
+
+Authenticated responses carry `x-ratelimit-limit-requests`,
+`x-ratelimit-remaining-requests`, `x-ratelimit-reset-requests` and the same three
+`-tokens` headers (reset and `Retry-After` are seconds). `429 rate_limit_exceeded`
+is RPM, TPM or failed-IP authentication; `429 concurrency_limit_exceeded` has
+`Retry-After: 1`; `429 budget_exceeded` has type `insufficient_quota` and retries
+next month. If Redis is unavailable, the default `open` mode allows requests and
+logs a bounded error; `closed` returns `503 limits_unavailable`.
+
 ## Development
 
 ```bash
@@ -113,11 +142,13 @@ uv run ruff format .     # format
 uv run pyright           # strict type check
 uv run --env-file .env pytest -m live  # opt-in smoke calls, skipped for missing keys
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
+GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
 ```
 
-CI runs all four plus migrations and Postgres tests, then builds and smoke-tests the image.
+CI runs all four plus migrations, Postgres and Redis tests, then builds and smoke-tests the image.
 Database tests skip locally without `GATEWAY_TEST_DATABASE_URL` and fail rather than skip
 in CI. Each test session creates and drops a fresh database.
+Redis tests skip locally without `GATEWAY_TEST_REDIS_URL` and fail in CI without it.
 
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
 (load `.env` explicitly with `uv run --env-file .env`), and optional matching `BASE_URL`
@@ -165,6 +196,15 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
 | `GATEWAY_DATABASE_URL` | required | Postgres asyncpg URL (contains a password) |
+| `GATEWAY_REDIS_URL` | `redis://127.0.0.1:6379/0` | Redis URL, resolved via secret store |
+| `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
+| `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
+| `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |
+| `GATEWAY_LIMITS__IP_FAILURES_PER_MINUTE` | `20` | Failed authentications per client IP |
+| `GATEWAY_LIMITS__LEASE_TTL_S` | `900` | Lease expiry; set longer than longest allowed stream |
+| `GATEWAY_LIMITS__REDIS_TIMEOUT_S` | `0.05` | Redis socket timeout in seconds |
+| `GATEWAY_LIMITS__FAIL_MODE` | `open` | `open` permits traffic if Redis fails; `closed` returns 503 |
+| `GATEWAY_TRUSTED_PROXY_HOPS` | `0` | Number of trusted proxy hops from right of X-Forwarded-For; 0 trusts only socket |
 | `GATEWAY_API_KEY_PEPPER` | required | Private 32+ byte HMAC pepper; rotating it invalidates all keys |
 | `GATEWAY_SECRETS__BACKEND` | `env` | `env` or `file` |
 | `GATEWAY_SECRETS__DIR` | unset | Required for file backend; mode 0700 directory, 0600 files |
@@ -175,7 +215,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_USAGE_FLUSH_INTERVAL_S` | `1` | Maximum seconds before a partial batch is inserted |
 | `GATEWAY_USAGE_SHUTDOWN_TIMEOUT_S` | `10` | Maximum seconds to drain on shutdown |
 
-In file mode, names are `api_key_pepper`, `database_url`, and
+In file mode, names are `api_key_pepper`, `database_url`, `redis_url`, and
 `providers__<provider>__api_key`; one trailing newline is removed. Kubernetes' atomic
 `..data` symlinks work when their targets stay inside the secret directory. Kubernetes
 deployments must set `defaultMode: 0400` (and `fsGroup` if needed for access); the
@@ -215,5 +255,7 @@ only explicit documented restrictions or nonexistent endpoints are rejected loca
   [ADR 0006: key security](docs/adr/0006-virtual-api-keys.md),
    [ADR 0007: secret store and CLI](docs/adr/0007-secret-store-and-cli.md),
    [ADR 0008: reviewed catalogue](docs/adr/0008-reviewed-model-catalogue.md),
-   [ADR 0009: usage writer](docs/adr/0009-batched-usage-writer.md).
+   [ADR 0009: usage writer](docs/adr/0009-batched-usage-writer.md),
+   [ADR 0010: Redis limits](docs/adr/0010-redis-limits.md),
+   [ADR 0011: budgets and failure mode](docs/adr/0011-budgets-and-failure.md).
 - [Security threat model](docs/security/threat-model.md)

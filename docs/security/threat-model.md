@@ -9,7 +9,10 @@ ratings are qualitative for this early deployment.
 | Stolen client key | Plausible / high | One key per team; revoke it; TLS in deployment | It works until revoked, and up to 30 s longer per replica; no per-key limits yet |
 | Database leak | Unlikely / high | Store only HMAC hashes, keep pepper outside DB | DB plus pepper permits offline verification attempts; rotate and reissue if both leak |
 | Log leak | Plausible / high | Never log bearer/provider secrets or prompt content; log verified public IDs only | Request metadata still reveals tenant activity; restrict log access |
-| Brute-forcing keys | Unlikely with random keys / high | 256-bit random secret; generic 401 | No rate limiting until step 6; online attempts still consume resources |
+| Brute-forcing keys | Unlikely with random keys / high | 256-bit random secret; generic 401; failed authentications limited per IP before key lookup | Attackers with many IPs can spread attempts; Redis fail-open admits during outages |
+| Forged forwarded client IP | Plausible / medium | Ignore X-Forwarded-For unless trusted proxy hops are configured; otherwise use socket IP | Only deploy with the correct proxy hop count and block direct access to the gateway |
+| Redis outage | Plausible / high | 50 ms timeout, rate-limited error log, choose fail-open or fail-closed | Open favors availability but disables limits; closed blocks legitimate traffic |
+| Noisy team starving others | Plausible / medium | Per-team concurrency leases cap simultaneous calls and self-heal after crashes | Shared provider pool can still be busy; configure appropriate team limits |
 | Learning which key IDs exist | Plausible / medium | Generic errors, null unverified ID in logs, dummy constant-time comparison | Database lookup and network variance may still differ; no strict timing guarantee |
 | Revocation delay | Likely after urgent revocation / medium | 30-second bounded successful-key cache; hits never extend the TTL | Revocation takes effect within TTL seconds of revocation, even for a key in continuous use, on **each** replica |
 | Leaked provider key | Plausible / high | Resolve via secret store, mask in settings; never send to clients | Rotate it at the provider; an attacker can spend directly until revoked |

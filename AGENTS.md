@@ -17,8 +17,9 @@ uv run pytest -q             # tests (must not touch the network)
 uv run ruff check .          # lint
 uv run ruff format .         # format
 uv run pyright               # strict type check
-docker compose up -d         # start local Postgres
+docker compose up -d         # start local Postgres and Redis
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
+GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
 ```
 
 ## Definition of done (every task)
@@ -38,6 +39,8 @@ All of these must hold before you report a task as finished:
    anything you could not verify, and any spec requirement you did not meet.
 8. Start Postgres with `docker compose up -d` and run database tests with
    `GATEWAY_TEST_DATABASE_URL` set; report that result separately.
+9. Start Redis with `docker compose up -d` and run Redis tests with
+   `GATEWAY_TEST_REDIS_URL` set; report that result separately.
 
 ## Code organisation
 

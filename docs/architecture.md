@@ -369,9 +369,53 @@ as `usage_missing`. `gateway-admin usage` aggregates costs and missing counts
 in SQL so NULL costs aren't hidden in the sum. See [ADR 0008](adr/0008-reviewed-model-catalogue.md)
 and [ADR 0009](adr/0009-batched-usage-writer.md).
 
+## Step 6: limits as a shared turnstile
+
+Redis is the shared turnstile for all gateway copies: each team has optional requests
+per minute, recorded tokens per minute, simultaneous requests, and monthly USD spend
+limits. A zero or unset default means **unlimited**. Team overrides live next to the
+key's team in Postgres and arrive in the same database lookup as the badge; changes
+become visible within the verified-key cache's TTL (30 seconds by default).
+
+**Why a Lua script?** Imagine two librarians each see nine tickets used out of ten.
+If they separately read and then write the tally, both admit a tenth visitor: eleven
+get in. A Redis Lua script checks and updates without letting the other librarian
+interleave, so exactly one gets the final ticket.
+
+**Sliding window:** At 12:01:30, the last 60 seconds cover half of 12:00 and half of
+12:01. If 12:00 had ten requests and 12:01 has two, the estimate is
+`10 × 0.5 + 2 = 7`. A fixed window would forget the ten at 12:01:00 and invite a
+boundary burst; a token bucket instead refills continuously. RPM adds a ticket when
+admitted. TPM checks previously recorded tokens and adds actual input plus output
+after the call, because the answer length is unknown ahead of time. In-flight calls
+can overshoot TPM; the number of such calls is bounded by the team's concurrency limit
+when one is configured (unlimited concurrency does not bound it).
+
+A concurrency **lease** is like a library book with a due date: it is checked out
+until the entire response ends, even if the client disconnects. If a gateway dies,
+the due date eventually frees its slot. Merely counting active calls with increment
+and decrement could leave a slot occupied forever after a crash. Configure a lease
+TTL longer than the longest stream allowed in your deployment.
+
+Budgets count exact integer pico-dollars (a trillionth of a USD) in Redis. Postgres
+receipts rebuild a missing month counter, and one warning per month is logged when the
+configured threshold is crossed. It is a **guard rail**, not a bank balance: unfinished
+calls and calls without token usage have unknown costs, and queued receipts may not
+yet be durable. Fail **open** means Redis trouble permits traffic (availability wins);
+fail **closed** means 503 until Redis recovers (cost control wins). Redis errors are
+logged without flooding. `/readyz` checks Redis but reports ready during an outage
+in open mode.
+
+Failed badge checks are also counted by socket IP *before* database lookup. An
+untrusted `X-Forwarded-For` is just client-supplied text; if we believed it, an attacker
+could choose a fresh IP on each try. Only explicitly configured trusted proxy hops
+allow it to override the socket address. Valid badges do not reset bad-guess counts.
+
+See [ADR 0010](adr/0010-redis-limits.md) and [ADR 0011](adr/0011-budgets-and-failure.md).
+
 ## What the gateway deliberately does NOT do yet
 
-- No rate limits, budgets, retries, or response caching (steps 6–10).
+- No retries or response caching (steps 7–10).
 - No HTTP admin API or audit log yet (steps 12 and 8).
 
 See [roadmap.md](roadmap.md) for the order.

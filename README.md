@@ -106,8 +106,8 @@ counts of `usage_missing` and `stream_incomplete` so unpriced calls stay visible
 
 ## Team limits and budgets
 
-`docker compose up -d` starts Postgres **and Redis**. Use `GATEWAY_REDIS_URL` for
-deployments with a separate Redis; like the database URL it may contain a password
+`docker compose up -d` starts Postgres **and Redis**. Set `GATEWAY_REDIS_URL` explicitly;
+the gateway refuses to start without it. Like the database URL it may contain a password
 and is resolved by the secret store. Migrate before administering limits:
 
 ```bash
@@ -196,7 +196,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
 | `GATEWAY_DATABASE_URL` | required | Postgres asyncpg URL (contains a password) |
-| `GATEWAY_REDIS_URL` | `redis://127.0.0.1:6379/0` | Redis URL, resolved via secret store |
+| `GATEWAY_REDIS_URL` | required | Redis URL, resolved via secret store; no implicit localhost fallback |
 | `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |

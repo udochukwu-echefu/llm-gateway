@@ -15,7 +15,7 @@ from llm_gateway.catalog import Catalog
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
 from llm_gateway.usage.record import UsageRecord
-from tests.conftest import MemoryKeyRepository
+from tests.conftest import MemoryKeyRepository, OfflineLimitService
 from tests.fixtures import CHAT_REQUEST, COMPLETION, EMBEDDINGS, STREAM, USAGE_CHUNK, sse
 
 
@@ -33,6 +33,7 @@ def recorded_app(
         key_repository=memory_repository,
         catalog=test_catalog,
         usage_sink=sink,
+        limit_service=OfflineLimitService(),
     )
     return app, records
 
@@ -236,6 +237,7 @@ async def test_gemini_embedding_without_usage_is_not_given_an_estimated_token_co
         key_repository=memory_repository,
         catalog=test_catalog,
         usage_sink=sink,
+        limit_service=OfflineLimitService(),
     )
     upstream.post("/embeddings").respond(
         200, json={key: value for key, value in EMBEDDINGS.items() if key != "usage"}
@@ -387,6 +389,7 @@ async def test_full_usage_queue_does_not_delay_successful_requests(
         key_repository=memory_repository,
         catalog=test_catalog,
         usage_sink=blocked_sink,
+        limit_service=OfflineLimitService(),
     )
     upstream.post("/chat/completions").respond(200, json=COMPLETION)
     async with (

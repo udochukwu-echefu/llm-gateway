@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
 from llm_gateway.tenants.cache import VerifiedKeyCache
-from tests.conftest import TEST_PEPPER
+from tests.conftest import TEST_PEPPER, OfflineLimitService
 
 
 def unique_name(prefix: str) -> str:
@@ -72,4 +72,9 @@ class DatabaseTestStore:
 def database_app(
     settings: Settings, database_url: str, cache: VerifiedKeyCache | None = None
 ) -> FastAPI:
-    return create_app(settings, secret_store=DatabaseTestStore(database_url), key_cache=cache)
+    return create_app(
+        settings,
+        secret_store=DatabaseTestStore(database_url),
+        key_cache=cache,
+        limit_service=OfflineLimitService(),
+    )

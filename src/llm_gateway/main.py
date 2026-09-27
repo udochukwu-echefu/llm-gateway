@@ -62,6 +62,8 @@ def create_app(
         raise ValueError("GATEWAY_API_KEY_PEPPER is required and must be at least 32 bytes")
     if database_url is None or not database_url.get_secret_value():
         raise ValueError("GATEWAY_DATABASE_URL is required")
+    if limit_service is None and (redis_url is None or not redis_url.get_secret_value()):
+        raise ValueError("GATEWAY_REDIS_URL is required")
     provider_blocks = settings.providers.model_dump()
     for name in provider_blocks:
         value = store.get(f"providers__{name}__api_key")
@@ -90,11 +92,11 @@ def create_app(
         )
         redis_client: Redis | None = None
         limits = limit_service
-        if limits is None and (redis_url is not None or key_repository is None):
+        if limits is None:
+            if redis_url is None:
+                raise RuntimeError("Redis URL was not resolved")
             redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
-                redis_url.get_secret_value()
-                if redis_url is not None
-                else "redis://127.0.0.1:6379/0",
+                redis_url.get_secret_value(),
                 socket_timeout=settings.limits.redis_timeout_s,
                 socket_connect_timeout=settings.limits.redis_timeout_s,
             )

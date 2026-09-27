@@ -1,9 +1,11 @@
 import os
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from llm_gateway.config import ProviderSettings, ProvidersSettings, Settings
+from llm_gateway.main import create_app
+from tests.conftest import TEST_DATABASE_URL, TEST_PEPPER, MemoryKeyRepository
 
 
 def test_base_url_is_optional_without_populating_defaults() -> None:
@@ -55,3 +57,20 @@ def test_invalid_base_urls_fail_startup(monkeypatch: pytest.MonkeyPatch, url: st
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)  # pyright: ignore[reportCallIssue]  # runtime settings option
+
+
+def test_missing_redis_url_fails_app_startup_without_localhost_fallback(
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+) -> None:
+    class Store:
+        def get(self, name: str) -> SecretStr | None:
+            values = {
+                "api_key_pepper": TEST_PEPPER,
+                "database_url": TEST_DATABASE_URL,
+                "providers__groq__api_key": "fake-provider-key",
+            }
+            return SecretStr(values[name]) if name in values else None
+
+    with pytest.raises(ValueError, match="GATEWAY_REDIS_URL is required"):
+        create_app(settings, key_repository=memory_repository, secret_store=Store())

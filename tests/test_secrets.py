@@ -130,7 +130,9 @@ async def test_file_backend_resolves_provider_keys_from_store(settings: Settings
         update={"secrets": settings.secrets.model_copy(update={"backend": "file"})}
     )
 
-    app: FastAPI = create_app(configured, secret_store=Store())
+    from tests.conftest import OfflineLimitService
+
+    app: FastAPI = create_app(configured, secret_store=Store(), limit_service=OfflineLimitService())
 
     async with app.router.lifespan_context(app):
         assert [name for name, _ in get_app_state(app).settings.providers.enabled()] == ["groq"]

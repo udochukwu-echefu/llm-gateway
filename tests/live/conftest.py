@@ -12,7 +12,7 @@ from llm_gateway.main import create_app
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import KeyRecord
 from llm_gateway.usage.record import UsageRecord
-from tests.conftest import MemoryKeyRepository
+from tests.conftest import MemoryKeyRepository, OfflineLimitService
 from tests.live.models import PROVIDERS, LiveProvider, resolve_live_models
 
 
@@ -62,7 +62,13 @@ async def live_client(
     async def sink(records: Sequence[UsageRecord]) -> None:
         live_records.extend(records)
 
-    app = create_app(settings, key_repository=repo, secret_store=LiveStore(), usage_sink=sink)
+    app = create_app(
+        settings,
+        key_repository=repo,
+        secret_store=LiveStore(),
+        usage_sink=sink,
+        limit_service=OfflineLimitService(),
+    )
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(

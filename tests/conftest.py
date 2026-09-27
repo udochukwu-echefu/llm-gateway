@@ -16,9 +16,12 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
+from llm_gateway.limits.configuration import EffectiveLimits
+from llm_gateway.limits.service import LimitService
 from llm_gateway.main import create_app
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import KeyRecord
+from llm_gateway.usage.record import UsageRecord
 
 UPSTREAM_URL = "https://upstream.test/v1"
 UPSTREAM_KEY = "sk-upstream-test"
@@ -37,6 +40,38 @@ class MemoryKeyRepository:
     async def ping(self) -> None:
         if not self.available:
             raise ConnectionError("database unavailable")
+
+
+class OfflineRedis(Redis):
+    async def ping(self, **kwargs: object) -> bool:
+        return True
+
+
+class OfflineLimitService(LimitService):
+    """No network I/O in ordinary tests; real limit behavior uses the redis marker."""
+
+    def __init__(self) -> None:
+        super().__init__(OfflineRedis())
+
+    async def ip_check(self, ip: str) -> None:
+        pass
+
+    async def ip_failure(self, ip: str) -> None:
+        pass
+
+    async def admission(
+        self, team: uuid.UUID, limits: EffectiveLimits
+    ) -> tuple[str | None, dict[str, str]]:
+        return None, {}
+
+    async def finish(
+        self,
+        team: uuid.UUID,
+        lease: str | None,
+        record: UsageRecord | None,
+        limits: EffectiveLimits,
+    ) -> None:
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -128,7 +163,12 @@ def test_catalog() -> Catalog:
 def app(
     settings: Settings, memory_repository: MemoryKeyRepository, test_catalog: Catalog
 ) -> FastAPI:
-    return create_app(settings, key_repository=memory_repository, catalog=test_catalog)
+    return create_app(
+        settings,
+        key_repository=memory_repository,
+        catalog=test_catalog,
+        limit_service=OfflineLimitService(),
+    )
 
 
 @pytest.fixture

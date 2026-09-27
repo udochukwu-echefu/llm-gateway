@@ -195,8 +195,10 @@ async def run(args: argparse.Namespace) -> str:
         service = None
         if args.command == "show-limits":
             redis_url = store.get("redis_url")
+            if redis_url is None or not redis_url.get_secret_value():
+                raise ValueError("GATEWAY_REDIS_URL is required for show-limits")
             redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
-                redis_url.get_secret_value() if redis_url else "redis://127.0.0.1:6379/0",
+                redis_url.get_secret_value(),
                 socket_timeout=0.05,
                 socket_connect_timeout=0.05,
             )

@@ -7,7 +7,7 @@ from llm_gateway.catalog import Catalog
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
 from llm_gateway.providers.registry import ADAPTER_TYPES
-from tests.conftest import MemoryKeyRepository
+from tests.conftest import MemoryKeyRepository, OfflineLimitService
 from tests.fixtures import COMPLETION
 
 
@@ -26,7 +26,12 @@ async def test_all_providers_are_available_in_one_app(
             }
         ),
     )
-    app = create_app(settings, key_repository=memory_repository, catalog=test_catalog)
+    app = create_app(
+        settings,
+        key_repository=memory_repository,
+        catalog=test_catalog,
+        limit_service=OfflineLimitService(),
+    )
     async with (
         app.router.lifespan_context(app),
         httpx.AsyncClient(

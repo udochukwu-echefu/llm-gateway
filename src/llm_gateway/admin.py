@@ -198,6 +198,7 @@ async def run(args: argparse.Namespace) -> str:
             redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
                 redis_url.get_secret_value() if redis_url else "redis://127.0.0.1:6379/0",
                 socket_timeout=0.05,
+                socket_connect_timeout=0.05,
             )
             service = LimitService(
                 redis_client, spend_total=PostgresUsageRepository(sessions).month_spend

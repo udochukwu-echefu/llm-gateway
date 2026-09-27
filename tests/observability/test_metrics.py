@@ -5,6 +5,7 @@ from prometheus_client import CollectorRegistry
 from llm_gateway.observability.metrics import Metrics
 
 EXPECTED = {
+    "guardrail_findings": ("counter", ("direction", "detector", "action")),
     "requests": ("counter", ("route", "status_class")),
     "request_duration_seconds": ("histogram", ("route",)),
     "time_to_first_byte_seconds": ("histogram", ("route",)),
@@ -49,6 +50,9 @@ def test_every_registered_metric_has_exact_type_and_bounded_label_names() -> Non
             "operation",
             "endpoint",
             "result",
+            "direction",
+            "detector",
+            "action",
         }
         for metric in collector.collect():
             actual[metric.name.removeprefix("lgw_")] = metric.type, labels

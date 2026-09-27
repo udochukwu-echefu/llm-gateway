@@ -81,6 +81,8 @@ async def test_span_tree_genai_privacy_and_propagation(
         "limits.admission",
         "chat llama-3.3-70b-versatile",
         "usage.enqueue",
+        "guardrails.input",
+        "guardrails.output",
     }
     server = next(s for s in spans if s.kind == SpanKind.SERVER)
     attempt = next(s for s in spans if s.kind == SpanKind.CLIENT)

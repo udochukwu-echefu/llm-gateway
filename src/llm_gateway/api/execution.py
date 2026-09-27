@@ -4,11 +4,9 @@ from datetime import UTC, datetime
 
 from fastapi import Request
 
-from llm_gateway.errors import GatewayError
 from llm_gateway.gateway_state import get_state
 from llm_gateway.resilience.execution import Execution
 from llm_gateway.routing.selection import available_models, resolve_model
-from llm_gateway.tenants.admission import admit
 from llm_gateway.tenants.auth import Principal
 
 
@@ -32,9 +30,4 @@ async def begin_execution(request: Request, model: str) -> Execution:
         alias=alias,
     )
     request.state.usage_events = execution.events
-    try:
-        await admit(request)
-    except GatewayError as exc:
-        exc.headers.update(execution.headers)
-        raise
     return execution

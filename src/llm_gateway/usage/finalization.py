@@ -33,6 +33,9 @@ async def finalize_usage(
             )
         except Exception:
             log.exception("usage_enqueue_failed", request_id=event.request_id)
+    cache_record = state.get("cache_record")
+    if isinstance(cache_record, UsageRecord):
+        records.append(cache_record)
     admitted = state.get("limit_admission")
     if admitted is not None:
         team, lease, limits = admitted

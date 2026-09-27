@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Request, Response
 
+from llm_gateway.api.caching import execute_with_cache
 from llm_gateway.api.common import parse_request, read_json_body, record_usage
 from llm_gateway.api.execution import begin_execution
 from llm_gateway.api.streaming import ProviderStreamingResponse
 from llm_gateway.context import annotate
 from llm_gateway.gateway_state import get_state
 from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionRequest
+from llm_gateway.schemas.embeddings import EmbeddingResponse
 
 router = APIRouter()
 
@@ -19,16 +21,28 @@ async def chat_completions(request: Request) -> Response:
     annotate(model=chat.model, stream=chat.stream)
     execution = await begin_execution(request, chat.model)
     chat = chat.model_copy(update={"model": execution.requested_model})
-    result = await state.resilience.execute_chat(chat, execution)
+    result, cache_result = await execute_with_cache(
+        request,
+        chat,
+        execution,
+        "chat",
+        ChatCompletion,
+        lambda: state.resilience.execute_chat(chat, execution),
+    )
+    headers = {**execution.headers, "x-lgw-cache": cache_result}
+    if state.telemetry is not None:
+        state.telemetry.metrics.cache_requests.labels("chat", cache_result).inc()
+    if isinstance(result, EmbeddingResponse):
+        raise RuntimeError("chat returned an embedding")
     if not isinstance(result, ChatCompletion):
         response = ProviderStreamingResponse(
             result, event=execution.events[-1], include_usage=chat.client_wants_stream_usage
         )
-        response.headers.update(execution.headers)
+        response.headers.update(headers)
         return response
     record_usage(result.usage)
     return Response(
         result.model_dump_json(exclude_unset=True),
         media_type="application/json",
-        headers=execution.headers,
+        headers=headers,
     )

@@ -17,9 +17,9 @@ if TYPE_CHECKING:
     from llm_gateway.tenants.auth import Principal
 
 Outcome = Literal[
-    "success", "upstream_error", "client_disconnected", "stream_error", "gateway_error"
+    "success", "upstream_error", "client_disconnected", "stream_error", "gateway_error", "cache_hit"
 ]
-CostStatus = Literal["priced", "usage_missing", "stream_incomplete", "not_billed"]
+CostStatus = Literal["priced", "usage_missing", "stream_incomplete", "not_billed", "cached"]
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ class UsageRecord:
     attempt: int = 1
     fallback_from: str | None = None
     alias: str | None = None
+    saved_usd: Decimal | None = None
 
 
 class UsageEvent:

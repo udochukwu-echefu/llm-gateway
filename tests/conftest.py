@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import os
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -64,6 +65,14 @@ class OfflineLimitService(LimitService):
     ) -> tuple[str | None, dict[str, str]]:
         return None, {}
 
+    async def request_admission(self, team: uuid.UUID, limits: EffectiveLimits) -> dict[str, str]:
+        return {}
+
+    async def remaining_admission(
+        self, team: uuid.UUID, limits: EffectiveLimits, rpm_headers: dict[str, str]
+    ) -> tuple[str | None, dict[str, str]]:
+        return None, rpm_headers
+
     async def finish(
         self,
         team: uuid.UUID,
@@ -93,6 +102,8 @@ def offline_by_default(
     monkeypatch.delenv("GATEWAY_TRACING__OTLP_ENDPOINT", raising=False)
     monkeypatch.setenv("GATEWAY_DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("GATEWAY_API_KEY_PEPPER", TEST_PEPPER)
+    monkeypatch.setenv("GATEWAY_CACHE_ENCRYPTION_KEY", base64.b64encode(b"a" * 32).decode())
+    monkeypatch.setenv("GATEWAY_CACHE__ENABLED", "false")
     with respx.mock(assert_all_called=False):
         yield
 
@@ -122,6 +133,7 @@ def settings() -> Settings:
         },
         log_format="console",
         max_request_bytes=4096,
+        cache={"enabled": False},
     )
 
 

@@ -13,6 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
 from llm_gateway.api import chat, embeddings, health, models
+from llm_gateway.cache.crypto import CacheCipher
+from llm_gateway.cache.service import ResponseCache
 from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
@@ -56,6 +58,7 @@ def create_app(
         "api_key_pepper": settings.api_key_pepper,
         "database_url": settings.database_url,
         "redis_url": settings.redis_url,
+        "cache_encryption_key": settings.cache_encryption_key,
         **{
             f"providers__{name}__api_key": block.api_key
             for name, block in vars(settings.providers).items()
@@ -69,6 +72,10 @@ def create_app(
     pepper = store.get("api_key_pepper")
     database_url = store.get("database_url")
     redis_url = store.get("redis_url")
+    cache_secret = store.get("cache_encryption_key") if settings.cache.enabled else None
+    if settings.cache.enabled and cache_secret is None:
+        raise ValueError("GATEWAY_CACHE_ENCRYPTION_KEY is required when caching is enabled")
+    cipher = CacheCipher(cache_secret) if cache_secret is not None else None
     if pepper is None or len(pepper.get_secret_value().encode()) < 32:
         raise ValueError("GATEWAY_API_KEY_PEPPER is required and must be at least 32 bytes")
     if database_url is None or not database_url.get_secret_value():
@@ -180,6 +187,18 @@ def create_app(
                     ),
                     limits=limits,
                     telemetry=telemetry,
+                    response_cache=(
+                        ResponseCache(
+                            limits.client,
+                            cipher,
+                            ttl=settings.cache.ttl_s,
+                            max_bytes=settings.cache.max_entry_bytes,
+                            timeout=settings.limits.redis_timeout_s,
+                            metrics=metrics,
+                        )
+                        if cipher is not None
+                        else None
+                    ),
                 )
                 writer.start()
                 if reconciler is not None:

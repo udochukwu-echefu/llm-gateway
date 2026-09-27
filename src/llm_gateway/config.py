@@ -87,6 +87,14 @@ class LimitsSettings(BaseModel):
     fail_mode: Literal["open", "closed"] = "open"
 
 
+class CacheSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    ttl_s: int = Field(default=3600, gt=0, le=7 * 24 * 3600)
+    max_entry_bytes: int = Field(default=1024 * 1024, gt=0)
+
+
 class Settings(BaseSettings):
     """Runtime configuration, read from GATEWAY_* environment variables (and `.env` locally).
 
@@ -102,6 +110,8 @@ class Settings(BaseSettings):
     api_key_pepper: SecretStr | None = None
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
+    cache_encryption_key: SecretStr | None = None
+    cache: CacheSettings = Field(default_factory=CacheSettings)
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
     tracing: TracingSettings = Field(default_factory=TracingSettings)

@@ -157,3 +157,19 @@ async def test_embeddings_share_retry_and_fallback_policy(resilient: ResilientAp
     assert fallback.call_count == 1
     assert response.headers["x-lgw-attempts"] == "4"
     assert response.json()["model"].startswith("gemini/")
+
+
+async def test_fallback_target_gets_its_own_retries(resilient: ResilientApp) -> None:
+    resilient.fallbacks("deepseek/model")
+    primary = resilient.router.post("https://groq.test/v1/chat/completions").respond(503)
+    target = resilient.router.post("https://deepseek.test/v1/chat/completions").mock(
+        side_effect=[httpx.Response(503), httpx.Response(503), httpx.Response(200, json=COMPLETION)]
+    )
+
+    response = await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+
+    assert response.status_code == 200
+    assert primary.call_count == 3
+    assert target.call_count == 3
+    assert response.headers["x-lgw-attempts"] == "6"
+    assert resilient.time.delays == [0.125, 0.25, 0.125, 0.25]

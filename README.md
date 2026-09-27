@@ -206,6 +206,10 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
 | `GATEWAY_DATABASE_URL` | required | Postgres asyncpg URL (contains a password) |
 | `GATEWAY_REDIS_URL` | required | Redis URL, resolved via secret store; no implicit localhost fallback |
+| `GATEWAY_CACHE_ENCRYPTION_KEY` | required when cache enabled | Base64-encoded 32-byte AES-256 key from secret store; never commit it |
+| `GATEWAY_CACHE__ENABLED` | `true` | Turn response caching off entirely with `false` |
+| `GATEWAY_CACHE__TTL_S` | `3600` | Cache lifetime in seconds, at most 604800 (7 days) |
+| `GATEWAY_CACHE__MAX_ENTRY_BYTES` | `1048576` | Largest serialized answer to cache |
 | `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |
@@ -226,7 +230,8 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_USAGE_FLUSH_INTERVAL_S` | `1` | Maximum seconds before a partial batch is inserted |
 | `GATEWAY_USAGE_SHUTDOWN_TIMEOUT_S` | `10` | Maximum seconds to drain on shutdown |
 
-In file mode, names are `api_key_pepper`, `database_url`, `redis_url`, and
+In file mode, names are `api_key_pepper`, `database_url`, `redis_url`,
+`cache_encryption_key`, and
 `providers__<provider>__api_key`; one trailing newline is removed. Kubernetes' atomic
 `..data` symlinks work when their targets stay inside the secret directory. Kubernetes
 deployments must set `defaultMode: 0400` (and `fsGroup` if needed for access); the
@@ -235,6 +240,24 @@ refused. Environment mode
 keeps `GATEWAY_PROVIDERS__*__API_KEY` (including `.env`) working. At least one nonempty
 provider key is required. Each enabled provider has its own connection pool;
 timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.
+
+## Response caching
+
+Identical embeddings are cached by default. Chat completions require the request header
+`x-lgw-cache: enabled`; `x-lgw-cache: disabled` always opts out. The response header
+`x-lgw-cache` is `hit`, `miss`, `bypass` (including streams and Redis outages), or
+`disabled`. A hit still spends one request-per-minute ticket, but no token, budget or
+concurrency capacity. Streams, `n > 1`, errors, oversized answers and fallback answers
+are never stored. Entries are isolated by team, encrypted in Redis and expire after the
+configured TTL. Changing the reviewed catalogue version changes the cache fingerprint.
+
+`gateway-admin cache purge <org> [--team T]` removes only that organization's or team's
+entries with Redis SCAN + UNLINK and appends an audit event. Stop concurrent writers first
+if strict invalidation matters; new requests may refill the cache during a purge.
+`gateway-admin usage <org>` shows `cache_hits` and `saved_usd` by group. Estimated savings
+use current reviewed prices; unknown provider token usage cannot be priced and leaves
+`saved_usd` NULL. Monitor `lgw_cache_requests_total` and `lgw_cache_saved_usd_total` on
+the private metrics socket.
 
 Use a reviewed alias or `<provider>/<model>` in requests. For concrete IDs, only the first slash is split:
 `groq/openai/gpt-oss-120b` routes to Groq with model `openai/gpt-oss-120b`.

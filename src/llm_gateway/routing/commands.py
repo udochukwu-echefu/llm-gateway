@@ -25,12 +25,14 @@ async def execute(args: argparse.Namespace, repository: PostgresKeyRepository) -
     models = [
         f"{entry.provider}/{entry.model}"
         for entry in catalog.models
-        if policy.allows(f"{entry.provider}/{entry.model}")
+        if policy.allows(f"{entry.provider}/{entry.model}", entry.region)
     ]
     aliases = [
         name
         for name, alias in catalog.aliases.items()
-        if any(policy.allows(target.model) for target in alias.targets)
+        if any(
+            policy.allows(target.model, catalog.region(target.model)) for target in alias.targets
+        )
     ]
     rows = [
         (

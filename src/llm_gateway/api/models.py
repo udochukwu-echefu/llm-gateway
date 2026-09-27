@@ -27,7 +27,7 @@ async def list_models(request: Request) -> dict[str, object]:
             {"id": f"{entry.provider}/{entry.model}", "object": "model", "owned_by": entry.provider}
             for entry in state.catalog.models
             if f"{entry.provider}/{entry.model}" in available
-            and principal.policy.allows(f"{entry.provider}/{entry.model}")
+            and principal.policy.allows(f"{entry.provider}/{entry.model}", entry.region)
         ]
         + [{"id": name, "object": "model", "owned_by": "gateway"} for name in aliases],
     }

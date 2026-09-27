@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from llm_gateway.audit.chain import append_event
 from llm_gateway.config import AdminSettings
+from llm_gateway.guardrails.policy import GuardrailPolicy, parse_actions, parse_regions
 from llm_gateway.limits.configuration import LimitOverrides
 from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.tenants.models import ApiKey, Organization, Team, TeamLimits, utc_now
@@ -28,6 +29,7 @@ class KeyRecord:
     revoked_at: datetime | None = None
     limits: LimitOverrides = field(default_factory=LimitOverrides)
     policy: ModelPolicy = field(default_factory=ModelPolicy)
+    guardrails: GuardrailPolicy = field(default_factory=GuardrailPolicy)
 
 
 class KeyRepository(Protocol):
@@ -55,6 +57,10 @@ class PostgresKeyRepository:
                     TeamLimits,
                     Organization.model_patterns,
                     Team.model_patterns,
+                    Organization.allowed_regions,
+                    Team.allowed_regions,
+                    Organization.guardrail_actions,
+                    Team.guardrail_actions,
                 )
                 .join(Team, ApiKey.team_id == Team.id)
                 .join(Organization, Team.organization_id == Organization.id)
@@ -64,7 +70,17 @@ class PostgresKeyRepository:
             row = result.one_or_none()
             if row is None:
                 return None
-            key, organization_id, raw_limits, org_patterns, team_patterns = row
+            (
+                key,
+                organization_id,
+                raw_limits,
+                org_patterns,
+                team_patterns,
+                org_regions,
+                team_regions,
+                org_actions,
+                team_actions,
+            ) = row
             limits = cast(TeamLimits | None, raw_limits)
             override = (
                 LimitOverrides()
@@ -88,6 +104,11 @@ class PostgresKeyRepository:
                 ModelPolicy(
                     tuple(org_patterns) if org_patterns is not None else None,
                     tuple(team_patterns) if team_patterns is not None else None,
+                    parse_regions(org_regions),
+                    parse_regions(team_regions),
+                ),
+                GuardrailPolicy(
+                    parse_actions(org_actions or []), parse_actions(team_actions or [])
                 ),
             )
 

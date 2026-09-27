@@ -84,7 +84,7 @@ class ResilienceService:
                 error = deadline_error()
                 break
             if index:
-                if not execution.principal.policy.allows(name):
+                if not execution.principal.policy.allows(name, self.catalog.region(name)):
                     continue
                 try:
                     target = resolve_target(

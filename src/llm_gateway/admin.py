@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
 from llm_gateway.audit import commands as audit_commands
 from llm_gateway.cache.purge import purge
+from llm_gateway.guardrails import commands as guardrail_commands
 from llm_gateway.limits.configuration import resolve
 from llm_gateway.limits.service import LimitService
 from llm_gateway.routing import commands as model_commands
@@ -57,6 +58,8 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--alert-at", type=Decimal, default=Decimal("0.8"))
     for name in ("set-models", "clear-models", "show-models"):
         model_commands.add_commands(commands.add_parser(name))
+    for name in guardrail_commands.COMMANDS:
+        guardrail_commands.add_commands(commands.add_parser(name))
     audit_commands.add_commands(commands.add_parser("audit"))
     cache = commands.add_parser("cache").add_subparsers(dest="cache_command", required=True)
     purge_command = cache.add_parser("purge")
@@ -73,6 +76,8 @@ async def execute(
     limits_service: LimitService | None = None,
     cache_client: Redis | None = None,
 ) -> str:
+    if args.command in guardrail_commands.COMMANDS:
+        return await guardrail_commands.execute(args, repository)
     if args.command == "cache":
         if cache_client is None:
             raise ValueError("Redis is required for cache purge")

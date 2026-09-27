@@ -20,6 +20,8 @@ class Organization(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     model_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    guardrail_actions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    allowed_regions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     name: Mapped[str] = mapped_column(String, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -31,6 +33,8 @@ class Team(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     model_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    guardrail_actions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    allowed_regions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     name: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

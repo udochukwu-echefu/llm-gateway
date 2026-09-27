@@ -12,6 +12,7 @@ from fastapi import Request
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.gateway_state import get_state
+from llm_gateway.guardrails.policy import GuardrailPolicy
 from llm_gateway.observability.tracing import current, span
 from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.tenants.keys import hash_secret, parse_key, verify_hash
@@ -26,6 +27,7 @@ class Principal:
     team_id: uuid.UUID
     key_id: str
     policy: ModelPolicy = field(default_factory=ModelPolicy)
+    guardrails: GuardrailPolicy = field(default_factory=GuardrailPolicy)
 
 
 async def authenticate(request: Request) -> None:
@@ -76,7 +78,9 @@ async def _credentials(request: Request) -> tuple[Principal, KeyRecord]:
         _reject("expired")
     if verified_from_database:
         state.key_cache.put(record)
-    principal = Principal(record.organization_id, record.team_id, record.key_id, record.policy)
+    principal = Principal(
+        record.organization_id, record.team_id, record.key_id, record.policy, record.guardrails
+    )
     request.state.principal = principal
     return principal, record
 

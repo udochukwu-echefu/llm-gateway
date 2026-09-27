@@ -49,6 +49,7 @@ class UsageRecord:
     fallback_from: str | None = None
     alias: str | None = None
     saved_usd: Decimal | None = None
+    redaction_count: int | None = None
 
 
 class UsageEvent:

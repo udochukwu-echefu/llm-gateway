@@ -8,6 +8,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from llm_gateway.guardrails.policy import Region
 from llm_gateway.routing.aliases import Alias, validate_aliases
 from llm_gateway.schemas.common import ProviderName
 
@@ -43,6 +44,9 @@ class ModelPrice(BaseModel):
     provider: ProviderName
     model: str = Field(min_length=1)
     kind: Literal["chat", "embedding"]
+    region: Region = "unknown"
+    region_source_url: HttpUrl | None = None
+    region_checked_on: date | None = None
     periods: list[PricePeriod] = Field(min_length=1)
     fallbacks: list[str] = Field(default_factory=list)
 
@@ -124,6 +128,12 @@ class Catalog(BaseModel):
             ),
             None,
         )
+
+    def region(self, name: str) -> Region:
+        for entry in self.models:
+            if f"{entry.provider}/{entry.model}" == name:
+                return entry.region
+        return "unknown"
 
 
 DEFAULT_CATALOG = Path("catalog/models.toml")

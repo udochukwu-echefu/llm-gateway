@@ -1,8 +1,11 @@
-version = "2026-09-27.3"
+version = "2026-09-27.4"
 
 [[models]]
 provider = "groq"
 model = "openai/gpt-oss-20b"
+region = "unknown"
+region_source_url = "https://console.groq.com/docs/your-data"
+region_checked_on = 2026-09-27
 kind = "chat"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -15,6 +18,9 @@ checked_on = 2026-09-26
 [[models]]
 provider = "groq"
 model = "openai/gpt-oss-120b"
+region = "unknown"
+region_source_url = "https://console.groq.com/docs/your-data"
+region_checked_on = 2026-09-27
 kind = "chat"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -27,6 +33,9 @@ checked_on = 2026-09-26
 [[models]]
 provider = "deepseek"
 model = "deepseek-flash"
+region = "cn"
+region_source_url = "https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html"
+region_checked_on = 2026-09-27
 kind = "chat"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -41,6 +50,9 @@ checked_on = 2026-09-26
 [[models]]
 provider = "gemini"
 model = "gemini-3.8-flash"
+region = "global"
+region_source_url = "https://ai.google.dev/gemini-api/terms"
+region_checked_on = 2026-09-27
 kind = "chat"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -64,6 +76,9 @@ checked_on = 2026-09-27
 [[models]]
 provider = "gemini"
 model = "gemini-embedding-2"
+region = "global"
+region_source_url = "https://ai.google.dev/gemini-api/terms"
+region_checked_on = 2026-09-27
 kind = "embedding"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -76,6 +91,9 @@ checked_on = 2026-09-27
 [[models]]
 provider = "openai"
 model = "gpt-4.1-nano"
+region = "global"
+region_source_url = "https://platform.openai.com/docs/guides/your-data"
+region_checked_on = 2026-09-27
 kind = "chat"
 [[models.periods]]
 effective_from = 2026-09-26
@@ -89,6 +107,9 @@ checked_on = 2026-09-26
 [[models]]
 provider = "openai"
 model = "text-embedding-3-small"
+region = "global"
+region_source_url = "https://platform.openai.com/docs/guides/your-data"
+region_checked_on = 2026-09-27
 kind = "embedding"
 [[models.periods]]
 effective_from = 2026-09-26

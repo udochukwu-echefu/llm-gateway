@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from llm_gateway.errors import GatewayError
+from llm_gateway.guardrails.policy import REGIONS, Region
 
 if TYPE_CHECKING:
     from llm_gateway.catalog import Catalog
@@ -15,12 +16,35 @@ if TYPE_CHECKING:
 class ModelPolicy:
     organization: tuple[str, ...] | None = None
     team: tuple[str, ...] | None = None
+    organization_regions: tuple[Region, ...] | None = None
+    team_regions: tuple[Region, ...] | None = None
 
-    def allows(self, model: str) -> bool:
-        return _allows(self.organization, model) and _allows(self.team, model)
+    @property
+    def regions(self) -> tuple[Region, ...]:
+        return tuple(region for region in REGIONS if self.allows_region(region))
 
-    def require(self, model: str) -> None:
-        if not self.allows(model):
+    def allows_region(self, region: Region) -> bool:
+        return all(
+            policy is None or region in policy
+            for policy in (self.organization_regions, self.team_regions)
+        )
+
+    def allows(self, model: str, region: Region = "unknown") -> bool:
+        return (
+            _allows(self.organization, model)
+            and _allows(self.team, model)
+            and self.allows_region(region)
+        )
+
+    def require(self, model: str, region: Region = "unknown") -> None:
+        if not self.allows_region(region):
+            raise GatewayError(
+                403,
+                f"Model '{model}' region '{region}' is not permitted for this team.",
+                type="invalid_request_error",
+                code="model_not_allowed",
+            )
+        if not self.allows(model, region):
             raise denied(model)
 
 

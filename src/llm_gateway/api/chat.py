@@ -17,7 +17,8 @@ async def chat_completions(request: Request) -> Response:
         ChatCompletionRequest, await read_json_body(request, state.settings.max_request_bytes)
     )
     annotate(model=chat.model, stream=chat.stream)
-    execution = begin_execution(request, chat.model)
+    execution = await begin_execution(request, chat.model)
+    chat = chat.model_copy(update={"model": execution.requested_model})
     result = await state.resilience.execute_chat(chat, execution)
     if not isinstance(result, ChatCompletion):
         response = ProviderStreamingResponse(

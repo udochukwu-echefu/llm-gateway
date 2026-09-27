@@ -29,6 +29,7 @@ async def test_insert_round_trips_numeric_exactly_and_preserves_original_price(
         record,
         cost_usd=Decimal("0.000000000123"),
         attempt=3,
+        alias="fast",
         fallback_from="groq/openai/gpt-oss-20b",
     )
     try:
@@ -41,6 +42,7 @@ async def test_insert_round_trips_numeric_exactly_and_preserves_original_price(
         assert stored.organization_id == priced.organization_id
         assert stored.created_at.tzinfo is not None
         assert stored.stream is False
+        assert stored.alias == "fast"
         assert stored.attempt == 3
         assert stored.fallback_from == "groq/openai/gpt-oss-20b"
 

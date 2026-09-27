@@ -95,6 +95,7 @@ def _new_event(
         isinstance(request, ChatCompletionRequest) and request.stream,
         requested_at=execution.requested_at,
         attempt=len(execution.events) + 1,
+        alias=execution.alias,
         fallback_from=(
             execution.requested_model
             if f"{target.adapter.name}/{target.model}" != execution.requested_model

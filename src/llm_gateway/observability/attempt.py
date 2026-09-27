@@ -61,7 +61,7 @@ class AttemptObservation:
         if self.telemetry is not None and event.sent:
             metrics = self.telemetry.metrics
             metrics.upstream_requests.labels(
-                event.price.provider, event.price.model, event.outcome
+                event.price.provider, event.price.model, event.outcome, event.alias or ""
             ).inc()
             metrics.upstream_duration.labels(event.price.provider).observe(
                 time.perf_counter() - self.started

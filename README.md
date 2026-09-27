@@ -63,7 +63,7 @@ client.chat.completions.create(
 |---|---|
 | `POST /v1/chat/completions` | Streaming and non-streaming; optional features depend on provider and model |
 | `POST /v1/embeddings` | Only catalogued embedding models; currently `openai/text-embedding-3-small` |
-| `GET /v1/models` | Authenticated OpenAI-compatible list of reviewed models for configured providers |
+| `GET /v1/models` | Authenticated list of permitted models and aliases for configured providers |
 | `GET /healthz` | Liveness |
 | `GET /readyz` | Database and Redis readiness (Redis outage keeps it ready in fail-open mode) |
 
@@ -236,9 +236,9 @@ keeps `GATEWAY_PROVIDERS__*__API_KEY` (including `.env`) working. At least one n
 provider key is required. Each enabled provider has its own connection pool;
 timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.
 
-Use `<provider>/<model>` in every request. Only the first slash is split:
+Use a reviewed alias or `<provider>/<model>` in requests. For concrete IDs, only the first slash is split:
 `groq/openai/gpt-oss-120b` routes to Groq with model `openai/gpt-oss-120b`.
-Unknown, unprefixed or unconfigured providers return `404 model_not_found`, listing
+Unknown or unconfigured provider prefixes return `404 model_not_found`, listing
 configured providers. Responses and stream chunks prefix the provider's returned model ID.
 Configured but uncatalogued models also return `404 model_not_found`.
 
@@ -375,3 +375,66 @@ not verified identity. Database owners can defeat the chain by rewriting it or d
 tail; externally retained trusted checkpoints are needed for stronger evidence. No secret
 material, names or credential URLs are stored in audit details. Verification failures exit
 nonzero and identify the first broken event ID.
+
+## Model policies and aliases (step 9)
+
+Apply migration 0006 with `uv run alembic upgrade head` before starting this version.
+Existing organizations and teams retain access until a policy is set.
+
+```bash
+uv run gateway-admin set-models acme --allow "groq/*"
+uv run gateway-admin set-models acme --team search --allow "groq/openai/gpt-oss-20b"
+uv run gateway-admin show-models acme --team search
+uv run gateway-admin clear-models acme --team search
+```
+
+Each `--allow` is an exact catalogued `provider/model` or `provider/*`. Every pattern must
+match the current catalogue when set. Team access is organization **intersection** team:
+a team cannot widen the organization policy. No org policy allows all catalogued models;
+no team policy inherits. Set/clear operations are transactionally audited. Changes become
+visible within `GATEWAY_KEY_CACHE_TTL_S` (default 30 seconds), independently per replica.
+`show-models` prints org/team policies and effective catalogue models/aliases. Runtime
+availability also requires configured providers and an active price period.
+
+Clients may send `"model": "fast"`, `"smart"` or `"embed"`. Reviewed definitions live in
+`catalog/models.toml`; `fast` currently splits Groq GPT OSS 20B and DeepSeek Flash 90/10,
+`smart` targets Groq GPT OSS 120B, and `embed` targets Gemini Embedding 2. Alias names have
+no slash, never equal provider names, and target only concrete models of one kind with
+positive integer weights. For example:
+
+```toml
+[aliases.fast]
+targets = [
+  { model = "groq/openai/gpt-oss-20b", weight = 90 },
+  { model = "deepseek/deepseek-flash", weight = 10 },
+]
+```
+
+Forbidden, unconfigured and not-yet-priced targets cannot win a weighted draw. Remaining
+weights are rescaled; the split is probabilistic, not sticky. Fallback targets must also
+pass the same policy. `/v1/models` includes permitted available aliases (`owned_by=gateway`)
+and concrete models. Responses retain the concrete `model` and add `x-lgw-alias` when an
+alias was resolved. Retry/fallback headers retain the selected original concrete model.
+
+| Result | Status / code |
+|---|---|
+| Concrete model denied, or every alias target forbidden | `403 model_not_allowed`, type `invalid_request_error`; no RPM/budget admission |
+| Unknown alias | `404 model_not_found`; lists only usable aliases for this team |
+| Alias permitted but no configured, currently priced targets | `404 model_not_found` |
+| Open provider breaker and no permitted fallback | `503 provider_unavailable` |
+
+Every attempt's nullable `usage_records.alias` supports trial analysis without storing
+content. `lgw_upstream_requests_total{alias="fast"}` counts attempts by concrete model and
+outcome; direct calls have `alias=""`. Unknown client names never become metric labels.
+For cost and latency comparisons, query the durable receipts:
+
+```sql
+SELECT alias, provider, model, count(*) AS attempts,
+       sum(cost_usd) AS cost_usd, avg(duration_ms) AS duration_ms
+FROM usage_records
+WHERE alias = 'fast'
+GROUP BY alias, provider, model;
+```
+
+Receipts remain best effort; NULL cost is unknown, not free, and retries count as separate
+attempts. See ADRs 0016 and 0017 for policy and routing decisions.

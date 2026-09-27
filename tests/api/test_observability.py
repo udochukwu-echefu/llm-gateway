@@ -49,7 +49,12 @@ async def test_retry_fallback_tokens_cost_and_breaker_metrics(resilient: Resilie
     assert (
         metrics.get_sample_value(
             "lgw_upstream_requests_total",
-            {"provider": "groq", "model": "llama-3.3-70b-versatile", "outcome": "upstream_error"},
+            {
+                "provider": "groq",
+                "model": "llama-3.3-70b-versatile",
+                "outcome": "upstream_error",
+                "alias": "",
+            },
         )
         == 2
     )

@@ -39,6 +39,7 @@ class UsageRow(Base):
     duration_ms: Mapped[float | None] = mapped_column(Float)
     ttfb_ms: Mapped[float | None] = mapped_column(Float)
     attempt: Mapped[int] = mapped_column(Integer, server_default="1")
+    alias: Mapped[str | None] = mapped_column(String(32))
     fallback_from: Mapped[str | None] = mapped_column(String(300))
 
 

@@ -549,6 +549,41 @@ requests recover without removing the proportional protection at higher traffic.
 is recorded as `client_disconnected`; unexpected attempt failures as `gateway_error`, and
 both abandon an exclusive half-open probe safely. See ADRs 0012, 0014 and 0015.
 
+## Step 9: tickets, stable names and controlled trials
+
+A model policy is a list of destinations a team may visit. The organization sets the outer
+boundary; a team's list can only make it smaller. This is an **intersection**: a destination
+must appear in both lists when both exist. No organization policy allows the whole reviewed
+catalogue, and no team policy inherits the organization policy. Patterns name one model or
+all models at one provider, such as `groq/*`.
+
+Checking a passenger's ticket at the booking desk is not enough if someone changes their
+flight afterward. Check it at the gate, where the actual destination is known. The gateway
+resolves an alias before authorizing the concrete model, and checks every possible fallback
+again. If Groq is down but the team cannot use DeepSeek, the request fails safely instead of
+sending the prompt to DeepSeek. Forbidden destinations never reach the provider. These checks
+run before budget and rate admission, so denied requests do not spend RPM or reserve a lease.
+
+An **alias** is a stable nickname like `fast`, `smart` or `embed`. Apps keep their nickname
+while the platform team reviews changes to its destinations in the catalogue. A name without
+a slash is an alias; `provider/model` always names a concrete model. The answer still names
+the actual provider/model, and `x-lgw-alias` records which nickname the client used.
+
+A **weighted trial** sends a proportion of requests to a candidate. With weights 90 and 10,
+each request independently has a 90% chance of choosing the first model and a 10% chance of
+choosing the second. Ten requests need not split nine and one. Forbidden targets are removed
+first, and the remaining weights are rescaled. Unconfigured or not-yet-priced targets are
+also removed. Retries keep the choice; fallback can only use separately approved, permitted
+destinations. Every attempt's receipt keeps the alias so SQL can compare trial cost and
+latency. The bounded alias label on the upstream request counter supports Grafana comparisons.
+
+`gateway-admin set-models`, `clear-models` and `show-models` manage the policies offline.
+Changes and their audit entries commit together. The key lookup reads both lists and caches
+them with the verified identity: a change takes effect within the original cache TTL, normally
+30 seconds, even under continuous use. `/v1/models` shows each team only its usable concrete
+models and aliases. The CLI reports catalogue permissions; runtime availability also depends
+on configured providers and active prices. See ADRs 0016 and 0017.
+
 ## What the gateway deliberately does NOT do yet
 
 - No response caching (step 10).

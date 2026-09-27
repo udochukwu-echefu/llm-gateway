@@ -16,7 +16,8 @@ async def embeddings(request: Request) -> Response:
         EmbeddingRequest, await read_json_body(request, state.settings.max_request_bytes)
     )
     annotate(model=embedding.model)
-    execution = begin_execution(request, embedding.model)
+    execution = await begin_execution(request, embedding.model)
+    embedding = embedding.model_copy(update={"model": execution.requested_model})
     result = await state.resilience.execute_embedding(embedding, execution)
     record_usage(result.usage)
     return Response(

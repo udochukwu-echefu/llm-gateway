@@ -8,6 +8,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from llm_gateway.routing.aliases import Alias, validate_aliases
 from llm_gateway.schemas.common import ProviderName
 
 
@@ -71,6 +72,12 @@ class Catalog(BaseModel):
 
     version: str = Field(min_length=1)
     models: list[ModelPrice]
+    aliases: dict[str, Alias] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _valid_aliases(self) -> Self:
+        validate_aliases(self.aliases, self.models)
+        return self
 
     @model_validator(mode="after")
     def _unique_models(self) -> Self:

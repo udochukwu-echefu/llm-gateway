@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from llm_gateway.audit.chain import append_event
 from llm_gateway.config import AdminSettings
 from llm_gateway.limits.configuration import LimitOverrides
+from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.tenants.models import ApiKey, Organization, Team, TeamLimits, utc_now
 
 
@@ -26,6 +27,7 @@ class KeyRecord:
     expires_at: datetime | None = None
     revoked_at: datetime | None = None
     limits: LimitOverrides = field(default_factory=LimitOverrides)
+    policy: ModelPolicy = field(default_factory=ModelPolicy)
 
 
 class KeyRepository(Protocol):
@@ -47,15 +49,22 @@ class PostgresKeyRepository:
     async def get_key(self, key_id: str) -> KeyRecord | None:
         async with self.sessions() as session:
             result = await session.execute(
-                select(ApiKey, Team.organization_id, TeamLimits)
+                select(
+                    ApiKey,
+                    Team.organization_id,
+                    TeamLimits,
+                    Organization.model_patterns,
+                    Team.model_patterns,
+                )
                 .join(Team, ApiKey.team_id == Team.id)
+                .join(Organization, Team.organization_id == Organization.id)
                 .outerjoin(TeamLimits, TeamLimits.team_id == Team.id)
                 .where(ApiKey.key_id == key_id)
             )
             row = result.one_or_none()
             if row is None:
                 return None
-            key, organization_id, raw_limits = row
+            key, organization_id, raw_limits, org_patterns, team_patterns = row
             limits = cast(TeamLimits | None, raw_limits)
             override = (
                 LimitOverrides()
@@ -76,6 +85,10 @@ class PostgresKeyRepository:
                 key.expires_at,
                 key.revoked_at,
                 override,
+                ModelPolicy(
+                    tuple(org_patterns) if org_patterns is not None else None,
+                    tuple(team_patterns) if team_patterns is not None else None,
+                ),
             )
 
     async def create_org(self, name: str) -> Organization:

@@ -1,9 +1,8 @@
 """Authenticate at the router boundary, before endpoints read request bodies."""
 
-import asyncio
 import ipaddress
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import NoReturn
 
@@ -13,8 +12,8 @@ from fastapi import Request
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.gateway_state import get_state
-from llm_gateway.limits.configuration import resolve
 from llm_gateway.observability.tracing import current, span
+from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.tenants.keys import hash_secret, parse_key, verify_hash
 from llm_gateway.tenants.repository import KeyRecord
 
@@ -26,13 +25,18 @@ class Principal:
     organization_id: uuid.UUID
     team_id: uuid.UUID
     key_id: str
+    policy: ModelPolicy = field(default_factory=ModelPolicy)
 
 
 async def authenticate(request: Request) -> None:
     with span("authenticate"):
         principal, record = await _credentials(request)
-    with span("limits.admission"):
-        await _admit(request, principal, record)
+    request.state.key_record = record
+    annotate(
+        organization_id=str(principal.organization_id),
+        team_id=str(principal.team_id),
+        key_id=principal.key_id,
+    )
 
 
 async def _credentials(request: Request) -> tuple[Principal, KeyRecord]:
@@ -72,37 +76,9 @@ async def _credentials(request: Request) -> tuple[Principal, KeyRecord]:
         _reject("expired")
     if verified_from_database:
         state.key_cache.put(record)
-    principal = Principal(record.organization_id, record.team_id, record.key_id)
+    principal = Principal(record.organization_id, record.team_id, record.key_id, record.policy)
     request.state.principal = principal
     return principal, record
-
-
-async def _admit(request: Request, principal: Principal, record: KeyRecord) -> None:
-    state = get_state(request)
-    if state.limits is not None:
-        limits = resolve(record.limits, state.settings.limits)
-        try:
-            lease, headers = await state.limits.admission(principal.team_id, limits)
-        except GatewayError as exc:
-            for kind, limit in (("requests", limits.rpm), ("tokens", limits.tpm)):
-                for field, value in (
-                    ("limit", str(limit)),
-                    ("remaining", "unavailable"),
-                    ("reset", "unavailable"),
-                ):
-                    exc.headers.setdefault(f"x-ratelimit-{field}-{kind}", value)
-            raise
-        request.state.limit_admission = (principal.team_id, lease, limits)
-        request.state.limit_headers = headers
-        if lease is not None:
-            request.state.limit_heartbeat = asyncio.create_task(
-                state.limits.keep_lease_alive(principal.team_id, lease)
-            )
-    annotate(
-        organization_id=str(principal.organization_id),
-        team_id=str(principal.team_id),
-        key_id=principal.key_id,
-    )
 
 
 def client_ip(request: Request, trusted_hops: int) -> str:

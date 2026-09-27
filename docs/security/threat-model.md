@@ -1,4 +1,4 @@
-# Step 4 threat model
+# Gateway threat model (through step 7)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -21,3 +21,6 @@ ratings are qualitative for this early deployment.
 | Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
 | Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
 | Usage records disclose business activity | Plausible / medium | Store only IDs, model, counts, cost and timings; never content or vectors | Model and spending patterns remain sensitive; restrict Postgres/report access and retention |
+| Retry storm amplifies a provider outage | Plausible / high | Bounded retries, full jitter, 20% per-provider rolling retry budget, one overall deadline and local breakers | Replicas learn independently; restarting loses history; even a retryable 5xx might already have been billed |
+| Fallback discloses prompts to an unapproved company | Plausible / high | Empty-by-default reviewed per-model alternatives, no transitive expansion, capability checks, opt-out header and transparent response model/headers | Reviewers must assess contracts and residency; formal per-tenant residency enforcement arrives in step 11 |
+| Client forces a cheaper or weaker fallback | Plausible / medium | Client can only disable fallback; destination and order come exclusively from the reviewed catalogue, never a client-selected header | A client can induce load or request an explicitly catalogued model; per-team model access policies arrive in step 9 |

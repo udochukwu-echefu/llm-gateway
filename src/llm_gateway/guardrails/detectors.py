@@ -20,12 +20,13 @@ KEY = re.compile(
     r"lgw_[a-z2-7]{12}_[A-Za-z0-9_-]{43})(?![\w-])"
 )
 PRIVATE = re.compile(
-    r"-----BEGIN (?P<label>(?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY)-----"
-    r"[\sA-Za-z0-9+/=]++-----END (?P=label)-----"
+    r"-----BEGIN (?P<label>(?:[A-Z0-9]{1,16} )?PRIVATE KEY)-----"
+    r"(?:(?!-----BEGIN |-----END ).)++-----END (?P=label)-----",
+    re.DOTALL,
 )
 EMAIL = re.compile(
     r"(?<![\w.+%-])[A-Za-z0-9_+%-][A-Za-z0-9_.+%-]{0,63}@"
-    r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\.[A-Za-z]{2,63}(?![\w.-])"
+    r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\.[A-Za-z]{2,63}(?![\w-]|\.[A-Za-z0-9])"
 )
 NUMBER = re.compile(r"(?<![\w+])\+?[0-9][0-9 ()-]*+")
 IBAN = re.compile(r"(?<!\w)[A-Z]{2}[0-9]{2}(?: ?[A-Z0-9]){11,30}(?![A-Z0-9])")
@@ -50,14 +51,20 @@ def scan(text: str) -> list[Finding]:
         if 7 <= len(digits) <= 15:
             findings.append(Finding(match.start(), end, "phone"))
     for match in IBAN.finditer(text):
-        if valid_iban(match.group()):
-            findings.append(Finding(match.start(), match.end(), "iban"))
+        candidate = match.group()
+        # Uppercase prose after a spaced IBAN is not part of the account number.
+        ends = [i for i in range(15, len(candidate)) if candidate[i] == " "] + [len(candidate)]
+        for end in reversed(ends):
+            if valid_iban(candidate[:end]):
+                findings.append(Finding(match.start(), match.start() + end, "iban"))
+                break
     for match in IP.finditer(text):
+        candidate = match.group().rstrip(".")
         try:
-            ipaddress.ip_address(match.group())
+            ipaddress.ip_address(candidate)
         except ValueError:
             continue
-        findings.append(Finding(match.start(), match.end(), "ip_address"))
+        findings.append(Finding(match.start(), match.start() + len(candidate), "ip_address"))
     return sorted(findings, key=lambda f: (f.start, -f.end, f.detector))
 
 

@@ -54,6 +54,13 @@ def resolve_model(
         if policy.allows(target.model, catalog.region(target.model))
     ]
     if not allowed:
+        if any(not policy.allows_region(catalog.region(target.model)) for target in alias.targets):
+            raise GatewayError(
+                403,
+                f"Alias '{name}' has no permitted target; target regions are not permitted.",
+                type="invalid_request_error",
+                code="model_not_allowed",
+            )
         raise denied(name)
     targets = [target for target in allowed if target.model in available]
     if not targets:

@@ -140,10 +140,45 @@ async def test_organization_block_cannot_be_loosened_by_team(
     assert not resilient.router.calls
 
 
-async def test_provider_options_and_tool_descriptions_are_scanned(resilient: ResilientApp) -> None:
-    body = {**prompt("safe"), "provider_options": {"groq": {"extra_text": FAKE_KEY}}}
+@pytest.mark.parametrize("field", ["extra_text", "file", "model"])
+async def test_nested_provider_options_are_scanned(resilient: ResilientApp, field: str) -> None:
+    body = {**prompt("safe"), "provider_options": {"groq": {"extra_text": {field: FAKE_KEY}}}}
 
     response = await resilient.client.post("/v1/chat/completions", json=body)
 
     assert response.status_code == 400
     assert not resilient.router.calls
+
+
+async def test_tool_descriptions_are_scanned(resilient: ResilientApp) -> None:
+    body = {
+        **prompt("safe"),
+        "tools": [{"type": "function", "function": {"name": "fake", "description": FAKE_KEY}}],
+    }
+
+    response = await resilient.client.post("/v1/chat/completions", json=body)
+
+    assert response.status_code == 400
+    assert not resilient.router.calls
+
+
+async def test_guardrail_changes_use_original_key_cache_ttl(
+    resilient: ResilientApp, set_guardrails: SetGuardrails
+) -> None:
+    state = get_app_state(resilient.app)
+    state.key_cache.clock = resilient.time.clock
+    state.key_cache.ttl = 30
+    route = resilient.router.post("https://groq.test/v1/chat/completions").respond(
+        200, json=COMPLETION
+    )
+    first = await resilient.client.post("/v1/chat/completions", json=prompt(EMAIL))
+    set_guardrails(GuardrailPolicy((("email", "block"),)))
+    resilient.time.now = 29
+
+    cached = await resilient.client.post("/v1/chat/completions", json=prompt(EMAIL))
+    resilient.time.now = 30
+    denied = await resilient.client.post("/v1/chat/completions", json=prompt(EMAIL))
+
+    assert first.status_code == cached.status_code == 200
+    assert denied.status_code == 400
+    assert route.call_count == 2

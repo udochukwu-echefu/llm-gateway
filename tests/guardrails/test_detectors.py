@@ -4,28 +4,36 @@ import pytest
 
 from llm_gateway.guardrails.detectors import scan
 from llm_gateway.guardrails.policy import Detector
+from tests.guardrails.fixtures import (
+    CARD,
+    EMAIL,
+    FAKE_GATEWAY_KEY,
+    FAKE_KEY,
+    FAKE_PRIVATE_KEY,
+    IBAN,
+)
 
 
 @pytest.mark.parametrize(
     ("detector", "positive", "negative"),
     [
-        ("secret_api_key", "sk-" + "FAKE" * 8, "sk-short"),
+        ("secret_api_key", FAKE_KEY, "sk-short"),
         ("secret_api_key", "gsk_" + "FAKE" * 8, "gsk_short"),
         ("secret_api_key", "AIza" + "F" * 35, "AIzaSHORT"),
         ("secret_api_key", "ghp_" + "F" * 36, "ghp_short"),
         ("secret_api_key", "AKIA" + "F" * 16, "AKIAshort"),
-        ("secret_api_key", "lgw_aaaaaaaaaaaa_" + "F" * 43, "lgw_bad_short"),
+        ("secret_api_key", FAKE_GATEWAY_KEY, "lgw_bad_short"),
         (
             "secret_private_key",
-            "-----BEGIN PRIVATE KEY-----\nRkFLRQ==\n-----END PRIVATE KEY-----",
+            FAKE_PRIVATE_KEY,
             "-----BEGIN PRIVATE KEY-----\nFAKE",
         ),
-        ("email", "ada@example.com", "ada@localhost"),
+        ("email", EMAIL, "ada@localhost"),
         ("phone", "+1 (415) 555-0100", "12345"),
         ("phone", "0801 234 5678", "12345678901234567890"),
-        ("card_number", "4242 4242 4242 4242", "4242 4242 4242 4243"),
+        ("card_number", CARD, "4242 4242 4242 4243"),
         ("card_number", "4111-1111-1111-1111", "1234567890123456"),
-        ("iban", "GB82 WEST 1234 5698 7654 32", "GB83 WEST 1234 5698 7654 32"),
+        ("iban", IBAN, "GB83 WEST 1234 5698 7654 32"),
         ("ip_address", "192.0.2.1", "999.0.2.1"),
         ("ip_address", "2001:db8::1", "2001:db8::gg"),
     ],
@@ -55,3 +63,20 @@ def test_adversarial_scan_has_small_time_bound(text: str) -> None:
     scan(text)
 
     assert time.monotonic() - started < 1
+
+
+@pytest.mark.parametrize(
+    ("text", "detector", "value"),
+    [
+        (f"Hello {EMAIL}.", "email", EMAIL),
+        ("Address: 192.0.2.1.", "ip_address", "192.0.2.1"),
+        (IBAN + " PLEASE PAY", "iban", IBAN),
+        (
+            "-----BEGIN DSA PRIVATE KEY-----\nRkFLRQ==\n-----END DSA PRIVATE KEY-----",
+            "secret_private_key",
+            "-----BEGIN DSA PRIVATE KEY-----\nRkFLRQ==\n-----END DSA PRIVATE KEY-----",
+        ),
+    ],
+)
+def test_detector_boundaries(text: str, detector: Detector, value: str) -> None:
+    assert any(f.detector == detector and text[f.start : f.end] == value for f in scan(text))

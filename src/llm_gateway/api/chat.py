@@ -30,7 +30,9 @@ async def chat_completions(request: Request) -> Response:
         execution,
         "chat",
         ChatCompletion,
-        lambda: guarded_call(guardrails, lambda: state.resilience.execute_chat(chat, execution)),
+        lambda: guarded_call(
+            guardrails, lambda: state.resilience.execute_chat(chat, execution), execution
+        ),
     )
     headers = {**execution.headers, "x-lgw-cache": cache_result}
     if isinstance(result, EmbeddingResponse):

@@ -74,6 +74,10 @@ async def test_new_output_secret_is_blocked(resilient: ResilientApp) -> None:
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "guardrail_blocked_output"
     assert FAKE_KEY not in response.text
+    await get_app_state(resilient.app).usage_writer.stop()
+    assert resilient.records[-1].outcome == "upstream_error"
+    assert resilient.records[-1].status_code == 502
+    assert resilient.records[-1].prompt_tokens is not None
 
 
 @pytest.mark.parametrize(

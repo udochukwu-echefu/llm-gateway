@@ -4,15 +4,10 @@ import json
 from collections.abc import Callable
 from typing import Any, cast
 
-# Structural identifiers must retain protocol meaning. Arbitrary option/schema values
-# are visited too: hiding text in provider_options must not bypass inspection.
-STRUCTURAL = frozenset({"model"})
-BINARY = frozenset({"image_url", "input_audio", "file", "embedding"})
-
 
 def transform_text(value: Any, transform: Callable[[str], str], key: str = "") -> Any:
-    if key in BINARY or key in STRUCTURAL:
-        return value
+    if key in {"provider_options", "parameters", "schema"}:
+        return _json_text(value, transform)
     if isinstance(value, str):
         if key == "arguments":
             return _arguments(value, transform)
@@ -20,9 +15,12 @@ def transform_text(value: Any, transform: Callable[[str], str], key: str = "") -
     if isinstance(value, list):
         return [transform_text(item, transform) for item in cast(list[Any], value)]
     if isinstance(value, dict):
+        data = cast(dict[str, Any], value)
+        if data.get("type") in ("image_url", "input_audio", "file"):
+            return data
         return {
-            name: transform_text(item, transform, name)
-            for name, item in cast(dict[str, Any], value).items()
+            name: item if name == "model" and key == "" else transform_text(item, transform, name)
+            for name, item in data.items()
         }
     return value
 

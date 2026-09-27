@@ -6,6 +6,7 @@ from llm_gateway.api.execution import begin_execution
 from llm_gateway.api.guardrails import begin_guardrails
 from llm_gateway.context import annotate
 from llm_gateway.gateway_state import get_state
+from llm_gateway.observability.tracing import span
 from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
 
 router = APIRouter()
@@ -32,6 +33,8 @@ async def embeddings(request: Request) -> Response:
     if not isinstance(result, EmbeddingResponse):
         raise RuntimeError("embedding returned a chat")
     record_usage(result.usage)
+    with span("guardrails.output") as active:
+        active.set_attribute("lgw.guardrails.text_fields", 0)
     return Response(
         result.model_dump_json(exclude_unset=True),
         media_type="application/json",

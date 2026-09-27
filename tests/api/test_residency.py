@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import pytest
 
+from llm_gateway.gateway_state import get_app_state
 from llm_gateway.guardrails.policy import Region
 from tests.api.conftest import ResilientApp
 from tests.fixtures import CHAT_REQUEST, COMPLETION
@@ -73,3 +74,26 @@ async def test_models_hides_disallowed_regions_and_aliases(
     assert "private" not in names
     assert "embed" not in names
     assert all(name.startswith("groq/") for name in names if "/" in name)
+
+
+async def test_residency_changes_use_original_key_cache_ttl(
+    resilient: ResilientApp, set_residency: SetResidency
+) -> None:
+    set_residency(("us",))
+    state = get_app_state(resilient.app)
+    state.key_cache.clock = resilient.time.clock
+    state.key_cache.ttl = 30
+    route = resilient.router.post("https://groq.test/v1/chat/completions").respond(
+        200, json=COMPLETION
+    )
+    first = await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    set_residency(("eu",))
+    resilient.time.now = 29
+
+    cached = await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    resilient.time.now = 30
+    denied = await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+
+    assert first.status_code == cached.status_code == 200
+    assert denied.status_code == 403
+    assert route.call_count == 2

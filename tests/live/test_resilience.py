@@ -81,4 +81,4 @@ async def test_closed_groq_port_falls_back_to_live_deepseek() -> None:
     assert response.status_code == 200
     assert response.json()["model"].startswith("deepseek/")
     assert response.headers["x-lgw-fallback-from"] == "groq/openai/gpt-oss-20b"
-    assert response.headers["x-lgw-attempts"] == "2"
+    assert response.headers["x-lgw-attempts"] == "4"

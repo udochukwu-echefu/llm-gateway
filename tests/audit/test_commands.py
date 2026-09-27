@@ -94,3 +94,41 @@ async def test_failed_cli_change_writes_no_event(
             )
             is None
         )
+
+
+async def test_cli_verify_exits_nonzero_at_first_tampered_id(
+    sessions: async_sessionmaker[AsyncSession], migrated_database: str
+) -> None:
+    import subprocess
+
+    from sqlalchemy import text
+
+    from llm_gateway.audit.chain import append_event
+
+    async with sessions.begin() as session:
+        event = await append_event(session, "verify-cli", "test", "team", "test")
+    try:
+        async with sessions.begin() as session:
+            await session.execute(
+                text("ALTER TABLE audit_events DISABLE TRIGGER audit_append_only")
+            )
+            await session.execute(
+                text("UPDATE audit_events SET actor = 'changed' WHERE id = :id"), {"id": event.id}
+            )
+            await session.execute(text("ALTER TABLE audit_events ENABLE TRIGGER audit_append_only"))
+
+        with pytest.raises(subprocess.CalledProcessError) as failed:
+            run_admin(migrated_database, "audit", "verify")
+
+        assert failed.value.returncode == 2
+        assert f"Broken audit link at id {event.id}" in failed.value.stderr
+    finally:
+        async with sessions.begin() as session:
+            await session.execute(
+                text("ALTER TABLE audit_events DISABLE TRIGGER audit_append_only")
+            )
+            await session.execute(
+                text("UPDATE audit_events SET actor = 'verify-cli' WHERE id = :id"),
+                {"id": event.id},
+            )
+            await session.execute(text("ALTER TABLE audit_events ENABLE TRIGGER audit_append_only"))

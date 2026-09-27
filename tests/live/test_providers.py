@@ -10,15 +10,6 @@ from tests.live.models import LiveProvider
 pytestmark = pytest.mark.live
 
 
-async def _record(records: list[UsageRecord]) -> UsageRecord:
-    async with asyncio.timeout(2):
-        for _ in range(2000):
-            if records:
-                break
-            await asyncio.sleep(0.001)
-    return records[0]
-
-
 async def test_live_chat(
     live_provider: LiveProvider, live_client: httpx.AsyncClient, live_records: list[UsageRecord]
 ) -> None:
@@ -101,3 +92,13 @@ async def test_live_embeddings(
     assert record.cost_status == "priced"
     assert record.cost_usd is not None
     assert record.cost_usd > 0
+
+
+async def _record(records: list[UsageRecord]) -> UsageRecord:
+    # A successful response may follow failed attempts; each keeps its own receipt.
+    async with asyncio.timeout(2):
+        while True:
+            for record in records:
+                if record.outcome == "success":
+                    return record
+            await asyncio.sleep(0.001)

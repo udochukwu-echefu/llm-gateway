@@ -207,3 +207,29 @@ async def _until(condition: Callable[[], bool]) -> None:
         if condition():
             return
         await asyncio.sleep(0)
+
+
+async def test_shutdown_does_not_drop_a_receipt_already_taken_from_queue() -> None:
+    taken = asyncio.Event()
+    written: list[UsageRecord] = []
+
+    class WatchedQueue(asyncio.Queue[UsageRecord]):
+        async def get(self) -> UsageRecord:
+            record = await super().get()
+            taken.set()
+            return record
+
+    async def sink(records: Sequence[UsageRecord]) -> None:
+        written.extend(records)
+
+    writer = UsageWriter(sink)
+    writer.queue = WatchedQueue()
+    writer.start()
+    record = sample_record()
+    writer.enqueue(record)
+    await taken.wait()
+
+    await writer.stop()
+
+    assert written == [record]
+    assert writer.lost == 0

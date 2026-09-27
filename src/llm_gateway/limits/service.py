@@ -4,7 +4,7 @@ import asyncio
 import math
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import cast
@@ -231,6 +231,18 @@ class LimitService:
                 return
             await asyncio.sleep(0.01)
         raise TimeoutError("budget rebuild lock timed out")
+
+    async def finish_records(
+        self,
+        team: uuid.UUID,
+        lease: str | None,
+        records: Sequence[UsageRecord],
+        limits: EffectiveLimits,
+    ) -> None:
+        """One lease belongs to the client request, but every attempt consumes resources."""
+        await self.finish(team, lease, None, limits)
+        for record in records:
+            await self.finish(team, None, record, limits)
 
     async def finish(
         self,

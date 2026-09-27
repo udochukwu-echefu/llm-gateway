@@ -38,6 +38,8 @@ class UsageRow(Base):
     catalog_version: Mapped[str] = mapped_column(String(64))
     duration_ms: Mapped[float | None] = mapped_column(Float)
     ttfb_ms: Mapped[float | None] = mapped_column(Float)
+    attempt: Mapped[int] = mapped_column(Integer, server_default="1")
+    fallback_from: Mapped[str | None] = mapped_column(String(300))
 
 
 class PostgresUsageRepository:

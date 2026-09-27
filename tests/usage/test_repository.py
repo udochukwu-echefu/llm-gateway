@@ -25,7 +25,12 @@ async def test_insert_round_trips_numeric_exactly_and_preserves_original_price(
     engine = create_async_engine(migrated_database)
     repository = PostgresUsageRepository(async_sessionmaker(engine, expire_on_commit=False))
     record = await _linked_record(migrated_database)
-    priced = replace(record, cost_usd=Decimal("0.000000000123"))
+    priced = replace(
+        record,
+        cost_usd=Decimal("0.000000000123"),
+        attempt=3,
+        fallback_from="groq/openai/gpt-oss-20b",
+    )
     try:
         await repository.insert([priced])
         async with repository.sessions() as session:
@@ -36,6 +41,8 @@ async def test_insert_round_trips_numeric_exactly_and_preserves_original_price(
         assert stored.organization_id == priced.organization_id
         assert stored.created_at.tzinfo is not None
         assert stored.stream is False
+        assert stored.attempt == 3
+        assert stored.fallback_from == "groq/openai/gpt-oss-20b"
 
         changed_price = replace(
             priced, id=uuid.uuid4(), catalog_version="next-version", cost_usd=Decimal("0.5")

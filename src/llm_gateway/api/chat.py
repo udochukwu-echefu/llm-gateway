@@ -43,7 +43,8 @@ async def chat_completions(request: Request) -> Response:
                 stream, event=event, include_usage=chat.client_wants_stream_usage
             )
         completion = await adapter.chat(chat, model)
-    except GatewayError:
+    except GatewayError as exc:
+        event.status_code = exc.status_code
         event.outcome = "upstream_error"
         raise
     finally:

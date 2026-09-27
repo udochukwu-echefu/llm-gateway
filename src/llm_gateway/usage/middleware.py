@@ -9,8 +9,7 @@ import structlog
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from llm_gateway.gateway_state import get_app_state
-from llm_gateway.usage.record import UsageEvent
+from llm_gateway.usage.finalization import finalize_usage
 
 log = structlog.get_logger("llm_gateway.usage")
 
@@ -48,33 +47,4 @@ class UsageMiddleware:
                 heartbeat.cancel()
                 with anyio.CancelScope(shield=True), suppress(asyncio.CancelledError):
                     await heartbeat
-            event = scope.get("state", {}).get("usage_event")
-            record = None
-            if isinstance(event, UsageEvent) and event.sent:
-                try:
-                    event.status_code = status or 500
-                    record = event.finish(
-                        _elapsed_ms(started, time.perf_counter()),
-                        _elapsed_ms(started, first_byte_at),
-                    )
-                except Exception:
-                    log.exception("usage_enqueue_failed", request_id=event.request_id)
-            admitted = scope.get("state", {}).get("limit_admission")
-            if admitted is not None:
-                team, lease, limits = admitted
-                service = get_app_state(scope["app"]).limits
-                if service is not None:
-                    try:
-                        with anyio.CancelScope(shield=True):
-                            await service.finish(team, lease, record, limits)
-                    except Exception:
-                        log.exception("limits_finalize_failed")
-            if record is not None:
-                try:
-                    get_app_state(scope["app"]).usage_writer.enqueue(record)
-                except Exception:
-                    log.exception("usage_enqueue_failed", request_id=record.request_id)
-
-
-def _elapsed_ms(start: float, end: float | None) -> float | None:
-    return None if end is None else round((end - start) * 1000, 2)
+            await finalize_usage(scope, started, first_byte_at, status)

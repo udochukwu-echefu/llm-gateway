@@ -46,7 +46,8 @@ async def embeddings(request: Request) -> Response:
     token = bind(event)
     try:
         result = await adapter.embed(embedding, model)
-    except GatewayError:
+    except GatewayError as exc:
+        event.status_code = exc.status_code
         event.outcome = "upstream_error"
         raise
     finally:

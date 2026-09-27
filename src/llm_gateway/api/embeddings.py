@@ -29,8 +29,6 @@ async def embeddings(request: Request) -> Response:
     )
     if not isinstance(result, EmbeddingResponse):
         raise RuntimeError("embedding returned a chat")
-    if state.telemetry is not None:
-        state.telemetry.metrics.cache_requests.labels("embeddings", cache_result).inc()
     record_usage(result.usage)
     return Response(
         result.model_dump_json(exclude_unset=True),

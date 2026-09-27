@@ -11,6 +11,7 @@ from llm_gateway.cache.crypto import CacheCipher
 from llm_gateway.observability.metrics import Metrics
 
 log = structlog.get_logger("llm_gateway.cache")
+ENVELOPE_BYTES = 16 + 12 + 16  # key ID, GCM nonce, authentication tag
 
 
 class ResponseCache:
@@ -46,7 +47,7 @@ class ResponseCache:
             return None, False
 
     async def store(self, key: str, data: bytes) -> None:
-        if len(data) > self.max_bytes:
+        if len(data) + ENVELOPE_BYTES > self.max_bytes:
             return
         try:
             async with asyncio.timeout(self.timeout):

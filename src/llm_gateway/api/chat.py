@@ -30,8 +30,6 @@ async def chat_completions(request: Request) -> Response:
         lambda: state.resilience.execute_chat(chat, execution),
     )
     headers = {**execution.headers, "x-lgw-cache": cache_result}
-    if state.telemetry is not None:
-        state.telemetry.metrics.cache_requests.labels("chat", cache_result).inc()
     if isinstance(result, EmbeddingResponse):
         raise RuntimeError("chat returned an embedding")
     if not isinstance(result, ChatCompletion):

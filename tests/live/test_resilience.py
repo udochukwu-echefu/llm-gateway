@@ -56,7 +56,12 @@ async def test_closed_groq_port_falls_back_to_live_deepseek() -> None:
             }
         )
         app = create_app(
-            settings.model_copy(update={"providers": providers}),
+            settings.model_copy(
+                update={
+                    "providers": providers,
+                    "cache": settings.cache.model_copy(update={"enabled": False}),
+                }
+            ),
             key_repository=repo,
             secret_store=LiveStore(),
             catalog=catalog,

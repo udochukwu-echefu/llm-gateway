@@ -3,17 +3,20 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Literal, cast
 
 from fastapi import Request
 
 from llm_gateway.cache.key import cache_key
+from llm_gateway.cache.service import ENVELOPE_BYTES
 from llm_gateway.errors import GatewayError
 from llm_gateway.gateway_state import get_state
 from llm_gateway.observability.tracing import current, span
 from llm_gateway.providers.base import ChatStream
 from llm_gateway.resilience.execution import Execution
+from llm_gateway.resilience.stream import deadline_error
 from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionRequest
 from llm_gateway.schemas.common import ProviderName
 from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
@@ -32,14 +35,17 @@ async def execute_with_cache[R: (ChatCompletion, EmbeddingResponse)](
     call: Callable[[], Awaitable[Result]],
 ) -> tuple[Result, str]:
     state = get_state(http)
+    decision: str | None = None
     try:
         await admit_rpm(http)
         mode = http.headers.get("x-lgw-cache", "").lower()
         cache = state.response_cache
         if mode == "disabled" or cache is None or (endpoint == "chat" and mode != "enabled"):
-            return await _uncached(http, call), "disabled"
+            decision = "disabled"
+            return await _uncached(http, call), decision
         if isinstance(request, ChatCompletionRequest) and (request.stream or (request.n or 1) > 1):
-            return await _uncached(http, call), "bypass"
+            decision = "bypass"
+            return await _uncached(http, call), decision
         key = cache_key(
             execution.principal.team_id,
             endpoint,
@@ -53,41 +59,53 @@ async def execute_with_cache[R: (ChatCompletion, EmbeddingResponse)](
                 "result", "hit" if data is not None else "miss" if available else "bypass"
             )
         if not available:
-            return await _uncached(http, call), "bypass"
+            decision = "bypass"
+            return await _uncached(http, call), decision
         if data is not None:
             result = _decode(data, response_type)
             if result is not None:
+                decision = "hit"
                 _hit(http, execution, endpoint, result)
-                return result, "hit"
+                return result, decision
+        decision = "miss"
         flight, leader = cache.enter(key)
         if not leader:
             try:
                 data = await asyncio.wait_for(
-                    asyncio.shield(flight), state.settings.resilience.deadline_s
+                    asyncio.shield(flight),
+                    max(
+                        0,
+                        state.settings.resilience.deadline_s
+                        - (datetime.now(UTC) - execution.requested_at).total_seconds(),
+                    ),
                 )
             except TimeoutError:
-                data = None
+                raise deadline_error() from None
             if data is not None:
                 result = _decode(data, response_type)
                 if result is not None:
+                    decision = "hit"
                     _hit(http, execution, endpoint, result)
-                    return result, "hit"
-            return await _uncached(http, call), "miss"
+                    return result, decision
+            return await _uncached(http, call), decision
         data = None
         try:
             result = await _uncached(http, call)
             if _complete(result, execution) and isinstance(result, response_type):
                 candidate = result.model_dump_json(exclude_unset=True).encode()
-                if len(candidate) <= cache.max_bytes:
+                if len(candidate) + ENVELOPE_BYTES <= cache.max_bytes:
                     data = candidate
                     await cache.store(key, data)
-            return result, "miss"
+            return result, decision
         finally:
             cache.leave(key, flight, data)
     except GatewayError as exc:
         exc.headers.update(execution.headers)
-        exc.headers.setdefault("x-lgw-cache", "bypass")
+        exc.headers.setdefault("x-lgw-cache", decision or "bypass")
         raise
+    finally:
+        if decision is not None and state.telemetry is not None:
+            state.telemetry.metrics.cache_requests.labels(endpoint, decision).inc()
 
 
 async def _uncached(http: Request, call: Callable[[], Awaitable[Result]]) -> Result:

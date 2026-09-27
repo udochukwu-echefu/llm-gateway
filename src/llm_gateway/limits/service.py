@@ -185,7 +185,7 @@ class LimitService:
         self, team: uuid.UUID, limits: EffectiveLimits, now: datetime
     ) -> list[int]:
         key = f"lgw:budget:{team}:{now:%Y-%m}"
-        if limits.monthly_budget_usd > 0 and not cast(int, await self.client.exists(key)):
+        if not cast(int, await self.client.exists(key)):
             await self._initialize_budget(team, key, now)
         ttl = max(1, math.ceil((month_end(now) - now).total_seconds()) + 60)
         result = await self.scripts.call(

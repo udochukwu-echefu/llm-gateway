@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Self
 
@@ -66,6 +67,22 @@ class SecretsSettings(BaseModel):
         return self
 
 
+class LimitsSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_rpm: int = Field(default=0, ge=0)
+    default_tpm: int = Field(default=0, ge=0)
+    default_max_concurrency: int = Field(default=0, ge=0)
+    default_monthly_budget_usd: Decimal = Field(
+        default=Decimal(0), ge=0, le=Decimal("9223372.036854775807"), decimal_places=12
+    )
+    default_alert_threshold: Decimal = Field(default=Decimal("0.8"), gt=0, le=1)
+    ip_failures_per_minute: int = Field(default=20, gt=0)
+    lease_ttl_s: int = Field(default=900, gt=0)
+    redis_timeout_s: float = Field(default=0.05, gt=0)
+    fail_mode: Literal["open", "closed"] = "open"
+
+
 class Settings(BaseSettings):
     """Runtime configuration, read from GATEWAY_* environment variables (and `.env` locally).
 
@@ -80,6 +97,9 @@ class Settings(BaseSettings):
     secrets: SecretsSettings = Field(default_factory=SecretsSettings)
     api_key_pepper: SecretStr | None = None
     database_url: SecretStr | None = None
+    redis_url: SecretStr | None = None
+    limits: LimitsSettings = Field(default_factory=LimitsSettings)
+    trusted_proxy_hops: int = Field(default=0, ge=0)
     key_cache_ttl_s: float = Field(default=30, ge=0)
     key_cache_max_size: int = Field(default=10_000, ge=0)
     usage_queue_size: int = Field(default=10_000, gt=0)

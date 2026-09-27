@@ -74,6 +74,7 @@ async def resilient(
         usage_sink=sink,
         limit_service=OfflineLimitService(),
     )
+    settings.resilience.retry_budget_min_per_window = 0
     fake = FakeTime()
     async with app.router.lifespan_context(app):
         state = get_app_state(app)
@@ -85,7 +86,7 @@ async def resilient(
             sleep=fake.sleep,
             random_source=lambda: 0.5,
         )
-        # Earn two retries from prior first attempts; production starts with no credit.
+        # Exercise the proportional budget independently of the production floor.
         for budget in service.budgets.values():
             for _ in range(10):
                 budget.first()

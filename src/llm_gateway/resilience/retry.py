@@ -23,7 +23,10 @@ class RetryBudget:
 
     def take(self) -> bool:
         self._expire()
-        if len(self.retries) + 1 > len(self.firsts) * self.settings.retry_budget_ratio:
+        if len(self.retries) + 1 > max(
+            self.settings.retry_budget_min_per_window,
+            len(self.firsts) * self.settings.retry_budget_ratio,
+        ):
             return False
         self.retries.append(self.clock())
         return True

@@ -13,6 +13,7 @@ class ResilienceSettings(BaseModel):
     retry_cap_s: float = Field(default=2, gt=0)
     retry_read_timeouts: bool = False
     retry_budget_ratio: float = Field(default=0.2, ge=0, le=1)
+    retry_budget_min_per_window: int = Field(default=10, ge=0)
     retry_window_s: float = Field(default=60, gt=0)
     deadline_s: float = Field(default=60, gt=0)
     breaker_window_s: float = Field(default=30, gt=0)

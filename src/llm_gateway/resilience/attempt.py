@@ -41,8 +41,11 @@ async def run_attempt(
         event.outcome, event.status_code = "upstream_error", exc.status_code
         breaker.finish(permit, breaker_failure(exc))
         raise
-    except BaseException:
-        event.outcome = "client_disconnected"
+    except BaseException as exc:
+        event.outcome = (
+            "client_disconnected" if isinstance(exc, asyncio.CancelledError) else "gateway_error"
+        )
+        event.status_code = 499 if isinstance(exc, asyncio.CancelledError) else 500
         breaker.abandon(permit)
         raise
     else:

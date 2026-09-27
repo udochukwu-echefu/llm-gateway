@@ -50,18 +50,6 @@ class OpenAICompatibleAdapter:
     def validate_embedding(self, request: EmbeddingRequest, model: str) -> None:
         self._embedding_payload(request, model)
 
-    def _embedding_payload(self, request: EmbeddingRequest, model: str) -> dict[str, Any]:
-        if not self.capabilities.supports_embeddings:
-            raise self.unsupported("embeddings")
-        payload = request.to_upstream(self.name)
-        self._reject_parameters(payload, self.capabilities.unsupported_embedding_parameters)
-        if not self.capabilities.supports_token_inputs and not (
-            isinstance(request.input, str) or all(isinstance(x, str) for x in request.input)
-        ):
-            raise self.unsupported("input (token IDs)")
-        payload["model"] = model
-        return payload
-
     def normalize_chat(self, result: ChatCompletion | ChatCompletionChunk) -> None:
         result.model = f"{self.name}/{result.model}"
 
@@ -108,3 +96,15 @@ class OpenAICompatibleAdapter:
         for parameter in sorted(parameters):
             if parameter in payload:
                 raise self.unsupported(parameter)
+
+    def _embedding_payload(self, request: EmbeddingRequest, model: str) -> dict[str, Any]:
+        if not self.capabilities.supports_embeddings:
+            raise self.unsupported("embeddings")
+        payload = request.to_upstream(self.name)
+        self._reject_parameters(payload, self.capabilities.unsupported_embedding_parameters)
+        if not self.capabilities.supports_token_inputs and not (
+            isinstance(request.input, str) or all(isinstance(x, str) for x in request.input)
+        ):
+            raise self.unsupported("input (token IDs)")
+        payload["model"] = model
+        return payload

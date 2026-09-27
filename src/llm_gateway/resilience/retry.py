@@ -46,7 +46,14 @@ def retryable(error: GatewayError, settings: ResilienceSettings) -> bool:
 def breaker_failure(error: GatewayError) -> bool:
     if error.upstream_status is not None:
         return error.upstream_status == 429 or error.upstream_status >= 500
-    return error.transport_kind is not None
+    return error.transport_kind in {
+        "ConnectError",
+        "ConnectTimeout",
+        "PoolTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+        "DeadlineExceeded",
+    }
 
 
 def retry_delay(

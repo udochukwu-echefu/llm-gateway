@@ -8,6 +8,7 @@ from llm_gateway.providers.base import ChatStream
 from llm_gateway.resilience.breaker import CircuitBreaker, Permit
 from llm_gateway.resilience.retry import breaker_failure
 from llm_gateway.schemas.chat import ChatCompletionChunk
+from llm_gateway.usage.record import UsageEvent
 
 
 def deadline_error() -> GatewayError:
@@ -28,7 +29,10 @@ class DeadlineStream:
         clock: Callable[[], float],
         breaker: CircuitBreaker,
         permit: Permit,
+        event: UsageEvent,
+        started: float,
     ) -> None:
+        self.event, self.started = event, started
         self.stream = stream
         self.deadline = deadline
         self.clock = clock
@@ -40,6 +44,7 @@ class DeadlineStream:
         return self._chunks()
 
     async def aclose(self) -> None:
+        self.event.duration_ms = round((self.clock() - self.started) * 1000, 2)
         if not self.settled:
             self.breaker.abandon(self.permit)
             self.settled = True
@@ -53,6 +58,7 @@ class DeadlineStream:
                     first = await anext(iterator)
             except TimeoutError:
                 raise deadline_error() from None
+            self.event.ttfb_ms = round((self.clock() - self.started) * 1000, 2)
             yield first
             async for chunk in iterator:
                 yield chunk

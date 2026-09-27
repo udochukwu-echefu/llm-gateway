@@ -97,3 +97,23 @@ async def test_all_attempt_tokens_and_costs_reach_redis(
     )
     assert (await service.window(str(final.team_id), "tokens", 100, 0, False))[1] == 78
     assert int(await test_redis.get(key) or 0) == picos(Decimal(6) + (final.cost_usd or Decimal(0)))
+
+
+async def test_attempt_timings_exclude_other_attempts_and_backoff(resilient: ResilientApp) -> None:
+    import httpx
+
+    calls = 0
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        resilient.time.now += 0.01
+        return httpx.Response(503) if calls == 1 else httpx.Response(200, json=COMPLETION)
+
+    resilient.router.post("https://groq.test/v1/chat/completions").mock(side_effect=reply)
+
+    await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    await get_app_state(resilient.app).usage_writer.stop()
+
+    assert [record.duration_ms for record in resilient.records] == [10, 10]
+    assert [record.ttfb_ms for record in resilient.records] == [None, 10]

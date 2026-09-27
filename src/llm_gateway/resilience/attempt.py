@@ -30,21 +30,7 @@ async def run_attempt(
     deadline: float,
     clock: Callable[[], float],
 ) -> ModelResult:
-    event = UsageEvent(
-        execution.principal,
-        execution.request_id,
-        target.price,
-        catalog,
-        "chat" if isinstance(request, ChatCompletionRequest) else "embeddings",
-        isinstance(request, ChatCompletionRequest) and request.stream,
-        requested_at=execution.requested_at,
-        attempt=len(execution.events) + 1,
-        fallback_from=(
-            execution.requested_model
-            if f"{target.adapter.name}/{target.model}" != execution.requested_model
-            else None
-        ),
-    )
+    event = _new_event(request, target, execution, catalog)
     execution.events.append(event)
     annotate(provider=target.adapter.name, model=f"{target.adapter.name}/{target.model}")
     token = bind(event)
@@ -62,9 +48,10 @@ async def run_attempt(
     else:
         if isinstance(result, (ChatCompletion, EmbeddingResponse)):
             event.usage = result.usage
+            event.ttfb_ms = round((clock() - started) * 1000, 2)
             breaker.finish(permit, False)
         else:
-            return DeadlineStream(result, deadline, clock, breaker, permit)
+            return DeadlineStream(result, deadline, clock, breaker, permit, event, started)
         return result
     finally:
         event.duration_ms = round((clock() - started) * 1000, 2)
@@ -81,3 +68,23 @@ async def _call(request: ModelRequest, target: Target, remaining: float) -> Mode
             return await target.adapter.embed(request, target.model)
     except TimeoutError:
         raise deadline_error() from None
+
+
+def _new_event(
+    request: ModelRequest, target: Target, execution: Execution, catalog: Catalog
+) -> UsageEvent:
+    return UsageEvent(
+        execution.principal,
+        execution.request_id,
+        target.price,
+        catalog,
+        "chat" if isinstance(request, ChatCompletionRequest) else "embeddings",
+        isinstance(request, ChatCompletionRequest) and request.stream,
+        requested_at=execution.requested_at,
+        attempt=len(execution.events) + 1,
+        fallback_from=(
+            execution.requested_model
+            if f"{target.adapter.name}/{target.model}" != execution.requested_model
+            else None
+        ),
+    )

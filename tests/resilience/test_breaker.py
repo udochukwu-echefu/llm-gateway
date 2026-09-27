@@ -77,3 +77,29 @@ def test_stale_completions_cannot_close_a_new_generation() -> None:
     assert breaker.state == "half_open"
     breaker.abandon(probe)
     assert breaker.state == "open"
+
+
+def test_half_failures_opens_at_ten_calls_and_logs_each_transition() -> None:
+    from structlog.testing import capture_logs
+
+    now = [0.0]
+    breaker = CircuitBreaker("groq", ResilienceSettings(), lambda: now[0])
+    with capture_logs() as logs:
+        for failed in [False] * 5 + [True] * 5:
+            permit = breaker.acquire()
+            assert permit is not None
+            breaker.finish(permit, failed)
+        assert breaker.state == "open"
+        now[0] = 30
+        probe = breaker.acquire()
+        assert probe is not None
+        breaker.finish(probe, False)
+
+    assert [event["event"] for event in logs] == [
+        "circuit_opened",
+        "circuit_half_open",
+        "circuit_closed",
+    ]
+    assert logs[0]["calls"] == 10
+    assert logs[0]["failures"] == 5
+    assert all(event["provider"] == "groq" for event in logs)

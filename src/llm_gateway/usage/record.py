@@ -65,6 +65,7 @@ class UsageEvent:
         self.attempt = attempt
         self.fallback_from = fallback_from
         self.duration_ms: float | None = None
+        self.ttfb_ms: float | None = None
         self.principal = principal
         self.request_id = request_id
         self.price = price
@@ -107,7 +108,11 @@ class UsageEvent:
                 cost_status = "usage_missing"
         if self.outcome == "client_disconnected" and usage is None:
             cost_status, cost = "stream_incomplete", None
-        elif self.outcome == "upstream_error" and (self.provider_rejected or self.connect_failed):
+        elif (
+            usage is None
+            and self.outcome == "upstream_error"
+            and (self.provider_rejected or self.connect_failed)
+        ):
             cost_status, cost = "not_billed", Decimal(0)
         return UsageRecord(
             uuid.uuid4(),
@@ -130,7 +135,7 @@ class UsageEvent:
             cost,
             self.catalog.version,
             self.duration_ms if self.duration_ms is not None else duration_ms,
-            ttfb_ms,
+            self.ttfb_ms if self.duration_ms is not None else ttfb_ms,
             self.attempt,
             self.fallback_from,
         )

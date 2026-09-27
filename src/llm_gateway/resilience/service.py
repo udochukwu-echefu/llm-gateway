@@ -7,6 +7,8 @@ from collections.abc import Awaitable, Callable
 
 from llm_gateway.catalog import Catalog
 from llm_gateway.errors import GatewayError
+from llm_gateway.observability.metrics import Metrics
+from llm_gateway.observability.tracing import current
 from llm_gateway.providers.base import ChatStream
 from llm_gateway.providers.registry import ProviderRegistry
 from llm_gateway.resilience.attempt import ModelResult, run_attempt
@@ -31,6 +33,7 @@ class ResilienceService:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         random_source: Callable[[], float] = random.random,
         wall_clock: Callable[[], float] = time.time,
+        metrics: Metrics | None = None,
     ) -> None:
         self.registry, self.catalog, self.settings = registry, catalog, settings
         self.clock, self.sleep, self.random, self.wall_clock = (
@@ -39,7 +42,9 @@ class ResilienceService:
             random_source,
             wall_clock,
         )
-        self.breakers = {name: CircuitBreaker(name, settings, clock) for name in registry.adapters}
+        self.breakers = {
+            name: CircuitBreaker(name, settings, clock, metrics) for name in registry.adapters
+        }
         self.budgets = {name: RetryBudget(settings, clock) for name in registry.adapters}
 
     async def execute_chat(
@@ -90,6 +95,7 @@ class ResilienceService:
     ) -> ModelResult:
         breaker = self.breakers[target.adapter.name]
         budget = self.budgets[target.adapter.name]
+        retry_reason = "unknown"
         for retry in range(self.settings.max_retries + 1):
             if self.clock() >= deadline:
                 raise deadline_error()
@@ -98,13 +104,30 @@ class ResilienceService:
                 raise unavailable()
             if retry == 0:
                 budget.first()
+            telemetry = current.get()
+            if telemetry is not None:
+                if retry:
+                    telemetry.metrics.retries.labels(target.adapter.name, retry_reason).inc()
+                elif f"{target.adapter.name}/{target.model}" != execution.requested_model:
+                    telemetry.metrics.fallbacks.labels(
+                        execution.requested_model.split("/", 1)[0], target.adapter.name
+                    ).inc()
             try:
                 return await run_attempt(
-                    request, target, execution, self.catalog, breaker, permit, deadline, self.clock
+                    request,
+                    target,
+                    execution,
+                    self.catalog,
+                    breaker,
+                    permit,
+                    deadline,
+                    self.clock,
+                    bool(retry),
                 )
             except GatewayError as exc:
                 if retry == self.settings.max_retries or not retryable(exc, self.settings):
                     raise
+                retry_reason = exc.code
                 delay = retry_delay(exc, retry, self.settings, self.random, self.wall_clock)
                 if delay is None or delay >= deadline - self.clock() or not budget.take():
                     raise

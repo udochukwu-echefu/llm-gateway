@@ -15,6 +15,7 @@ from redis.asyncio import Redis
 from llm_gateway.errors import GatewayError
 from llm_gateway.limits.configuration import EffectiveLimits
 from llm_gateway.limits.redis import Scripts
+from llm_gateway.observability.metrics import Metrics
 from llm_gateway.usage.record import UsageRecord
 
 PICOS = Decimal(10) ** 12
@@ -43,6 +44,7 @@ class LimitService:
         clock: Callable[[], float] = time.time,
         spend_total: Callable[[uuid.UUID, datetime, datetime], Awaitable[Decimal]] | None = None,
     ) -> None:
+        self.metrics: Metrics | None = None
         self.client = client
         self.scripts = Scripts(client)
         self.fail_mode = fail_mode
@@ -56,10 +58,14 @@ class LimitService:
     async def start(self) -> None:
         await self.scripts.load()
 
-    async def safe(self, operation: Callable[[], Awaitable[object]]) -> object | None:
+    async def safe(
+        self, operation: Callable[[], Awaitable[object]], name: str = "limits"
+    ) -> object | None:
         try:
             return await operation()
         except Exception as exc:
+            if self.metrics is not None:
+                self.metrics.redis_errors.labels(name).inc()
             if self.clock() - self._last_error >= 1 or self._last_error == 0:
                 log.error("limits_dependency_unavailable", error_type=type(exc).__name__)
                 self._last_error = self.clock()
@@ -86,6 +92,7 @@ class LimitService:
     async def ip_check(self, ip: str) -> None:
         result = await self.safe(lambda: self.window(ip, "auth-fail", self.ip_limit, 0, False))
         if isinstance(result, list) and not result[0]:
+            self._rejected("auth_ip")
             reset = cast(list[int], result)[2]
             raise GatewayError(
                 429,
@@ -113,6 +120,7 @@ class LimitService:
         }
         budget = await self.safe(lambda: self.check_budget(team, limits, now))
         if isinstance(budget, list) and not budget[0]:
+            self._rejected("budget")
             retry = math.ceil((month_end(now) - now).total_seconds())
             headers = await self.rate_headers(team, limits)
             raise GatewayError(
@@ -132,6 +140,7 @@ class LimitService:
                 values = cast(list[int], result)
                 headers.update(self._format_headers(kind, limit, values))
                 if not values[0]:
+                    self._rejected(kind)
                     if kind == "requests":
                         tokens = await self.safe(
                             lambda: self.window(str(team), "tokens", limits.tpm, 0, False)
@@ -156,6 +165,7 @@ class LimitService:
             )
         )
         if result == 0:
+            self._rejected("concurrency")
             raise GatewayError(
                 429,
                 "Team concurrency limit exceeded.",
@@ -302,3 +312,7 @@ class LimitService:
                 continue
             if result == 0:
                 return
+
+    def _rejected(self, kind: str) -> None:
+        if self.metrics is not None:
+            self.metrics.rate_limited.labels(kind).inc()

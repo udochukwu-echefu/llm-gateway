@@ -10,6 +10,7 @@ from time import monotonic
 
 import structlog
 
+from llm_gateway.observability.metrics import Metrics
 from llm_gateway.usage.record import UsageRecord
 
 log = structlog.get_logger("llm_gateway.usage")
@@ -26,8 +27,12 @@ class UsageWriter:
         interval: float = 1.0,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         clock: Callable[[], float] = monotonic,
+        metrics: Metrics | None = None,
     ) -> None:
         self.queue: asyncio.Queue[UsageRecord] = asyncio.Queue(maxsize=max_size)
+        self.metrics = metrics
+        if metrics is not None:
+            metrics.queue_depth.set_function(self.queue.qsize)
         self.sink = sink
         self.batch_size = batch_size
         self.interval = interval
@@ -58,6 +63,8 @@ class UsageWriter:
                 self._pending[record.id] = record
         except asyncio.QueueFull:
             self.dropped += 1
+            if self.metrics is not None:
+                self.metrics.dropped.inc()
             self._drops_since_log += 1
             now = self.clock()
             if self._last_drop_log is None or now - self._last_drop_log >= 1:
@@ -78,7 +85,7 @@ class UsageWriter:
                 with suppress(asyncio.CancelledError):
                     await self._task
         remaining = self.queue.qsize()
-        self.lost += remaining + self._inflight
+        self._record_loss(remaining + self._inflight)
         log.info("usage_writer_stopped", flushed=self.flushed, lost=self.lost + self.dropped)
 
     async def spend_snapshot(
@@ -135,7 +142,7 @@ class UsageWriter:
                         for record in batch:
                             self._pending.pop(record.id, None)
             except asyncio.CancelledError:
-                self.lost += len(batch)
+                self._record_loss(len(batch))
                 raise
             finally:
                 self._inflight = 0
@@ -171,8 +178,13 @@ class UsageWriter:
                 log.exception("usage_insert_failed", count=len(batch), attempt=attempt + 1)
                 if attempt < 2:
                     await self.sleep(0.1 * (2**attempt))
-        self.lost += len(batch)
+        self._record_loss(len(batch))
         log.error("usage_batch_lost", count=len(batch))
         for record in batch:
             self._pending.pop(record.id, None)
         return False
+
+    def _record_loss(self, count: int) -> None:
+        self.lost += count
+        if self.metrics is not None:
+            self.metrics.lost.inc(count)

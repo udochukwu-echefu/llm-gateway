@@ -6,6 +6,7 @@ from collections.abc import Callable
 from llm_gateway.catalog import Catalog
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
+from llm_gateway.observability.attempt import AttemptObservation
 from llm_gateway.providers.base import ChatStream
 from llm_gateway.resilience.breaker import CircuitBreaker, Permit
 from llm_gateway.resilience.execution import Execution
@@ -29,14 +30,17 @@ async def run_attempt(
     permit: Permit,
     deadline: float,
     clock: Callable[[], float],
+    retry: bool = False,
 ) -> ModelResult:
     event = _new_event(request, target, execution, catalog)
     execution.events.append(event)
     annotate(provider=target.adapter.name, model=f"{target.adapter.name}/{target.model}")
     token = bind(event)
     started = clock()
+    observation = AttemptObservation(event, retry)
+    streaming = False
     try:
-        result = await _call(request, target, deadline - clock())
+        result = await observation.wait(_call(request, target, deadline - clock()))
     except GatewayError as exc:
         event.outcome, event.status_code = "upstream_error", exc.status_code
         breaker.finish(permit, breaker_failure(exc))
@@ -51,14 +55,20 @@ async def run_attempt(
     else:
         if isinstance(result, (ChatCompletion, EmbeddingResponse)):
             event.usage = result.usage
+            observation.span.set_attribute("gen_ai.response.model", result.model.split("/", 1)[-1])
             event.ttfb_ms = round((clock() - started) * 1000, 2)
             breaker.finish(permit, False)
         else:
-            return DeadlineStream(result, deadline, clock, breaker, permit, event, started)
+            streaming = True
+            return DeadlineStream(
+                result, deadline, clock, breaker, permit, event, started, observation
+            )
         return result
     finally:
         event.duration_ms = round((clock() - started) * 1000, 2)
         unbind(token)
+        if not streaming:
+            observation.finish()
 
 
 async def _call(request: ModelRequest, target: Target, remaining: float) -> ModelResult:

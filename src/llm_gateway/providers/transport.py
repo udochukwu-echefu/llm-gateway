@@ -2,10 +2,12 @@ from typing import Any
 
 import httpx
 import structlog
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import ValidationError
 
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
+from llm_gateway.observability.tracing import current
 from llm_gateway.schemas.common import ResponseModel
 from llm_gateway.usage.binding import mark_connect_failed, mark_rejected, mark_sent
 
@@ -26,6 +28,11 @@ class UpstreamClient:
         read, closed and raised as GatewayError here, so the caller only sees successes.
         """
         request = self._http.build_request("POST", path, json=payload)
+        telemetry = current.get()
+        if telemetry is not None and telemetry.propagate:
+            carrier: dict[str, str] = {}
+            TraceContextTextMapPropagator().inject(carrier)
+            request.headers.update(carrier)
         mark_sent()
         try:
             response = await self._http.send(request, stream=True)

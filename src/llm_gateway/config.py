@@ -13,6 +13,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from llm_gateway.observability.configuration import MetricsSettings, TracingSettings
 from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
 from llm_gateway.resilience.configuration import ResilienceSettings
 from llm_gateway.schemas.common import ProviderName
@@ -102,6 +103,8 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     redis_url: SecretStr | None = None
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
+    metrics: MetricsSettings = Field(default_factory=MetricsSettings)
+    tracing: TracingSettings = Field(default_factory=TracingSettings)
     resilience: ResilienceSettings = Field(default_factory=ResilienceSettings)
     trusted_proxy_hops: int = Field(default=0, ge=0)
     key_cache_ttl_s: float = Field(default=30, ge=0)
@@ -140,3 +143,8 @@ class Settings(BaseSettings):
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "json"
+
+
+class AdminSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="GATEWAY_ADMIN_", extra="ignore")
+    actor: str | None = Field(default=None, min_length=1)

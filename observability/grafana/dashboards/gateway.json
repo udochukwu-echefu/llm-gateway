@@ -56,14 +56,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(rate(lgw_requests_total{status_class=\"5xx\"}[5m])) or vector(0)) / sum(rate(lgw_requests_total[5m]))",
+          "expr": "(sum(rate(lgw_requests_total{status_class=\"5xx\"}[5m])) / (sum(rate(lgw_requests_total[5m])) > 0)) or vector(0)",
           "legendFormat": "5xx fraction"
         }
       ]

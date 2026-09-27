@@ -117,3 +117,32 @@ async def test_attempt_timings_exclude_other_attempts_and_backoff(resilient: Res
 
     assert [record.duration_ms for record in resilient.records] == [10, 10]
     assert [record.ttfb_ms for record in resilient.records] == [None, 10]
+
+
+@pytest.mark.parametrize("cancelled", [False, True])
+async def test_attempt_exception_outcome_reopens_half_open_probe(
+    resilient: ResilientApp, cancelled: bool
+) -> None:
+    import asyncio
+
+    breaker = resilient.service.breakers["groq"]
+    breaker.state = "open"
+    resilient.time.now = 31
+    error = asyncio.CancelledError() if cancelled else RuntimeError("unexpected")
+
+    def fail(request: object) -> None:
+        raise error
+
+    resilient.router.post("https://groq.test/v1/chat/completions").mock(side_effect=fail)
+
+    if cancelled:
+        with pytest.raises(asyncio.CancelledError):
+            await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+    else:
+        response = await resilient.client.post("/v1/chat/completions", json=CHAT_REQUEST)
+        assert response.status_code == 500
+    await get_app_state(resilient.app).usage_writer.stop()
+
+    assert breaker.state == "open"
+    assert len(resilient.records) == 1
+    assert resilient.records[0].outcome == ("client_disconnected" if cancelled else "gateway_error")

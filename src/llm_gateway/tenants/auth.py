@@ -14,6 +14,7 @@ from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.gateway_state import get_state
 from llm_gateway.limits.configuration import resolve
+from llm_gateway.observability.tracing import current, span
 from llm_gateway.tenants.keys import hash_secret, parse_key, verify_hash
 from llm_gateway.tenants.repository import KeyRecord
 
@@ -28,6 +29,13 @@ class Principal:
 
 
 async def authenticate(request: Request) -> None:
+    with span("authenticate"):
+        principal, record = await _credentials(request)
+    with span("limits.admission"):
+        await _admit(request, principal, record)
+
+
+async def _credentials(request: Request) -> tuple[Principal, KeyRecord]:
     state = get_state(request)
     ip = client_ip(request, state.settings.trusted_proxy_hops)
     if state.limits is not None:
@@ -66,6 +74,11 @@ async def authenticate(request: Request) -> None:
         state.key_cache.put(record)
     principal = Principal(record.organization_id, record.team_id, record.key_id)
     request.state.principal = principal
+    return principal, record
+
+
+async def _admit(request: Request, principal: Principal, record: KeyRecord) -> None:
+    state = get_state(request)
     if state.limits is not None:
         limits = resolve(record.limits, state.settings.limits)
         try:
@@ -105,6 +118,9 @@ def client_ip(request: Request, trusted_hops: int) -> str:
 
 
 def _reject(reason: str) -> NoReturn:
+    telemetry = current.get()
+    if telemetry is not None:
+        telemetry.metrics.auth_failures.labels(reason).inc()
     log.info("authentication_failed", reason=reason, key_id=None)
     raise GatewayError(
         401, "Invalid API key.", type="invalid_request_error", code="invalid_api_key"

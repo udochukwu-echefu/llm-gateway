@@ -32,8 +32,10 @@ attempt. A delay that cannot fit exhausts the target, leaving remaining time for
 A per-provider, per-process rolling 60-second retry budget admits no more than one
 retry per five first attempts (20%). A fallback target's first network attempt is a
 first attempt for its provider. Open circuits and capability skips earn no credit.
-No initial retry credit is granted: a new replica needs five first attempts to allow
-one retry. Reserving retry credit before sleep prevents concurrent requests from
+Step 8 adds `GATEWAY_RESILIENCE__RETRY_BUDGET_MIN_PER_WINDOW` (default 10).
+The allowance is the maximum of this floor and 20% of first attempts, not their sum.
+This gives low-traffic users recovery while retaining proportional storm protection
+above the floor. Setting the floor to zero restores the original behavior. Reserving retry credit before sleep prevents concurrent requests from
 overspending it; cancelled reservations are conservatively retained until expiry.
 Unlimited retries can multiply traffic just as provider capacity falls, turning a
 small outage into a larger one. Jitter prevents synchronized clients from retrying

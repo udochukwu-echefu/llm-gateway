@@ -1,8 +1,11 @@
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import structlog
 from fastapi import APIRouter, Depends, FastAPI
+from opentelemetry import trace
+from opentelemetry.trace import TracerProvider
+from prometheus_client import CollectorRegistry
 from pydantic import SecretStr
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -18,6 +21,10 @@ from llm_gateway.limits.reconcile import BudgetReconciler
 from llm_gateway.limits.service import LimitService
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
+from llm_gateway.observability.metrics import Metrics
+from llm_gateway.observability.middleware import ObservabilityMiddleware
+from llm_gateway.observability.server import metrics_server
+from llm_gateway.observability.tracing import Telemetry, make_provider
 from llm_gateway.providers.pools import provider_pools
 from llm_gateway.resilience.service import ResilienceService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
@@ -39,6 +46,8 @@ def create_app(
     catalog: Catalog | None = None,
     usage_sink: Sink | None = None,
     limit_service: LimitService | None = None,
+    metrics_registry: CollectorRegistry | None = None,
+    tracer_provider: TracerProvider | None = None,
 ) -> FastAPI:
     """Build the application. Run with `uvicorn llm_gateway.main:create_app --factory`."""
     settings = settings or Settings()  # pyright: ignore[reportCallIssue]  # values come from env
@@ -76,6 +85,9 @@ def create_app(
     if not settings.providers.enabled():
         raise ValueError("Configure at least one provider API key in the secret store")
     catalog = catalog if catalog is not None else load_catalog()
+
+    metrics = Metrics(metrics_registry if metrics_registry is not None else CollectorRegistry())
+    telemetry = Telemetry(metrics, trace.NoOpTracer(), settings.tracing.propagate_to_providers)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -127,6 +139,7 @@ def create_app(
             max_size=settings.usage_queue_size,
             batch_size=settings.usage_batch_size,
             interval=settings.usage_flush_interval_s,
+            metrics=metrics,
         )
         reconciler = (
             BudgetReconciler(
@@ -138,8 +151,20 @@ def create_app(
             if redis_client is not None and usage_repository is not None
             else None
         )
+        limits.metrics = metrics
         try:
-            async with provider_pools(settings) as registry:
+            async with AsyncExitStack() as stack:
+                owned_provider = (
+                    make_provider(settings.tracing) if tracer_provider is None else None
+                )
+                if owned_provider is not None:
+                    stack.callback(owned_provider.shutdown)
+                provider = tracer_provider or owned_provider
+                telemetry.tracer = (
+                    provider.get_tracer("llm-gateway") if provider else trace.NoOpTracer()
+                )
+                await stack.enter_async_context(metrics_server(settings.metrics, metrics.registry))
+                registry = await stack.enter_async_context(provider_pools(settings))
                 app.state.gateway = GatewayState(
                     settings=settings,
                     providers=registry,
@@ -150,8 +175,11 @@ def create_app(
                     pepper=pepper.get_secret_value().encode(),
                     catalog=catalog,
                     usage_writer=writer,
-                    resilience=ResilienceService(registry, catalog, settings.resilience),
+                    resilience=ResilienceService(
+                        registry, catalog, settings.resilience, metrics=metrics
+                    ),
                     limits=limits,
+                    telemetry=telemetry,
                 )
                 writer.start()
                 if reconciler is not None:
@@ -184,4 +212,5 @@ def create_app(
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_middleware(UsageMiddleware)
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(ObservabilityMiddleware, telemetry=telemetry)
     return app

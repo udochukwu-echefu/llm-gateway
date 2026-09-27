@@ -89,6 +89,8 @@ def offline_by_default(
             "GATEWAY_SECRETS__BACKEND",
         }:
             monkeypatch.delenv(name)
+    monkeypatch.setenv("GATEWAY_METRICS__ENABLED", "false")
+    monkeypatch.delenv("GATEWAY_TRACING__OTLP_ENDPOINT", raising=False)
     monkeypatch.setenv("GATEWAY_DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("GATEWAY_API_KEY_PEPPER", TEST_PEPPER)
     with respx.mock(assert_all_called=False):

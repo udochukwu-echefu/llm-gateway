@@ -8,7 +8,7 @@ from llm_gateway.resilience.retry import RetryBudget, retry_delay
 
 def test_retry_budget_recovers_after_rolling_window() -> None:
     now = [0.0]
-    budget = RetryBudget(ResilienceSettings(), lambda: now[0])
+    budget = RetryBudget(ResilienceSettings(retry_budget_min_per_window=0), lambda: now[0])
     for _ in range(5):
         budget.first()
     assert budget.take()
@@ -60,3 +60,17 @@ def test_malformed_retry_after_uses_jitter() -> None:
         503, "wait", type="upstream_error", code="failed", headers={"retry-after": "not-a-date"}
     )
     assert retry_delay(error, 0, ResilienceSettings(), lambda: 0.5) == 0.125
+
+
+def test_retry_budget_floor_and_ratio_do_not_add_together() -> None:
+    now = [0.0]
+    budget = RetryBudget(ResilienceSettings(), lambda: now[0])
+    assert all(budget.take() for _ in range(10))
+    assert not budget.take()
+    for _ in range(55):
+        budget.first()
+    assert budget.take()
+    assert not budget.take()
+    now[0] = 60
+    assert all(budget.take() for _ in range(10))
+    assert not budget.take()

@@ -309,7 +309,8 @@ All settings below use the `GATEWAY_RESILIENCE__` prefix. Invalid settings fail 
 | `RETRY_CAP_S` | `2` | Maximum jitter or honored Retry-After delay |
 | `RETRY_READ_TIMEOUTS` | `false` | Opt into potentially duplicate-billed read retries |
 | `RETRY_BUDGET_RATIO` | `0.2` | Retries divided by first attempts, per provider/replica |
-| `RETRY_WINDOW_S` | `60` | Rolling retry-credit window; no initial credit |
+| `RETRY_WINDOW_S` | `60` | Rolling retry-credit window |
+| `RETRY_BUDGET_MIN_PER_WINDOW` | `10` | Minimum retries per provider per window; max of floor and ratio allowance |
 | `DEADLINE_S` | `60` | Total provider execution time, until first chunk for streams |
 | `BREAKER_WINDOW_S` | `30` | Rolling observation window |
 | `BREAKER_MIN_CALLS` | `10` | Minimum attempts before opening |
@@ -320,3 +321,57 @@ Connect failures and selected 429/5xx statuses may retry; other 4xx never do. A
 Retry-After above the cap exhausts that target immediately. Redis is not involved in
 recovery policy. See [ADR 0012](docs/adr/0012-safe-retries.md) and
 [ADR 0013](docs/adr/0013-breakers-and-approved-fallbacks.md) for billing limits and semantics.
+
+### Observability (step 8)
+
+With Docker Desktop running and your existing `.env` configured (including provider keys
+and a 32+ byte `GATEWAY_API_KEY_PEPPER`):
+
+```bash
+docker compose --profile observability up -d --build
+```
+
+This starts Postgres, Redis, a gateway on `127.0.0.1:8000`, and version-pinned observability
+services. It migrates the local database first. The gateway metrics socket is private to
+the compose network; it is **not** `/metrics` on the API port.
+
+- [Grafana gateway dashboard](http://localhost:3000/d/llm-gateway/llm-gateway): provisioned
+  Prometheus datasource and traffic, errors, p50/p99 latency/overhead, tokens, cost rate,
+  circuit state, limits and queue-health panels. Local anonymous access is read-only.
+- [Prometheus](http://localhost:9090): scrape targets, metric queries and five alert rules.
+- [Jaeger](http://localhost:16686): choose service `llm-gateway`, then find a request trace.
+
+Send authenticated traffic with an existing virtual key to populate provider panels.
+Screenshot placeholder: add a redacted screenshot of this dashboard with representative
+traffic before publishing a portfolio demo. Do not include customer identifiers or secrets.
+The profile's UI and API ports bind to loopback; do not expose these local defaults publicly.
+For a gateway running outside Docker, metrics default to `127.0.0.1:9464`. Configure your
+Prometheus target/reachable bind address explicitly; never expose it through the public API.
+
+Configuration: `GATEWAY_METRICS__HOST`, `GATEWAY_METRICS__PORT` (9464),
+`GATEWAY_METRICS__ENABLED` (true), `GATEWAY_TRACING__OTLP_ENDPOINT` (unset disables export),
+`GATEWAY_TRACING__SAMPLE_RATIO` (1.0), and `GATEWAY_TRACING__PROPAGATE_TO_PROVIDERS` (false).
+Use the full OTLP HTTP endpoint ending in `/v1/traces`. Run one gateway worker per container
+for private metrics; these registries are not a multiprocess aggregate. Incoming traceparent
+is accepted, while outgoing propagation is an explicit data-sharing choice. Metrics contain
+no tenant/key/request/IP labels. Cost counters are trends; Postgres is the accounting record.
+
+The retry budget now permits the larger of ten retries per provider per rolling minute and
+20% of first attempts. Set `GATEWAY_RESILIENCE__RETRY_BUDGET_MIN_PER_WINDOW=0` to remove the
+floor. Unexpected attempt exceptions use `gateway_error`, distinct from cancellation.
+
+Admin changes now write an append-only, hash-chained audit event in the same transaction:
+
+```bash
+GATEWAY_ADMIN_ACTOR=operator-name uv run --env-file .env gateway-admin set-limits acme team --rpm 100
+uv run --env-file .env gateway-admin audit list --since 2026-09-27 --action set-limits
+uv run --env-file .env gateway-admin audit verify
+
+docker run --rm --entrypoint promtool -v "$PWD/observability/prometheus:/etc/prometheus:ro" prom/prometheus:v3.2.1 check rules /etc/prometheus/alerts.yml
+```
+
+Without `GATEWAY_ADMIN_ACTOR`, audit records use OS username and hostname. This is a claim,
+not verified identity. Database owners can defeat the chain by rewriting it or deleting its
+tail; externally retained trusted checkpoints are needed for stronger evidence. No secret
+material, names or credential URLs are stored in audit details. Verification failures exit
+nonzero and identify the first broken event ID.

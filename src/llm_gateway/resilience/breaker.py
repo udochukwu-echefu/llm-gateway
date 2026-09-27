@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 import structlog
 
+from llm_gateway.observability.metrics import Metrics
+from llm_gateway.observability.tracing import current
 from llm_gateway.resilience.configuration import ResilienceSettings
 
 log = structlog.get_logger("llm_gateway.resilience")
@@ -19,8 +21,15 @@ class Permit:
 
 class CircuitBreaker:
     def __init__(
-        self, provider: str, settings: ResilienceSettings, clock: Callable[[], float]
+        self,
+        provider: str,
+        settings: ResilienceSettings,
+        clock: Callable[[], float],
+        metrics: Metrics | None = None,
     ) -> None:
+        self.metrics = metrics
+        if metrics is not None:
+            metrics.circuit.labels(provider).set(0)
         self.provider = provider
         self.settings = settings
         self.clock = clock
@@ -64,6 +73,12 @@ class CircuitBreaker:
     def _transition(self, state: str) -> None:
         self._expire()
         self.state = state
+        telemetry = current.get()
+        metrics = self.metrics or (telemetry.metrics if telemetry else None)
+        if metrics is not None:
+            metrics.circuit.labels(self.provider).set(
+                {"closed": 0, "half_open": 1, "open": 2}[state]
+            )
         self.generation += 1
         if state == "open":
             self.opened_at = self.clock()

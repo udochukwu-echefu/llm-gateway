@@ -16,7 +16,9 @@ from llm_gateway.schemas.embeddings import EmbeddingUsage
 if TYPE_CHECKING:
     from llm_gateway.tenants.auth import Principal
 
-Outcome = Literal["success", "upstream_error", "client_disconnected", "stream_error"]
+Outcome = Literal[
+    "success", "upstream_error", "client_disconnected", "stream_error", "gateway_error"
+]
 CostStatus = Literal["priced", "usage_missing", "stream_incomplete", "not_billed"]
 
 

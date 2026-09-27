@@ -1,4 +1,4 @@
-# Gateway threat model (through step 7)
+# Gateway threat model (through step 8)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -16,7 +16,7 @@ ratings are qualitative for this early deployment.
 | Learning which key IDs exist | Plausible / medium | Generic errors, null unverified ID in logs, dummy constant-time comparison | Database lookup and network variance may still differ; no strict timing guarantee |
 | Revocation delay | Likely after urgent revocation / medium | 30-second bounded successful-key cache; hits never extend the TTL | Revocation takes effect within TTL seconds of revocation, even for a key in continuous use, on **each** replica |
 | Leaked provider key | Plausible / high | Resolve via secret store, mask in settings; never send to clients | Rotate it at the provider; an attacker can spend directly until revoked |
-| Admin CLI misuse | Plausible / high | Offline CLI; no public admin API; database account access required | No audit log until step 8; protect shell history and operator access |
+| Admin CLI misuse | Plausible / high | Offline CLI; no public admin API; database account access required | Transactional audit chain records changes; protect shell history and operator access |
 | Malicious base-URL override | Unlikely / high | Strict HTTP(S) URL validation, no embedded credentials/query/fragment | An operator with config access can still send provider keys to a hostile endpoint; lock down deployment config |
 | Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
 | Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
@@ -24,3 +24,7 @@ ratings are qualitative for this early deployment.
 | Retry storm amplifies a provider outage | Plausible / high | Bounded retries, full jitter, 20% per-provider rolling retry budget, one overall deadline and local breakers | Replicas learn independently; restarting loses history; even a retryable 5xx might already have been billed |
 | Fallback discloses prompts to an unapproved company | Plausible / high | Empty-by-default reviewed per-model alternatives, no transitive expansion, capability checks, opt-out header and transparent response model/headers | Reviewers must assess contracts and residency; formal per-tenant residency enforcement arrives in step 11 |
 | Client forces a cheaper or weaker fallback | Plausible / medium | Client can only disable fallback; destination and order come exclusively from the reviewed catalogue, never a client-selected header | A client can induce load or request an explicitly catalogued model; per-team model access policies arrive in step 9 |
+| Exposed metrics | Plausible / high | Separate loopback metrics socket; no public API route; no published metrics port in local profile | Traffic, models and spend remain sensitive; restrict scrape-network and Grafana access in production |
+| Audit tampering | Plausible / high | UPDATE/DELETE trigger; serialized same-transaction hash chain; verification CLI | Owner can disable triggers, rewrite the whole chain or remove the tail; external trusted checkpoints/backups are required to detect that |
+| Spoofed audit actor | Plausible / medium | Record explicit operator label or OS user plus hostname | Neither proves identity; environment and host access allow spoofing; SSO is out of scope |
+| Trace IDs or content leaking to providers | Plausible / medium | Manual metadata-only spans; no headers, content or exception events; outgoing trace propagation defaults off | Opt-in propagation shares correlation IDs; protect collector/UI access and retention; incoming parent context can influence sampling |

@@ -125,3 +125,14 @@ Keep the code easy to navigate: someone new should find anything in under a minu
 - Provider keys are secrets: `SecretStr` in settings, never in logs, errors or test output.
 - A provider's 401/403 must never reach the client as a 401/403 (ADR 0002).
 - Treat all client input as untrusted. Validate before any network call.
+
+## Observability checks
+
+```bash
+docker compose --profile observability up -d --build
+docker run --rm --entrypoint promtool -v "$PWD/observability/prometheus:/etc/prometheus:ro" prom/prometheus:v3.2.1 check rules /etc/prometheus/alerts.yml
+uv run --env-file .env pytest -m live  # opt-in only; may incur provider charges
+```
+
+Normal tests disable the metrics listener and OTLP exporter; registries and in-memory
+exporters stay injected. Do not expose the metrics socket on the public API port.

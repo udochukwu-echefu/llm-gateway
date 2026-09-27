@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from llm_gateway.catalog import Catalog
 from llm_gateway.config import Settings
 from llm_gateway.limits.service import LimitService
+from llm_gateway.observability.tracing import Telemetry
 from llm_gateway.providers.registry import ProviderRegistry
 from llm_gateway.resilience.service import ResilienceService
 from llm_gateway.tenants.cache import VerifiedKeyCache
@@ -25,6 +26,7 @@ class GatewayState:
     usage_writer: UsageWriter
     resilience: ResilienceService
     limits: LimitService | None = None
+    telemetry: Telemetry | None = None
 
 
 def get_app_state(app: FastAPI) -> GatewayState:

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
 from llm_gateway.audit import commands as audit_commands
+from llm_gateway.cache.purge import purge
 from llm_gateway.limits.configuration import resolve
 from llm_gateway.limits.service import LimitService
 from llm_gateway.routing import commands as model_commands
@@ -57,6 +58,10 @@ def parser() -> argparse.ArgumentParser:
     for name in ("set-models", "clear-models", "show-models"):
         model_commands.add_commands(commands.add_parser(name))
     audit_commands.add_commands(commands.add_parser("audit"))
+    cache = commands.add_parser("cache").add_subparsers(dest="cache_command", required=True)
+    purge_command = cache.add_parser("purge")
+    purge_command.add_argument("org")
+    purge_command.add_argument("--team")
     return cli
 
 
@@ -66,7 +71,13 @@ async def execute(
     pepper: bytes,
     usage_repository: PostgresUsageRepository | None = None,
     limits_service: LimitService | None = None,
+    cache_client: Redis | None = None,
 ) -> str:
+    if args.command == "cache":
+        if cache_client is None:
+            raise ValueError("Redis is required for cache purge")
+        count = await purge(repository, cache_client, args.org, args.team)
+        return f"Purged {count} cache entries"
     if args.command in {"set-models", "clear-models", "show-models"}:
         return await model_commands.execute(args, repository)
     if args.command == "audit":
@@ -183,12 +194,12 @@ async def run(args: argparse.Namespace) -> str:
     try:
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         service = None
-        if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
+        if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits", "cache"}:
             redis_url = store.get("redis_url")
-            if args.command == "show-limits" and (
+            if args.command in {"show-limits", "cache"} and (
                 redis_url is None or not redis_url.get_secret_value()
             ):
-                raise ValueError("GATEWAY_REDIS_URL is required for show-limits")
+                raise ValueError("GATEWAY_REDIS_URL is required")
             if redis_url is not None and redis_url.get_secret_value():
                 redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
                     redis_url.get_secret_value(),
@@ -204,6 +215,7 @@ async def run(args: argparse.Namespace) -> str:
             pepper.get_secret_value().encode(),
             PostgresUsageRepository(sessions),
             service,
+            redis_client,
         )
     finally:
         if redis_client is not None:

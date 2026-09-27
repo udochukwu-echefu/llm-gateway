@@ -151,6 +151,35 @@ async def test_usage_cli_reports_aggregated_cost_and_missing_counts(
         await engine.dispose()
 
 
+async def test_usage_cli_reports_cache_hits_and_savings(migrated_database: str) -> None:
+    from llm_gateway.tenants.models import Organization
+
+    engine = create_async_engine(migrated_database)
+    repository = PostgresUsageRepository(async_sessionmaker(engine, expire_on_commit=False))
+    record = await _linked_record(migrated_database)
+    cached = replace(
+        record,
+        outcome="cache_hit",
+        cost_status="cached",
+        cost_usd=Decimal(0),
+        saved_usd=Decimal("0.000000001234"),
+    )
+    try:
+        await repository.insert([cached])
+        async with repository.sessions() as session:
+            org = await session.scalar(
+                select(Organization.name).where(Organization.id == cached.organization_id)
+            )
+        assert org is not None
+
+        report = run_admin(migrated_database, "usage", org, "--group-by", "team")
+
+        assert "cache_hits=1" in report
+        assert "saved_usd=1.234E-9" in report or "saved_usd=0.000000001234" in report
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.parametrize("group_by", ["team", "key", "model", "day"])
 async def test_sql_report_aggregates_by_each_group_and_counts_missing_costs(
     migrated_database: str,

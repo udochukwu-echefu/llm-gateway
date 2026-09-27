@@ -3,14 +3,15 @@
 import argparse
 import asyncio
 import os
-import time
+from contextlib import suppress
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from llm_gateway.config import LimitsSettings
+from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
 from llm_gateway.limits.configuration import resolve
 from llm_gateway.limits.service import LimitService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
@@ -85,33 +86,13 @@ async def execute(
         elif args.command == "clear-limits":
             await repository.set_limits(args.org, args.team, clear=True)
         team_id, overrides = await repository.team_limits(args.org, args.team)
-        base = LimitsSettings()
-        defaults = LimitsSettings.model_validate(
-            {
-                name: os.environ.get(f"GATEWAY_LIMITS__{name.upper()}", str(getattr(base, name)))
-                for name in LimitsSettings.model_fields
-            }
-        )
-        effective = resolve(overrides, defaults)
-        live = ""
-        if args.command == "show-limits" and limits_service is not None:
-            now = datetime.now(UTC)
-            budget = await limits_service.check_budget(team_id, effective, now)
-            requests = await limits_service.window(
-                str(team_id), "requests", effective.rpm, 0, False
-            )
-            tokens = await limits_service.window(str(team_id), "tokens", effective.tpm, 0, False)
-            active = await limits_service.client.zcount(
-                f"lgw:leases:{team_id}", time.time(), "+inf"
-            )
-            live = (
-                f" spend_picos={budget[1]} requests_remaining={requests[1]} "
-                f"tokens_remaining={tokens[1]} active_leases={active}"
-            )
-        return (
-            f"team={team_id} overrides={overrides} effective={effective}{live} "
-            "(changes take effect within key cache TTL)"
-        )
+        defaults = admin_defaults()
+        live = None
+        if limits_service is not None:
+            # Offline administration still succeeds; live counters say unavailable.
+            with suppress(RedisError, TimeoutError):
+                live = await read_live_limits(limits_service, team_id, resolve(overrides, defaults))
+        return render_limits(args.org, args.team, overrides, defaults, live)
     if args.command == "usage":
         if args.since and args.until and args.since > args.until:
             raise ValueError("--since must be on or before --until")
@@ -193,18 +174,21 @@ async def run(args: argparse.Namespace) -> str:
     try:
         sessions = async_sessionmaker(engine, expire_on_commit=False)
         service = None
-        if args.command == "show-limits":
+        if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
             redis_url = store.get("redis_url")
-            if redis_url is None or not redis_url.get_secret_value():
+            if args.command == "show-limits" and (
+                redis_url is None or not redis_url.get_secret_value()
+            ):
                 raise ValueError("GATEWAY_REDIS_URL is required for show-limits")
-            redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
-                redis_url.get_secret_value(),
-                socket_timeout=0.05,
-                socket_connect_timeout=0.05,
-            )
-            service = LimitService(
-                redis_client, spend_total=PostgresUsageRepository(sessions).month_spend
-            )
+            if redis_url is not None and redis_url.get_secret_value():
+                redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+                    redis_url.get_secret_value(),
+                    socket_timeout=0.05,
+                    socket_connect_timeout=0.05,
+                )
+                service = LimitService(
+                    redis_client, spend_total=PostgresUsageRepository(sessions).month_spend
+                )
         return await execute(
             args,
             PostgresKeyRepository(sessions),

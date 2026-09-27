@@ -117,6 +117,11 @@ uv run gateway-admin show-limits example-org example-team
 uv run gateway-admin clear-limits example-org example-team
 ```
 
+Limit commands print an aligned table showing each value's source (override,
+default or unlimited), monthly budget/spend in USD and percent, remaining requests
+and tokens, and active leases. `show-limits` requires Redis; set/clear still update
+Postgres when Redis is offline and display live values as `unavailable`.
+
 NULL team values inherit global defaults. A zero (or unset) default means unlimited.
 Limit updates become visible when the verified-key cache expires (30 seconds by default).
 RPM checks at admission; TPM adds actual tokens only once the response ends. A finite

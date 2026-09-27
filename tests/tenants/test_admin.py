@@ -79,11 +79,24 @@ async def test_cli_sets_shows_and_clears_team_limits(migrated_database: str) -> 
     )
     cleared = run_admin(migrated_database, "clear-limits", issued.org, issued.team)
 
-    assert "rpm=5" in changed
-    assert "tpm=10" in changed
-    assert "monthly_budget_usd=Decimal('1.250000000001')" in budget
-    assert "rpm=None" in cleared
-    assert "monthly_budget_usd=None" in cleared
+    assert "RPM" in changed
+    assert "5" in changed
+    assert "override" in changed
+    assert "TPM" in changed
+    assert "10" in changed
+    assert "Max concurrency" in changed
+    assert "$1.250000000001" in budget
+    assert "90%" in budget
+    assert "unlimited" in cleared
+    assert "Spend this month" in cleared
+    assert "Changes take effect within the verified-key cache TTL." in budget
+    for output in (changed, budget, cleared):
+        assert "Limit" in output
+        assert "Value" in output
+        assert "Source" in output
+        assert "LimitOverrides(" not in output
+        assert "Decimal(" not in output
+        assert "spend_picos=" not in output
 
 
 @pytest.mark.redis
@@ -98,8 +111,10 @@ async def test_cli_shows_live_redis_usage(
 
     shown = run_admin(migrated_database, "show-limits", issued.org, issued.team)
 
-    assert "requests_remaining=5" in shown
-    assert "active_leases=0" in shown
+    assert "Requests remaining" in shown
+    assert "Active leases" in shown
+    assert "Spend this month" in shown
+    assert "unlimited" not in shown.split("RPM", 1)[1].splitlines()[0]
 
 
 @pytest.mark.redis

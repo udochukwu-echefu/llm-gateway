@@ -1,0 +1,36 @@
+groups:
+  - name: gateway
+    rules:
+      - alert: GatewayCircuitOpen
+        expr: lgw_circuit_state == 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Provider circuit has remained open for five minutes
+      - alert: GatewayHighErrorRate
+        expr: sum(rate(lgw_requests_total{status_class="5xx"}[5m])) / sum(rate(lgw_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Gateway 5xx error rate exceeds five percent
+      - alert: GatewayUsageLoss
+        expr: lgw_usage_records_dropped_total > 0 or lgw_usage_records_lost_total > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Usage receipts were dropped or lost; reconcile accounting
+      - alert: GatewayHighOverhead
+        expr: histogram_quantile(0.99, sum by (le, route) (rate(lgw_gateway_overhead_seconds_bucket[5m]))) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Gateway p99 overhead exceeds ten milliseconds
+      - alert: GatewayRedisErrors
+        expr: sum(increase(lgw_redis_errors_total[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis dependency errors are rising

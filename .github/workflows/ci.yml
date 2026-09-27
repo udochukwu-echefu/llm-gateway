@@ -52,6 +52,8 @@ jobs:
         run: uv run alembic upgrade head
       - name: Test
         run: uv run pytest -q
+      - name: Validate alert rules
+        run: docker run --rm --entrypoint promtool -v "$PWD/observability/prometheus:/etc/prometheus:ro" prom/prometheus:v3.2.1 check rules /etc/prometheus/alerts.yml
       - name: Database tests
         run: uv run pytest -q -m db
       - name: Redis tests

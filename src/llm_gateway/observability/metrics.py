@@ -95,6 +95,18 @@ class Metrics:
         self.inflight = Gauge(
             "lgw_inflight_requests", "Active client requests", ("route",), registry=registry
         )
+        self.cache_requests = Counter(
+            "lgw_cache_requests_total",
+            "Response cache decisions",
+            ("endpoint", "result"),
+            registry=registry,
+        )
+        self.cache_saved = Counter(
+            "lgw_cache_saved_usd_total",
+            "Estimated USD avoided on cache hits",
+            ("endpoint",),
+            registry=registry,
+        )
 
     def record_usage(self, record: UsageRecord) -> None:
         for kind, count in (

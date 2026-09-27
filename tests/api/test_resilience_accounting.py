@@ -24,11 +24,11 @@ class CountingLimits(OfflineLimitService):
         self.released = 0
         self.receipts: list[UsageRecord] = []
 
-    async def admission(
-        self, team: UUID, limits: EffectiveLimits
+    async def remaining_admission(
+        self, team: UUID, limits: EffectiveLimits, rpm_headers: dict[str, str]
     ) -> tuple[str | None, dict[str, str]]:
         self.acquired += 1
-        return "one-lease", {}
+        return "one-lease", rpm_headers
 
     async def finish_records(
         self, team: UUID, lease: str | None, records: Sequence[UsageRecord], limits: EffectiveLimits

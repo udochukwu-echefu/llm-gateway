@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from fastapi import FastAPI, Request
 
+from llm_gateway.cache.service import ResponseCache
 from llm_gateway.catalog import Catalog
 from llm_gateway.config import Settings
 from llm_gateway.limits.service import LimitService
@@ -27,6 +28,7 @@ class GatewayState:
     resilience: ResilienceService
     limits: LimitService | None = None
     telemetry: Telemetry | None = None
+    response_cache: ResponseCache | None = None
 
 
 def get_app_state(app: FastAPI) -> GatewayState:

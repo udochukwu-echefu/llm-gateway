@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Request, Response
 
+from llm_gateway.api.caching import execute_with_cache
 from llm_gateway.api.common import parse_request, read_json_body, record_usage
 from llm_gateway.api.execution import begin_execution
 from llm_gateway.context import annotate
 from llm_gateway.gateway_state import get_state
-from llm_gateway.schemas.embeddings import EmbeddingRequest
+from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
 
 router = APIRouter()
 
@@ -18,10 +19,19 @@ async def embeddings(request: Request) -> Response:
     annotate(model=embedding.model)
     execution = await begin_execution(request, embedding.model)
     embedding = embedding.model_copy(update={"model": execution.requested_model})
-    result = await state.resilience.execute_embedding(embedding, execution)
+    result, cache_result = await execute_with_cache(
+        request,
+        embedding,
+        execution,
+        "embeddings",
+        EmbeddingResponse,
+        lambda: state.resilience.execute_embedding(embedding, execution),
+    )
+    if not isinstance(result, EmbeddingResponse):
+        raise RuntimeError("embedding returned a chat")
     record_usage(result.usage)
     return Response(
         result.model_dump_json(exclude_unset=True),
         media_type="application/json",
-        headers=execution.headers,
+        headers={**execution.headers, "x-lgw-cache": cache_result},
     )

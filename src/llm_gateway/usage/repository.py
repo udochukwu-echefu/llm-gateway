@@ -35,6 +35,7 @@ class UsageRow(Base):
     cached_tokens: Mapped[int | None] = mapped_column(Integer)
     reasoning_tokens: Mapped[int | None] = mapped_column(Integer)
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
+    saved_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
     catalog_version: Mapped[str] = mapped_column(String(64))
     duration_ms: Mapped[float | None] = mapped_column(Float)
     ttfb_ms: Mapped[float | None] = mapped_column(Float)
@@ -97,6 +98,8 @@ class PostgresUsageRepository:
             func.sum(UsageRow.cached_tokens).label("cached_tokens"),
             func.sum(UsageRow.reasoning_tokens).label("reasoning_tokens"),
             func.sum(UsageRow.cost_usd).label("cost_usd"),
+            func.count().filter(UsageRow.outcome == "cache_hit").label("cache_hits"),
+            func.sum(UsageRow.saved_usd).label("saved_usd"),
             func.count().filter(UsageRow.cost_status == "usage_missing").label("usage_missing"),
             func.count()
             .filter(UsageRow.cost_status == "stream_incomplete")

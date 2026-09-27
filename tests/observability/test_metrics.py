@@ -23,6 +23,8 @@ EXPECTED = {
     "usage_records_lost": ("counter", ()),
     "redis_errors": ("counter", ("operation",)),
     "inflight_requests": ("gauge", ("route",)),
+    "cache_requests": ("counter", ("endpoint", "result")),
+    "cache_saved_usd": ("counter", ("endpoint",)),
 }
 
 
@@ -45,6 +47,8 @@ def test_every_registered_metric_has_exact_type_and_bounded_label_names() -> Non
             "from_provider",
             "to_provider",
             "operation",
+            "endpoint",
+            "result",
         }
         for metric in collector.collect():
             actual[metric.name.removeprefix("lgw_")] = metric.type, labels

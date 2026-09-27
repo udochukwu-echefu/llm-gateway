@@ -364,6 +364,24 @@
           "legendFormat": "{{route}}"
         }
       ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Response cache hit ratio",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 0, "y": 48, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (endpoint) (rate(lgw_cache_requests_total{result=\"hit\"}[5m])) / clamp_min(sum by (endpoint) (rate(lgw_cache_requests_total[5m])), 0.000001)", "legendFormat": "{{endpoint}}"}]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Estimated cache savings",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"x": 12, "y": 48, "w": 12, "h": 8},
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}, "overrides": []},
+      "targets": [{"refId": "A", "expr": "sum by (endpoint) (increase(lgw_cache_saved_usd_total[5m]))", "legendFormat": "{{endpoint}} USD / 5m"}]
     }
   ]
 }

@@ -17,6 +17,36 @@ async def admit(request: Request) -> None:
         await _admit(request)
 
 
+async def admit_rpm(request: Request) -> None:
+    state = get_state(request)
+    if state.limits is None:
+        return
+    record: KeyRecord = request.state.key_record
+    principal: Principal = request.state.principal
+    limits = resolve(record.limits, state.settings.limits)
+    with span("limits.admission"):
+        headers = await state.limits.request_admission(principal.team_id, limits)
+    request.state.limit_headers = headers
+
+
+async def admit_after_cache(request: Request) -> None:
+    state = get_state(request)
+    if state.limits is None:
+        return
+    record: KeyRecord = request.state.key_record
+    principal: Principal = request.state.principal
+    limits = resolve(record.limits, state.settings.limits)
+    headers = getattr(request.state, "limit_headers", {})
+    with span("limits.admission"):
+        lease, headers = await state.limits.remaining_admission(principal.team_id, limits, headers)
+    request.state.limit_admission = (principal.team_id, lease, limits)
+    request.state.limit_headers = headers
+    if lease is not None:
+        request.state.limit_heartbeat = asyncio.create_task(
+            state.limits.keep_lease_alive(principal.team_id, lease)
+        )
+
+
 async def _admit(request: Request) -> None:
     principal: Principal = request.state.principal
     record: KeyRecord = request.state.key_record

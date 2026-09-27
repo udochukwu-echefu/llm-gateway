@@ -1,13 +1,19 @@
 """HTTP resilience fixtures use distinct provider hosts and deterministic policy time."""
 
+import base64
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field, replace
+from typing import cast
 
 import httpx
 import pytest
 import respx
 from fastapi import FastAPI
+from pydantic import SecretStr
+from redis.asyncio import Redis
 
+from llm_gateway.cache.crypto import CacheCipher
+from llm_gateway.cache.service import ResponseCache
 from llm_gateway.catalog import Catalog
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.gateway_state import get_app_state
@@ -43,6 +49,35 @@ class ResilientApp:
         price = self.service.catalog.find("groq", "llama-3.3-70b-versatile", "chat")
         assert price is not None
         price.fallbacks = list(targets)
+
+
+@dataclass
+class MemoryRedis:
+    values: dict[str, bytes] = field(default_factory=lambda: dict[str, bytes]())
+    available: bool = True
+
+    async def get(self, key: str) -> bytes | None:
+        if not self.available:
+            raise ConnectionError("offline")
+        return self.values.get(key)
+
+    async def set(self, key: str, value: bytes, *, ex: int) -> bool:
+        if not self.available:
+            raise ConnectionError("offline")
+        self.values[key] = value
+        return True
+
+
+@pytest.fixture
+def cached(resilient: ResilientApp) -> tuple[ResilientApp, MemoryRedis]:
+    redis = MemoryRedis()
+    state = get_app_state(resilient.app)
+    cipher = CacheCipher(SecretStr(base64.b64encode(b"c" * 32).decode()))
+    service = ResponseCache(
+        cast(Redis, redis), cipher, metrics=state.telemetry.metrics if state.telemetry else None
+    )
+    resilient.app.state.gateway = replace(state, response_cache=service)
+    return resilient, redis
 
 
 @pytest.fixture

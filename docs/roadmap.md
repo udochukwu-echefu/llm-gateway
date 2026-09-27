@@ -13,8 +13,8 @@ Each step ends with tests, docs and a working gateway.
 | 7 | Retries, circuit breakers, provider fallback | ✅ Done |
 | 8 | Metrics (Prometheus), tracing (OpenTelemetry), audit log | ✅ Done |
 | 9 | Model routing and per-team model access policies | ✅ Done |
-| 10 | Caching, isolated per tenant | Next |
-| 11 | Guardrails: PII redaction, content filtering, data residency | |
+| 10 | Caching, isolated per team | ✅ Done |
+| 11 | Guardrails: PII redaction, content filtering, data residency | Next |
 | 12 | Admin API, usage dashboard, load test report against our targets (SLOs) | |
 
 ## Targets (SLOs) we'll load-test against in step 12

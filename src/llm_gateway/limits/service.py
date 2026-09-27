@@ -108,6 +108,29 @@ class LimitService:
     async def admission(
         self, team: uuid.UUID, limits: EffectiveLimits
     ) -> tuple[str | None, dict[str, str]]:
+        rpm_headers = await self.request_admission(team, limits)
+        return await self.remaining_admission(team, limits, rpm_headers)
+
+    async def request_admission(self, team: uuid.UUID, limits: EffectiveLimits) -> dict[str, str]:
+        result = await self.safe(lambda: self.window(str(team), "requests", limits.rpm, 1))
+        if isinstance(result, list):
+            headers = self._format_headers("requests", limits.rpm, cast(list[int], result))
+            if not result[0]:
+                values = cast(list[int], result)
+                self._rejected("requests")
+                raise GatewayError(
+                    429,
+                    "Team requests rate limit exceeded.",
+                    type="rate_limit_error",
+                    code="rate_limit_exceeded",
+                    headers={"Retry-After": str(values[2]), **headers},
+                )
+            return headers
+        return {}
+
+    async def remaining_admission(
+        self, team: uuid.UUID, limits: EffectiveLimits, rpm_headers: dict[str, str]
+    ) -> tuple[str | None, dict[str, str]]:
         now = datetime.fromtimestamp(self.clock(), UTC)
         headers = {
             f"x-ratelimit-{field}-{kind}": value
@@ -122,7 +145,7 @@ class LimitService:
         if isinstance(budget, list) and not budget[0]:
             self._rejected("budget")
             retry = math.ceil((month_end(now) - now).total_seconds())
-            headers = await self.rate_headers(team, limits)
+            headers = {**await self.rate_headers(team, limits), **rpm_headers}
             raise GatewayError(
                 429,
                 f"Team budget for {now:%Y-%m} exceeded.",
@@ -130,7 +153,7 @@ class LimitService:
                 code="budget_exceeded",
                 headers={"Retry-After": str(retry), **headers},
             )
-        for kind, limit in (("requests", limits.rpm), ("tokens", limits.tpm)):
+        for kind, limit in (("tokens", limits.tpm),):
             result = await self.safe(
                 lambda kind=kind, limit=limit: self.window(
                     str(team), kind, limit, 1 if kind == "requests" else 0, kind == "requests"
@@ -141,14 +164,6 @@ class LimitService:
                 headers.update(self._format_headers(kind, limit, values))
                 if not values[0]:
                     self._rejected(kind)
-                    if kind == "requests":
-                        tokens = await self.safe(
-                            lambda: self.window(str(team), "tokens", limits.tpm, 0, False)
-                        )
-                        if isinstance(tokens, list):
-                            headers.update(
-                                self._format_headers("tokens", limits.tpm, cast(list[int], tokens))
-                            )
                     raise GatewayError(
                         429,
                         f"Team {kind} rate limit exceeded.",
@@ -173,7 +188,7 @@ class LimitService:
                 code="concurrency_limit_exceeded",
                 headers={"Retry-After": "1", **headers},
             )
-        return (lease if result == 1 else None), headers
+        return (lease if result == 1 else None), {**headers, **rpm_headers}
 
     async def rate_headers(self, team: uuid.UUID, limits: EffectiveLimits) -> dict[str, str]:
         headers: dict[str, str] = {}

@@ -584,10 +584,32 @@ them with the verified identity: a change takes effect within the original cache
 models and aliases. The CLI reports catalogue permissions; runtime availability also depends
 on configured providers and active prices. See ADRs 0016 and 0017.
 
+## Step 10: a sealed photocopy of an answer
+
+A cache is a photocopy of an answer we already paid for. If the same team asks for the
+same embedding again, the gateway can hand back that copy without paying the provider.
+Chat needs an explicit opt-in: a model may intentionally answer the same prompt differently.
+The gateway checks the badge, resolves the real model behind an alias, checks permission
+and counts the request toward RPM before looking for a copy. A hit costs no model tokens,
+spend or concurrency slot. The price-list version is part of the lookup address, so a
+reviewed model change cannot silently reuse yesterday's copy.
+
+An HR team and an engineering team must not see each other's answers, even inside one
+company. Each lookup includes the team ID. The prompt itself is never in the address;
+its contents are fingerprinted (hashed). Redis may copy its contents to disk, so answers
+are encrypted. The sealed ciphertext is also *bound* to its lookup address, like a sealed
+envelope addressed to one person: copying it to another team's address will not open it.
+
+**Single-flight** means ten simultaneous identical requests on one gateway copy follow
+one leader and share its completed answer, instead of making ten paid calls. If the leader
+fails, followers can call the provider themselves. Streams are not cached: a partial
+answer cannot safely be replayed as a complete one. The offline purge command removes
+one team's or all of an organization's cached copies; every purge has an audit entry.
+See ADRs 0018 and 0019.
+
 ## What the gateway deliberately does NOT do yet
 
-- No response caching (step 10).
+- No semantic, streaming or cross-team response cache.
 - No HTTP admin API yet (step 12).
 
 See [roadmap.md](roadmap.md) for the order.
-

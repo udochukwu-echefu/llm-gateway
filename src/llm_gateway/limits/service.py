@@ -269,3 +269,19 @@ class LimitService:
                 log.warning("budget_alert", team_id=str(team), month=f"{now:%Y-%m}")
 
         await self.safe(add_cost)
+
+    async def keep_lease_alive(self, team: uuid.UUID, lease: str) -> None:
+        """Renew while a response is active; cancellation ends this task on disconnect."""
+        while True:
+            await asyncio.sleep(max(1, self.lease_ttl / 3))
+            try:
+                result = await self.safe(
+                    lambda: self.scripts.call(
+                        "renew", [f"lgw:leases:{team}"], [self.clock(), lease, self.lease_ttl]
+                    )
+                )
+            except GatewayError:
+                # After headers are sent, a 503 cannot replace the streamed response.
+                continue
+            if result == 0:
+                return

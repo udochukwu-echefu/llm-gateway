@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from starlette.requests import Request
 
-from llm_gateway.config import LimitsSettings
+from llm_gateway.config import LimitsSettings, Settings
 from llm_gateway.limits.configuration import LimitOverrides, resolve
 from llm_gateway.tenants.auth import client_ip
 
@@ -36,6 +36,15 @@ def test_invalid_limit_configuration_is_rejected() -> None:
         LimitsSettings(default_rpm=-1)
     with pytest.raises(ValueError, match=r"open.*closed"):
         LimitsSettings(fail_mode="unknown")  # pyright: ignore[reportArgumentType]  # intentionally invalid configuration
+
+
+def test_lease_ttl_must_outlast_provider_stall() -> None:
+    with pytest.raises(ValueError, match="Lease TTL must exceed"):
+        Settings(
+            _env_file=None,  # pyright: ignore[reportCallIssue]  # no developer env file
+            providers={"groq": {"api_key": "fake-test-key"}},
+            limits={"lease_ttl_s": 60},
+        )
 
 
 def test_x_forwarded_for_is_ignored_without_trusted_proxy_hops() -> None:

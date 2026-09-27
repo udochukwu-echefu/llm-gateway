@@ -1,5 +1,6 @@
 """The concurrency lease survives headers and chunks until stream disconnect."""
 
+import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
@@ -23,6 +24,7 @@ from tests.fixtures import CHAT_REQUEST, STREAM, sse
 pytestmark = pytest.mark.redis
 
 
+@pytest.mark.parametrize(("lease_ttl", "hold_seconds"), [(900, 0), (2, 2.5)])
 async def test_lease_is_held_after_headers_and_released_after_disconnect(
     test_redis: Redis,
     settings: Settings,
@@ -30,13 +32,15 @@ async def test_lease_is_held_after_headers_and_released_after_disconnect(
     test_catalog: Catalog,
     issued_test_key: str,
     upstream: respx.MockRouter,
+    lease_ttl: int,
+    hold_seconds: float,
 ) -> None:
     record = next(iter(memory_repository.records.values()))
     memory_repository.records[record.key_id] = replace(
         record, limits=LimitOverrides(max_concurrency=1)
     )
     team = record.team_id
-    service = LimitService(test_redis)
+    service = LimitService(test_redis, lease_ttl=lease_ttl)
     slot = int(time.time() // 60)
     await test_redis.delete(*(f"lgw:auth-fail:127.0.0.1:{slot - offset}" for offset in (0, 1)))
     app = create_app(
@@ -54,6 +58,7 @@ async def test_lease_is_held_after_headers_and_released_after_disconnect(
     upstream.post("/chat/completions").mock(return_value=httpx.Response(200, stream=Stalled()))
     body = json.dumps({**CHAT_REQUEST, "stream": True}).encode()
     disconnect = anyio.Event()
+    first_chunk = anyio.Event()
     received = False
     held_at_headers = False
     held_at_chunk = False
@@ -76,7 +81,9 @@ async def test_lease_is_held_after_headers_and_released_after_disconnect(
         if message["type"] == "http.response.body" and message.get("body"):
             response_body += message["body"]
             held_at_chunk = await test_redis.zcard(f"lgw:leases:{team}") == 1
-            disconnect.set()
+            first_chunk.set()
+            if not hold_seconds:
+                disconnect.set()
 
     scope: Scope = {
         "type": "http",
@@ -97,7 +104,15 @@ async def test_lease_is_held_after_headers_and_released_after_disconnect(
     }
     async with app.router.lifespan_context(app):
         with anyio.fail_after(5):
-            await app(scope, receive, send)
+            if hold_seconds:
+                async with asyncio.TaskGroup() as tasks:
+                    tasks.create_task(app(scope, receive, send))
+                    await first_chunk.wait()
+                    await asyncio.sleep(hold_seconds)
+                    assert await test_redis.zcard(f"lgw:leases:{team}") == 1
+                    disconnect.set()
+            else:
+                await app(scope, receive, send)
 
     assert status == 200, response_body
     assert held_at_headers

@@ -138,6 +138,26 @@ async def test_lease_expires_after_crash(test_redis: Redis) -> None:
     assert lease is not None
 
 
+async def test_active_stream_renews_lease_beyond_original_ttl(test_redis: Redis) -> None:
+    team = uuid.uuid4()
+    service = LimitService(test_redis, lease_ttl=2)
+    lease, _ = await service.admission(team, limits(concurrency=1))
+    assert lease is not None
+    heartbeat = asyncio.create_task(service.keep_lease_alive(team, lease))
+    try:
+        await asyncio.sleep(2.5)
+        with pytest.raises(GatewayError, match="concurrency"):
+            await service.admission(team, limits(concurrency=1))
+    finally:
+        heartbeat.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await heartbeat
+        await service.finish(team, lease, None, limits(concurrency=1))
+
+    new_lease, _ = await service.admission(team, limits(concurrency=1))
+    assert new_lease is not None
+
+
 async def test_tpm_uses_recorded_tokens_and_two_inflight_calls_can_overshoot(
     test_redis: Redis,
 ) -> None:

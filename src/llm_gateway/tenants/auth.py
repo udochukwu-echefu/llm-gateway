@@ -1,5 +1,6 @@
 """Authenticate at the router boundary, before endpoints read request bodies."""
 
+import asyncio
 import ipaddress
 import uuid
 from dataclasses import dataclass
@@ -80,6 +81,10 @@ async def authenticate(request: Request) -> None:
             raise
         request.state.limit_admission = (principal.team_id, lease, limits)
         request.state.limit_headers = headers
+        if lease is not None:
+            request.state.limit_heartbeat = asyncio.create_task(
+                state.limits.keep_lease_alive(principal.team_id, lease)
+            )
     annotate(
         organization_id=str(principal.organization_id),
         team_id=str(principal.team_id),

@@ -123,5 +123,16 @@ class Settings(BaseSettings):
 
     max_request_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
 
+    @model_validator(mode="after")
+    def _lease_outlasts_provider_stall(self) -> Self:
+        if self.limits.lease_ttl_s <= (
+            self.connect_timeout_s
+            + self.write_timeout_s
+            + self.read_timeout_s
+            + self.pool_timeout_s
+        ):
+            raise ValueError("Lease TTL must exceed combined provider timeouts")
+        return self
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "json"

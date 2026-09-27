@@ -1,6 +1,8 @@
 """Finalize provider-bound accounting after the response completes or fails."""
 
+import asyncio
 import time
+from contextlib import suppress
 
 import anyio
 import structlog
@@ -41,6 +43,11 @@ class UsageMiddleware:
         try:
             await self.app(scope, receive, send_with_usage)
         finally:
+            heartbeat = scope.get("state", {}).get("limit_heartbeat")
+            if isinstance(heartbeat, asyncio.Task):
+                heartbeat.cancel()
+                with anyio.CancelScope(shield=True), suppress(asyncio.CancelledError):
+                    await heartbeat
             event = scope.get("state", {}).get("usage_event")
             record = None
             if isinstance(event, UsageEvent) and event.sent:

@@ -394,8 +394,10 @@ when one is configured (unlimited concurrency does not bound it).
 A concurrency **lease** is like a library book with a due date: it is checked out
 until the entire response ends, even if the client disconnects. If a gateway dies,
 the due date eventually frees its slot. Merely counting active calls with increment
-and decrement could leave a slot occupied forever after a crash. Configure a lease
-TTL longer than the longest stream allowed in your deployment.
+and decrement could leave a slot occupied forever after a crash. While a request is
+still alive it renews the due date, so even long streams keep their slot; if the
+gateway dies, no one renews it and the book becomes available again. Configure a
+lease TTL longer than the longest period an active gateway might be unable to renew.
 
 Budgets count exact integer pico-dollars (a trillionth of a USD) in Redis. Postgres
 receipts rebuild a missing month counter, and one warning per month is logged when the

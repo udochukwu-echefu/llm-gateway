@@ -22,8 +22,10 @@ Concurrency uses a sorted set of unique lease IDs scored by expiry, not a counte
 Acquire removes expired members, counts the rest and inserts a lease atomically. The
 response middleware releases it only when the body ends, errors or disconnects.
 Expiring leases recover from a crashed gateway: a plain INCR/DECR counter would remain
-stuck if its owner crashed before DECR. Leases default to 15 minutes; deployments must
-ensure the maximum possible stream duration is shorter than the lease TTL.
+stuck if its owner crashed before DECR. Leases default to 15 minutes. An active request
+renews its lease periodically, even while it waits for streamed chunks; a crashed
+process stops renewing and its leases expire. Keep the TTL comfortably longer than
+the maximum period a renewal task could be suspended by the deployment.
 
 Every key begins `lgw:` and has a TTL:
 
@@ -32,7 +34,7 @@ Every key begins `lgw:` and has a TTL:
 | `lgw:requests:<team UUID>:<UTC minute number>` | RPM bucket integer | 120 seconds |
 | `lgw:tokens:<team UUID>:<UTC minute number>` | TPM bucket integer | 120 seconds |
 | `lgw:auth-fail:<socket/proxy IP>:<UTC minute number>` | failed authentication bucket integer | 120 seconds |
-| `lgw:leases:<team UUID>` | sorted set of lease IDs and expiry timestamps | lease TTL + 1 second, renewed on acquisition |
+| `lgw:leases:<team UUID>` | sorted set of lease IDs and expiry timestamps | lease TTL + 1 second, refreshed on acquisition and renewal |
 
 Keys are team-scoped, not key-scoped. A successful authentication does not erase failures.
 Only the configured number of trusted proxy hops may contribute an X-Forwarded-For IP.
@@ -41,8 +43,8 @@ Only the configured number of trusted proxy hops may contribute an X-Forwarded-F
 
 Atomic Lua prevents two replicas from both seeing nine requests and both incrementing
 a limit of ten. Redis counters disappear after their TTL or Redis data loss. A response
-lasting beyond its lease TTL could release capacity while still active; configure a
-longer TTL for deployments with streams that can exceed 15 minutes.
+whose renewal task cannot run for longer than its TTL may release capacity while still
+active; configure a TTL longer than the worst anticipated provider/client stall.
 
 ## Alternatives considered
 

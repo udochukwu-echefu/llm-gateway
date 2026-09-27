@@ -3,10 +3,17 @@
 import argparse
 import asyncio
 import os
+from contextlib import suppress
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
+from llm_gateway.limits.configuration import resolve
+from llm_gateway.limits.service import LimitService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import PostgresKeyRepository
@@ -35,6 +42,16 @@ def parser() -> argparse.ArgumentParser:
     usage.add_argument("--since", type=date.fromisoformat)
     usage.add_argument("--until", type=date.fromisoformat)
     usage.add_argument("--group-by", choices=("team", "key", "model", "day"), default="team")
+    for name in ("set-limits", "set-budget", "show-limits", "clear-limits"):
+        command = commands.add_parser(name)
+        command.add_argument("org")
+        command.add_argument("team")
+        if name == "set-limits":
+            for flag in ("rpm", "tpm", "max-concurrency"):
+                command.add_argument(f"--{flag}", type=int)
+        if name == "set-budget":
+            command.add_argument("usd", type=Decimal)
+            command.add_argument("--alert-at", type=Decimal, default=Decimal("0.8"))
     return cli
 
 
@@ -43,7 +60,39 @@ async def execute(
     repository: PostgresKeyRepository,
     pepper: bytes,
     usage_repository: PostgresUsageRepository | None = None,
+    limits_service: LimitService | None = None,
 ) -> str:
+    if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
+        if args.command == "set-limits":
+            values = (args.rpm, args.tpm, args.max_concurrency)
+            if any(value is not None and value < 0 for value in values):
+                raise ValueError("Limits must be nonnegative")
+            await repository.set_limits(
+                args.org,
+                args.team,
+                rpm=args.rpm,
+                tpm=args.tpm,
+                max_concurrency=args.max_concurrency,
+            )
+        elif args.command == "set-budget":
+            if (
+                args.usd < 0
+                or args.usd > Decimal("9223372.036854775807")
+                or args.usd != args.usd.quantize(Decimal("0.000000000001"))
+                or not 0 < args.alert_at <= 1
+            ):
+                raise ValueError("Budget must be nonnegative and alert threshold in (0, 1]")
+            await repository.set_limits(args.org, args.team, budget=args.usd, alert=args.alert_at)
+        elif args.command == "clear-limits":
+            await repository.set_limits(args.org, args.team, clear=True)
+        team_id, overrides = await repository.team_limits(args.org, args.team)
+        defaults = admin_defaults()
+        live = None
+        if limits_service is not None:
+            # Offline administration still succeeds; live counters say unavailable.
+            with suppress(RedisError, TimeoutError):
+                live = await read_live_limits(limits_service, team_id, resolve(overrides, defaults))
+        return render_limits(args.org, args.team, overrides, defaults, live)
     if args.command == "usage":
         if args.since and args.until and args.since > args.until:
             raise ValueError("--since must be on or before --until")
@@ -121,15 +170,35 @@ async def run(args: argparse.Namespace) -> str:
     if database_url is None:
         raise ValueError("GATEWAY_DATABASE_URL is required")
     engine = create_async_engine(database_url.get_secret_value())
+    redis_client: Redis | None = None
     try:
         sessions = async_sessionmaker(engine, expire_on_commit=False)
+        service = None
+        if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
+            redis_url = store.get("redis_url")
+            if args.command == "show-limits" and (
+                redis_url is None or not redis_url.get_secret_value()
+            ):
+                raise ValueError("GATEWAY_REDIS_URL is required for show-limits")
+            if redis_url is not None and redis_url.get_secret_value():
+                redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+                    redis_url.get_secret_value(),
+                    socket_timeout=0.05,
+                    socket_connect_timeout=0.05,
+                )
+                service = LimitService(
+                    redis_client, spend_total=PostgresUsageRepository(sessions).month_spend
+                )
         return await execute(
             args,
             PostgresKeyRepository(sessions),
             pepper.get_secret_value().encode(),
             PostgresUsageRepository(sessions),
+            service,
         )
     finally:
+        if redis_client is not None:
+            await redis_client.aclose()
         await engine.dispose()
 
 

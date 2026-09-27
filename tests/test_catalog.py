@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.main import create_app
-from tests.conftest import MemoryKeyRepository
+from tests.conftest import MemoryKeyRepository, OfflineLimitService
 
 
 def test_reviewed_catalog_loads() -> None:
@@ -44,7 +44,7 @@ def test_invalid_catalog_prevents_gateway_startup(
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(ValidationError):
-        create_app(settings, key_repository=memory_repository)
+        create_app(settings, key_repository=memory_repository, limit_service=OfflineLimitService())
 
 
 @pytest.mark.parametrize(

@@ -1,15 +1,25 @@
+import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.config import Settings
+from llm_gateway.limits.service import LimitService
+from llm_gateway.main import create_app
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.models import ApiKey
-from tests.tenants.support import create_cli_key, database_app, run_admin, unique_name
+from tests.tenants.support import (
+    DatabaseTestStore,
+    create_cli_key,
+    database_app,
+    run_admin,
+    unique_name,
+)
 
 pytestmark = pytest.mark.db
 
@@ -41,6 +51,103 @@ async def test_cli_list_keys_never_shows_secret(migrated_database: str) -> None:
     assert "client" in listing
     assert "active" in listing
     assert issued.full_key not in listing
+
+
+async def test_cli_sets_shows_and_clears_team_limits(migrated_database: str) -> None:
+    issued = create_cli_key(migrated_database)
+
+    changed = run_admin(
+        migrated_database,
+        "set-limits",
+        issued.org,
+        issued.team,
+        "--rpm",
+        "5",
+        "--tpm",
+        "10",
+        "--max-concurrency",
+        "2",
+    )
+    budget = run_admin(
+        migrated_database,
+        "set-budget",
+        issued.org,
+        issued.team,
+        "1.250000000001",
+        "--alert-at",
+        "0.9",
+    )
+    cleared = run_admin(migrated_database, "clear-limits", issued.org, issued.team)
+
+    assert "RPM" in changed
+    assert "5" in changed
+    assert "override" in changed
+    assert "TPM" in changed
+    assert "10" in changed
+    assert "Max concurrency" in changed
+    assert "$1.250000000001" in budget
+    assert "90%" in budget
+    assert "unlimited" in cleared
+    assert "Spend this month" in cleared
+    assert "Changes take effect within the verified-key cache TTL." in budget
+    for output in (changed, budget, cleared):
+        assert "Limit" in output
+        assert "Value" in output
+        assert "Source" in output
+        assert "LimitOverrides(" not in output
+        assert "Decimal(" not in output
+        assert "spend_picos=" not in output
+
+
+@pytest.mark.redis
+async def test_cli_shows_live_redis_usage(
+    migrated_database: str,
+    test_redis: Redis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    issued = create_cli_key(migrated_database)
+    monkeypatch.setenv("GATEWAY_REDIS_URL", os.environ["GATEWAY_TEST_REDIS_URL"])
+    run_admin(migrated_database, "set-limits", issued.org, issued.team, "--rpm", "5")
+
+    shown = run_admin(migrated_database, "show-limits", issued.org, issued.team)
+
+    assert "Requests remaining" in shown
+    assert "Active leases" in shown
+    assert "Spend this month" in shown
+    assert "unlimited" not in shown.split("RPM", 1)[1].splitlines()[0]
+
+
+@pytest.mark.redis
+async def test_team_limit_change_takes_effect_after_key_cache_ttl(
+    migrated_database: str,
+    test_redis: Redis,
+    settings: Settings,
+) -> None:
+    issued = create_cli_key(migrated_database)
+    clock = [0.0]
+    app = create_app(
+        settings,
+        secret_store=DatabaseTestStore(migrated_database),
+        key_cache=VerifiedKeyCache(ttl=30, clock=lambda: clock[0]),
+        limit_service=LimitService(test_redis),
+    )
+    headers = {"authorization": f"Bearer {issued.full_key}"}
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("192.0.2.55", 50000)),
+            base_url="http://gateway.test",
+        ) as client,
+    ):
+        first = await client.get("/v1/models", headers=headers)
+        run_admin(migrated_database, "set-limits", issued.org, issued.team, "--rpm", "100")
+        cached = await client.get("/v1/models", headers=headers)
+        clock[0] = 31
+        refreshed = await client.get("/v1/models", headers=headers)
+
+    assert first.headers["x-ratelimit-limit-requests"] == "0"
+    assert cached.headers["x-ratelimit-limit-requests"] == "0"
+    assert refreshed.headers["x-ratelimit-limit-requests"] == "100"
 
 
 async def test_cli_key_authenticates_through_postgres(

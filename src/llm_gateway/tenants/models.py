@@ -1,7 +1,8 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, LargeBinary, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -29,6 +30,17 @@ class Team(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"))
     name: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class TeamLimits(Base):
+    __tablename__ = "team_limits"
+
+    team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id"), primary_key=True)
+    rpm: Mapped[int | None] = mapped_column(Integer)
+    tpm: Mapped[int | None] = mapped_column(Integer)
+    max_concurrency: Mapped[int | None] = mapped_column(Integer)
+    monthly_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
+    alert_threshold: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
 
 
 class ApiKey(Base):

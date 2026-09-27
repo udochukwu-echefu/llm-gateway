@@ -9,15 +9,19 @@ import respx
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
+from llm_gateway.limits.configuration import EffectiveLimits
+from llm_gateway.limits.service import LimitService
 from llm_gateway.main import create_app
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import KeyRecord
+from llm_gateway.usage.record import UsageRecord
 
 UPSTREAM_URL = "https://upstream.test/v1"
 UPSTREAM_KEY = "sk-upstream-test"
@@ -36,6 +40,38 @@ class MemoryKeyRepository:
     async def ping(self) -> None:
         if not self.available:
             raise ConnectionError("database unavailable")
+
+
+class OfflineRedis(Redis):
+    async def ping(self, **kwargs: object) -> bool:
+        return True
+
+
+class OfflineLimitService(LimitService):
+    """No network I/O in ordinary tests; real limit behavior uses the redis marker."""
+
+    def __init__(self) -> None:
+        super().__init__(OfflineRedis())
+
+    async def ip_check(self, ip: str) -> None:
+        pass
+
+    async def ip_failure(self, ip: str) -> None:
+        pass
+
+    async def admission(
+        self, team: uuid.UUID, limits: EffectiveLimits
+    ) -> tuple[str | None, dict[str, str]]:
+        return None, {}
+
+    async def finish(
+        self,
+        team: uuid.UUID,
+        lease: str | None,
+        record: UsageRecord | None,
+        limits: EffectiveLimits,
+    ) -> None:
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -57,6 +93,21 @@ def offline_by_default(
     monkeypatch.setenv("GATEWAY_API_KEY_PEPPER", TEST_PEPPER)
     with respx.mock(assert_all_called=False):
         yield
+
+
+@pytest.fixture
+async def test_redis() -> AsyncIterator[Redis]:
+    url = os.getenv("GATEWAY_TEST_REDIS_URL")
+    if not url:
+        if os.getenv("CI", "").lower() == "true":
+            pytest.fail("CI requires GATEWAY_TEST_REDIS_URL for Redis tests")
+        pytest.skip("GATEWAY_TEST_REDIS_URL unset; Redis tests skipped locally")
+    client = Redis.from_url(url)  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+    try:
+        await client.ping()  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+        yield client
+    finally:
+        await client.aclose()
 
 
 @pytest.fixture
@@ -112,7 +163,12 @@ def test_catalog() -> Catalog:
 def app(
     settings: Settings, memory_repository: MemoryKeyRepository, test_catalog: Catalog
 ) -> FastAPI:
-    return create_app(settings, key_repository=memory_repository, catalog=test_catalog)
+    return create_app(
+        settings,
+        key_repository=memory_repository,
+        catalog=test_catalog,
+        limit_service=OfflineLimitService(),
+    )
 
 
 @pytest.fixture

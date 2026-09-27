@@ -22,7 +22,7 @@ async def test_readyz_returns_200_with_postgres_up(
         response = await client.get("/readyz")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "redis": "ok"}
 
 
 async def test_readyz_returns_503_when_postgres_unreachable(

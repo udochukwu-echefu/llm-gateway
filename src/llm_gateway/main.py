@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import APIRouter, Depends, FastAPI
 from pydantic import SecretStr
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -13,6 +14,8 @@ from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
 from llm_gateway.gateway_state import GatewayState
+from llm_gateway.limits.reconcile import BudgetReconciler
+from llm_gateway.limits.service import LimitService
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
 from llm_gateway.providers.pools import provider_pools
@@ -34,6 +37,7 @@ def create_app(
     key_cache: VerifiedKeyCache | None = None,
     catalog: Catalog | None = None,
     usage_sink: Sink | None = None,
+    limit_service: LimitService | None = None,
 ) -> FastAPI:
     """Build the application. Run with `uvicorn llm_gateway.main:create_app --factory`."""
     settings = settings or Settings()  # pyright: ignore[reportCallIssue]  # values come from env
@@ -41,6 +45,7 @@ def create_app(
     fallbacks: dict[str, SecretStr | None] = {
         "api_key_pepper": settings.api_key_pepper,
         "database_url": settings.database_url,
+        "redis_url": settings.redis_url,
         **{
             f"providers__{name}__api_key": block.api_key
             for name, block in vars(settings.providers).items()
@@ -53,10 +58,13 @@ def create_app(
     )
     pepper = store.get("api_key_pepper")
     database_url = store.get("database_url")
+    redis_url = store.get("redis_url")
     if pepper is None or len(pepper.get_secret_value().encode()) < 32:
         raise ValueError("GATEWAY_API_KEY_PEPPER is required and must be at least 32 bytes")
     if database_url is None or not database_url.get_secret_value():
         raise ValueError("GATEWAY_DATABASE_URL is required")
+    if limit_service is None and (redis_url is None or not redis_url.get_secret_value()):
+        raise ValueError("GATEWAY_REDIS_URL is required")
     provider_blocks = settings.providers.model_dump()
     for name in provider_blocks:
         value = store.get(f"providers__{name}__api_key")
@@ -78,6 +86,29 @@ def create_app(
             )
         else:
             repository = key_repository
+        usage_repository = (
+            PostgresUsageRepository(async_sessionmaker(engine, expire_on_commit=False))
+            if engine is not None
+            else None
+        )
+        redis_client: Redis | None = None
+        limits = limit_service
+        if limits is None:
+            if redis_url is None:
+                raise RuntimeError("Redis URL was not resolved")
+            redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+                redis_url.get_secret_value(),
+                socket_timeout=settings.limits.redis_timeout_s,
+                socket_connect_timeout=settings.limits.redis_timeout_s,
+            )
+            limits = LimitService(
+                redis_client,
+                fail_mode=settings.limits.fail_mode,
+                lease_ttl=settings.limits.lease_ttl_s,
+                ip_limit=settings.limits.ip_failures_per_minute,
+                rebuild_timeout=settings.limits.budget_rebuild_timeout_s,
+                spend_total=usage_repository.month_spend if usage_repository is not None else None,
+            )
         sink = usage_sink
         if sink is None:
             if engine is None:
@@ -87,14 +118,24 @@ def create_app(
 
                 sink = discard_test_usage
             else:
-                sink = PostgresUsageRepository(
-                    async_sessionmaker(engine, expire_on_commit=False)
-                ).insert
+                if usage_repository is None:
+                    raise RuntimeError("Usage repository missing")
+                sink = usage_repository.insert
         writer = UsageWriter(
             sink,
             max_size=settings.usage_queue_size,
             batch_size=settings.usage_batch_size,
             interval=settings.usage_flush_interval_s,
+        )
+        reconciler = (
+            BudgetReconciler(
+                limits,
+                usage_repository,
+                writer,
+                interval=settings.limits.budget_reconcile_interval_s,
+            )
+            if redis_client is not None and usage_repository is not None
+            else None
         )
         try:
             async with provider_pools(settings) as registry:
@@ -108,16 +149,25 @@ def create_app(
                     pepper=pepper.get_secret_value().encode(),
                     catalog=catalog,
                     usage_writer=writer,
+                    limits=limits,
                 )
                 writer.start()
+                if reconciler is not None:
+                    reconciler.start()
                 log.info(
                     "gateway_started", version=__version__, providers=sorted(registry.adapters)
                 )
                 try:
                     yield
                 finally:
-                    await writer.stop(settings.usage_shutdown_timeout_s)
+                    try:
+                        if reconciler is not None:
+                            await reconciler.stop()
+                    finally:
+                        await writer.stop(settings.usage_shutdown_timeout_s)
         finally:
+            if redis_client is not None:
+                await redis_client.aclose()
             if engine is not None:
                 await engine.dispose()
         log.info("gateway_stopped")

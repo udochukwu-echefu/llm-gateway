@@ -12,6 +12,7 @@ from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
+from llm_gateway.audit import commands as audit_commands
 from llm_gateway.limits.configuration import resolve
 from llm_gateway.limits.service import LimitService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
@@ -52,6 +53,7 @@ def parser() -> argparse.ArgumentParser:
         if name == "set-budget":
             command.add_argument("usd", type=Decimal)
             command.add_argument("--alert-at", type=Decimal, default=Decimal("0.8"))
+    audit_commands.add_commands(commands.add_parser("audit"))
     return cli
 
 
@@ -62,6 +64,8 @@ async def execute(
     usage_repository: PostgresUsageRepository | None = None,
     limits_service: LimitService | None = None,
 ) -> str:
+    if args.command == "audit":
+        return await audit_commands.execute(args, repository.sessions)
     if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
         if args.command == "set-limits":
             values = (args.rpm, args.tpm, args.max_concurrency)

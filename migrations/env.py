@@ -7,6 +7,7 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from llm_gateway.audit.models import AuditEvent  # noqa: F401
 from llm_gateway.secrets import FileSecretStore
 from llm_gateway.tenants.models import Base
 

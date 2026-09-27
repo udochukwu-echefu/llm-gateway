@@ -14,6 +14,7 @@ from llm_gateway.catalog import Catalog, load_catalog
 from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError, gateway_error_handler, http_exception_handler
 from llm_gateway.gateway_state import GatewayState
+from llm_gateway.limits.reconcile import BudgetReconciler
 from llm_gateway.limits.service import LimitService
 from llm_gateway.logging import configure_logging
 from llm_gateway.middleware import RequestContextMiddleware
@@ -126,6 +127,16 @@ def create_app(
             batch_size=settings.usage_batch_size,
             interval=settings.usage_flush_interval_s,
         )
+        reconciler = (
+            BudgetReconciler(
+                limits,
+                usage_repository,
+                writer,
+                interval=settings.limits.budget_reconcile_interval_s,
+            )
+            if redis_client is not None and usage_repository is not None
+            else None
+        )
         try:
             async with provider_pools(settings) as registry:
                 app.state.gateway = GatewayState(
@@ -141,13 +152,19 @@ def create_app(
                     limits=limits,
                 )
                 writer.start()
+                if reconciler is not None:
+                    reconciler.start()
                 log.info(
                     "gateway_started", version=__version__, providers=sorted(registry.adapters)
                 )
                 try:
                     yield
                 finally:
-                    await writer.stop(settings.usage_shutdown_timeout_s)
+                    try:
+                        if reconciler is not None:
+                            await reconciler.stop()
+                    finally:
+                        await writer.stop(settings.usage_shutdown_timeout_s)
         finally:
             if redis_client is not None:
                 await redis_client.aclose()

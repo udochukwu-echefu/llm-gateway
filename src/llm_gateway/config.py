@@ -81,6 +81,7 @@ class LimitsSettings(BaseModel):
     lease_ttl_s: int = Field(default=900, gt=0)
     redis_timeout_s: float = Field(default=0.05, gt=0)
     budget_rebuild_timeout_s: float = Field(default=0.2, gt=0)
+    budget_reconcile_interval_s: float = Field(default=300, gt=0)
     fail_mode: Literal["open", "closed"] = "open"
 
 

@@ -55,6 +55,15 @@ class PostgresUsageRepository:
             )
             return value if value is not None else Decimal(0)
 
+    async def active_teams(self, start: datetime, end: datetime) -> set[uuid.UUID]:
+        async with self.sessions() as session:
+            rows = await session.scalars(
+                select(UsageRow.team_id)
+                .distinct()
+                .where(UsageRow.created_at >= start, UsageRow.created_at < end)
+            )
+            return set(rows.all())
+
     async def insert(self, records: Sequence[UsageRecord]) -> None:
         from dataclasses import asdict
 

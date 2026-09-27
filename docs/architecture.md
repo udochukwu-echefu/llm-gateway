@@ -410,6 +410,12 @@ in open mode.
 The first request after a lost budget key can briefly wait for a Postgres rebuild.
 That rebuild has one deadline (200 ms by default, including any lock wait); a timeout
 uses the same open/closed policy rather than holding up the request indefinitely.
+If Redis goes away without losing a month's key, fail-open calls may still leave its
+spend tally too low. A background cashier compares Postgres receipts plus locally
+queued receipts with Redis every five minutes and raises the tally when needed. The
+cashier never lowers it while another gateway may still be adding costs. Persisted
+budget drift heals by the next reconciliation; receipts that are permanently lost
+cannot be recovered from Postgres.
 
 Failed badge checks are also counted by socket IP *before* database lookup. An
 untrusted `X-Forwarded-For` is just client-supplied text; if we believed it, an attacker

@@ -14,7 +14,7 @@ class Scripts:
         self.shas: dict[str, str] = {}
 
     async def load(self) -> None:
-        for name in ("window", "lease", "renew", "release", "budget", "unlock"):
+        for name in ("window", "lease", "renew", "release", "budget", "unlock", "reconcile"):
             source = files("llm_gateway.limits").joinpath("scripts", f"{name}.lua").read_text()
             self.shas[name] = await self.client.script_load(source)
 

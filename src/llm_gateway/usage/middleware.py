@@ -57,7 +57,6 @@ class UsageMiddleware:
                         _elapsed_ms(started, time.perf_counter()),
                         _elapsed_ms(started, first_byte_at),
                     )
-                    get_app_state(scope["app"]).usage_writer.enqueue(record)
                 except Exception:
                     log.exception("usage_enqueue_failed", request_id=event.request_id)
             admitted = scope.get("state", {}).get("limit_admission")
@@ -70,6 +69,11 @@ class UsageMiddleware:
                             await service.finish(team, lease, record, limits)
                     except Exception:
                         log.exception("limits_finalize_failed")
+            if record is not None:
+                try:
+                    get_app_state(scope["app"]).usage_writer.enqueue(record)
+                except Exception:
+                    log.exception("usage_enqueue_failed", request_id=record.request_id)
 
 
 def _elapsed_ms(start: float, end: float | None) -> float | None:

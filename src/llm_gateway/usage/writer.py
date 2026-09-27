@@ -1,8 +1,11 @@
 """Best-effort, bounded accounting: never await storage in a user request."""
 
 import asyncio
+import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import suppress
+from datetime import datetime
+from decimal import Decimal
 from time import monotonic
 
 import structlog
@@ -40,6 +43,8 @@ class UsageWriter:
         self._stop = asyncio.Event()
         self._working = False
         self._inflight = 0
+        self._pending: dict[uuid.UUID, UsageRecord] = {}
+        self._settlement_lock = asyncio.Lock()
 
     def start(self) -> None:
         self._task = asyncio.create_task(self._run())
@@ -49,6 +54,8 @@ class UsageWriter:
             if not self.accepting:
                 raise asyncio.QueueFull
             self.queue.put_nowait(record)
+            if record.cost_status == "priced" and record.cost_usd is not None:
+                self._pending[record.id] = record
         except asyncio.QueueFull:
             self.dropped += 1
             self._drops_since_log += 1
@@ -76,6 +83,30 @@ class UsageWriter:
         self.lost += remaining + self._inflight
         log.info("usage_writer_stopped", flushed=self.flushed, lost=self.lost + self.dropped)
 
+    async def spend_snapshot(
+        self,
+        start: datetime,
+        end: datetime,
+        persisted: Callable[[], Awaitable[dict[uuid.UUID, Decimal]]],
+        team: uuid.UUID | None = None,
+    ) -> dict[uuid.UUID, Decimal]:
+        """Observe Postgres and uncommitted local receipts without a flush in between."""
+        async with self._settlement_lock:
+            totals = await persisted()
+            for record in self._pending.values():
+                if team is not None and record.team_id != team:
+                    continue
+                if start <= record.created_at < end and record.cost_usd is not None:
+                    totals[record.team_id] = (
+                        totals.get(record.team_id, Decimal(0)) + record.cost_usd
+                    )
+            return totals
+
+    def pending_team_ids(self, start: datetime, end: datetime) -> set[uuid.UUID]:
+        return {
+            record.team_id for record in self._pending.values() if start <= record.created_at < end
+        }
+
     async def _run(self) -> None:
         while self.accepting or not self.queue.empty():
             try:
@@ -100,7 +131,11 @@ class UsageWriter:
                     break
             self._inflight = len(batch)
             try:
-                await self._flush(batch)
+                async with self._settlement_lock:
+                    flushed = await self._flush(batch)
+                    if flushed:
+                        for record in batch:
+                            self._pending.pop(record.id, None)
             except asyncio.CancelledError:
                 self.lost += len(batch)
                 raise
@@ -128,15 +163,18 @@ class UsageWriter:
                     task.cancel()
             await asyncio.gather(getter, stopper, return_exceptions=True)
 
-    async def _flush(self, batch: list[UsageRecord]) -> None:
+    async def _flush(self, batch: list[UsageRecord]) -> bool:
         for attempt in range(3):
             try:
                 await self.sink(batch)
                 self.flushed += len(batch)
-                return
+                return True
             except Exception:
                 log.exception("usage_insert_failed", count=len(batch), attempt=attempt + 1)
                 if attempt < 2:
                     await self.sleep(0.1 * (2**attempt))
         self.lost += len(batch)
         log.error("usage_batch_lost", count=len(batch))
+        for record in batch:
+            self._pending.pop(record.id, None)
+        return False

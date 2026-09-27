@@ -9,6 +9,7 @@ import respx
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -57,6 +58,21 @@ def offline_by_default(
     monkeypatch.setenv("GATEWAY_API_KEY_PEPPER", TEST_PEPPER)
     with respx.mock(assert_all_called=False):
         yield
+
+
+@pytest.fixture
+async def test_redis() -> AsyncIterator[Redis]:
+    url = os.getenv("GATEWAY_TEST_REDIS_URL")
+    if not url:
+        if os.getenv("CI", "").lower() == "true":
+            pytest.fail("CI requires GATEWAY_TEST_REDIS_URL for Redis tests")
+        pytest.skip("GATEWAY_TEST_REDIS_URL unset; Redis tests skipped locally")
+    client = Redis.from_url(url)  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+    try:
+        await client.ping()  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+        yield client
+    finally:
+        await client.aclose()
 
 
 @pytest.fixture

@@ -1,14 +1,16 @@
 """Persistent tenant records; HTTP authentication depends only on the small protocol."""
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Protocol
+from decimal import Decimal
+from typing import Protocol, cast
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from llm_gateway.tenants.models import ApiKey, Organization, Team, utc_now
+from llm_gateway.limits.configuration import LimitOverrides
+from llm_gateway.tenants.models import ApiKey, Organization, Team, TeamLimits, utc_now
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,7 @@ class KeyRecord:
     team_id: uuid.UUID
     expires_at: datetime | None = None
     revoked_at: datetime | None = None
+    limits: LimitOverrides = field(default_factory=LimitOverrides)
 
 
 class KeyRepository(Protocol):
@@ -37,14 +40,27 @@ class PostgresKeyRepository:
     async def get_key(self, key_id: str) -> KeyRecord | None:
         async with self.sessions() as session:
             result = await session.execute(
-                select(ApiKey, Team.organization_id)
+                select(ApiKey, Team.organization_id, TeamLimits)
                 .join(Team, ApiKey.team_id == Team.id)
+                .outerjoin(TeamLimits, TeamLimits.team_id == Team.id)
                 .where(ApiKey.key_id == key_id)
             )
             row = result.one_or_none()
             if row is None:
                 return None
-            key, organization_id = row
+            key, organization_id, raw_limits = row
+            limits = cast(TeamLimits | None, raw_limits)
+            override = (
+                LimitOverrides()
+                if limits is None
+                else LimitOverrides(
+                    limits.rpm,
+                    limits.tpm,
+                    limits.max_concurrency,
+                    limits.monthly_budget_usd,
+                    limits.alert_threshold,
+                )
+            )
             return KeyRecord(
                 key.key_id,
                 key.secret_hash,
@@ -52,6 +68,7 @@ class PostgresKeyRepository:
                 key.team_id,
                 key.expires_at,
                 key.revoked_at,
+                override,
             )
 
     async def create_org(self, name: str) -> Organization:
@@ -117,3 +134,56 @@ class PostgresKeyRepository:
             if key.revoked_at is None:
                 key.revoked_at = utc_now()
             return True
+
+    async def team_limits(self, org_name: str, team_name: str) -> tuple[uuid.UUID, LimitOverrides]:
+        async with self.sessions() as session:
+            row = (
+                await session.execute(
+                    select(Team.id, TeamLimits)
+                    .join(Organization)
+                    .outerjoin(TeamLimits, TeamLimits.team_id == Team.id)
+                    .where(Organization.name == org_name, Team.name == team_name)
+                )
+            ).one_or_none()
+            if row is None:
+                raise ValueError("Team not found")
+            team_id, raw_limits = row
+            limits = cast(TeamLimits | None, raw_limits)
+            return team_id, LimitOverrides(
+                limits.rpm,
+                limits.tpm,
+                limits.max_concurrency,
+                limits.monthly_budget_usd,
+                limits.alert_threshold,
+            ) if limits is not None else LimitOverrides()
+
+    async def set_limits(
+        self,
+        org: str,
+        team: str,
+        *,
+        rpm: int | None = None,
+        tpm: int | None = None,
+        max_concurrency: int | None = None,
+        budget: Decimal | None = None,
+        alert: Decimal | None = None,
+        clear: bool = False,
+    ) -> None:
+        team_id, _ = await self.team_limits(org, team)
+        async with self.sessions.begin() as session:
+            if clear:
+                await session.execute(delete(TeamLimits).where(TeamLimits.team_id == team_id))
+                return
+            row = await session.get(TeamLimits, team_id)
+            if row is None:
+                row = TeamLimits(team_id=team_id)
+                session.add(row)
+            for name, value in (
+                ("rpm", rpm),
+                ("tpm", tpm),
+                ("max_concurrency", max_concurrency),
+                ("monthly_budget_usd", budget),
+                ("alert_threshold", alert),
+            ):
+                if value is not None:
+                    setattr(row, name, value)

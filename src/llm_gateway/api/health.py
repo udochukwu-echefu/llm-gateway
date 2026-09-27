@@ -14,10 +14,19 @@ async def healthz() -> dict[str, str]:
 
 @router.get("/readyz", include_in_schema=False)
 async def readyz(request: Request) -> dict[str, str]:
+    state = get_state(request)
     try:
-        await get_state(request).key_repository.ping()
+        await state.key_repository.ping()
     except Exception as exc:
         raise GatewayError(
             503, "Database unavailable.", type="server_error", code="database_unavailable"
         ) from exc
+    if state.limits is not None:
+        try:
+            await state.limits.client.ping()  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+        except Exception as exc:
+            if state.settings.limits.fail_mode == "closed":
+                raise GatewayError(
+                    503, "Limits unavailable.", type="server_error", code="limits_unavailable"
+                ) from exc
     return {"status": "ok"}

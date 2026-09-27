@@ -44,6 +44,17 @@ class PostgresUsageRepository:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self.sessions = sessions
 
+    async def month_spend(self, team_id: uuid.UUID, start: datetime, end: datetime) -> Decimal:
+        async with self.sessions() as session:
+            value = await session.scalar(
+                select(func.sum(UsageRow.cost_usd)).where(
+                    UsageRow.team_id == team_id,
+                    UsageRow.created_at >= start,
+                    UsageRow.created_at < end,
+                )
+            )
+            return value if value is not None else Decimal(0)
+
     async def insert(self, records: Sequence[UsageRecord]) -> None:
         from dataclasses import asdict
 

@@ -1,8 +1,10 @@
+import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -41,6 +43,55 @@ async def test_cli_list_keys_never_shows_secret(migrated_database: str) -> None:
     assert "client" in listing
     assert "active" in listing
     assert issued.full_key not in listing
+
+
+async def test_cli_sets_shows_and_clears_team_limits(migrated_database: str) -> None:
+    issued = create_cli_key(migrated_database)
+
+    changed = run_admin(
+        migrated_database,
+        "set-limits",
+        issued.org,
+        issued.team,
+        "--rpm",
+        "5",
+        "--tpm",
+        "10",
+        "--max-concurrency",
+        "2",
+    )
+    budget = run_admin(
+        migrated_database,
+        "set-budget",
+        issued.org,
+        issued.team,
+        "1.250000000001",
+        "--alert-at",
+        "0.9",
+    )
+    cleared = run_admin(migrated_database, "clear-limits", issued.org, issued.team)
+
+    assert "rpm=5" in changed
+    assert "tpm=10" in changed
+    assert "monthly_budget_usd=Decimal('1.250000000001')" in budget
+    assert "rpm=None" in cleared
+    assert "monthly_budget_usd=None" in cleared
+
+
+@pytest.mark.redis
+async def test_cli_shows_live_redis_usage(
+    migrated_database: str,
+    test_redis: Redis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    issued = create_cli_key(migrated_database)
+    monkeypatch.setenv("GATEWAY_REDIS_URL", os.environ["GATEWAY_TEST_REDIS_URL"])
+    run_admin(migrated_database, "set-limits", issued.org, issued.team, "--rpm", "5")
+
+    shown = run_admin(migrated_database, "show-limits", issued.org, issued.team)
+
+    assert "requests_remaining=5" in shown
+    assert "active_leases=0" in shown
 
 
 async def test_cli_key_authenticates_through_postgres(

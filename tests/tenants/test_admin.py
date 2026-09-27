@@ -9,9 +9,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.config import Settings
+from llm_gateway.limits.service import LimitService
+from llm_gateway.main import create_app
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.models import ApiKey
-from tests.tenants.support import create_cli_key, database_app, run_admin, unique_name
+from tests.tenants.support import (
+    DatabaseTestStore,
+    create_cli_key,
+    database_app,
+    run_admin,
+    unique_name,
+)
 
 pytestmark = pytest.mark.db
 
@@ -92,6 +100,39 @@ async def test_cli_shows_live_redis_usage(
 
     assert "requests_remaining=5" in shown
     assert "active_leases=0" in shown
+
+
+@pytest.mark.redis
+async def test_team_limit_change_takes_effect_after_key_cache_ttl(
+    migrated_database: str,
+    test_redis: Redis,
+    settings: Settings,
+) -> None:
+    issued = create_cli_key(migrated_database)
+    clock = [0.0]
+    app = create_app(
+        settings,
+        secret_store=DatabaseTestStore(migrated_database),
+        key_cache=VerifiedKeyCache(ttl=30, clock=lambda: clock[0]),
+        limit_service=LimitService(test_redis),
+    )
+    headers = {"authorization": f"Bearer {issued.full_key}"}
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("192.0.2.55", 50000)),
+            base_url="http://gateway.test",
+        ) as client,
+    ):
+        first = await client.get("/v1/models", headers=headers)
+        run_admin(migrated_database, "set-limits", issued.org, issued.team, "--rpm", "100")
+        cached = await client.get("/v1/models", headers=headers)
+        clock[0] = 31
+        refreshed = await client.get("/v1/models", headers=headers)
+
+    assert first.headers["x-ratelimit-limit-requests"] == "0"
+    assert cached.headers["x-ratelimit-limit-requests"] == "0"
+    assert refreshed.headers["x-ratelimit-limit-requests"] == "100"
 
 
 async def test_cli_key_authenticates_through_postgres(

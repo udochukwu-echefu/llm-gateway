@@ -116,6 +116,16 @@ async def test_sliding_window_weights_previous_at_edge(test_redis: Redis) -> Non
     assert (await service.window(team, "requests", 10, 1))[0] == 1
 
 
+async def test_missing_script_sha_is_reloaded_without_losing_admission(test_redis: Redis) -> None:
+    service = LimitService(test_redis)
+    service.scripts.shas["window"] = "0" * 40
+
+    result = await service.window(str(uuid.uuid4()), "requests", 1, 1)
+
+    assert result[0] == 1
+    assert service.scripts.shas["window"] != "0" * 40
+
+
 async def test_lease_expires_after_crash(test_redis: Redis) -> None:
     team = uuid.uuid4()
     clock = [1000.0]

@@ -117,6 +117,26 @@ async def test_21st_failed_authentication_never_queries_repository(
     assert int(blocked.headers["retry-after"]) > 0
 
 
+async def test_valid_key_does_not_erase_ip_failure_count(
+    limited_client: tuple[httpx.AsyncClient, MemoryKeyRepository, LimitService],
+    issued_test_key: str,
+) -> None:
+    client, _, _ = limited_client
+    prefix, key_id, secret = issued_test_key.split("_", 2)
+    wrong = ("A" if secret[0] != "A" else "B") + secret[1:]
+    invalid_header = {"authorization": f"Bearer {prefix}_{key_id}_{wrong}"}
+    for _ in range(19):
+        assert (await client.get("/v1/models", headers=invalid_header)).status_code == 401
+
+    valid = await client.get("/v1/models")
+    twentieth = await client.get("/v1/models", headers=invalid_header)
+    blocked = await client.get("/v1/models", headers=invalid_header)
+
+    assert valid.status_code == 200
+    assert twentieth.status_code == 401
+    assert blocked.status_code == 429
+
+
 @pytest.mark.parametrize("scenario", ["normal", "stream", "upstream_error"])
 async def test_lease_released_after_response_finishes(
     limited_client: tuple[httpx.AsyncClient, MemoryKeyRepository, LimitService],

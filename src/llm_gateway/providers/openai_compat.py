@@ -38,6 +38,19 @@ class OpenAICompatibleAdapter:
         return CompatibleChatStream(response, self.normalize_chat)
 
     async def embed(self, request: EmbeddingRequest, model: str) -> EmbeddingResponse:
+        payload = self._embedding_payload(request, model)
+        response = await self._transport.open("embeddings", payload)
+        result = await read_model(response, EmbeddingResponse)
+        result.model = f"{self.name}/{result.model}"
+        return result
+
+    def validate_chat(self, request: ChatCompletionRequest, model: str) -> None:
+        self._chat_payload(request, model)
+
+    def validate_embedding(self, request: EmbeddingRequest, model: str) -> None:
+        self._embedding_payload(request, model)
+
+    def _embedding_payload(self, request: EmbeddingRequest, model: str) -> dict[str, Any]:
         if not self.capabilities.supports_embeddings:
             raise self.unsupported("embeddings")
         payload = request.to_upstream(self.name)
@@ -47,10 +60,7 @@ class OpenAICompatibleAdapter:
         ):
             raise self.unsupported("input (token IDs)")
         payload["model"] = model
-        response = await self._transport.open("embeddings", payload)
-        result = await read_model(response, EmbeddingResponse)
-        result.model = f"{self.name}/{result.model}"
-        return result
+        return payload
 
     def normalize_chat(self, result: ChatCompletion | ChatCompletionChunk) -> None:
         result.model = f"{self.name}/{result.model}"

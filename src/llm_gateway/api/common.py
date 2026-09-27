@@ -1,15 +1,11 @@
-from datetime import datetime
-
 from fastapi import Request
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
-from llm_gateway.catalog import ModelPrice
 from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
-from llm_gateway.gateway_state import GatewayState
 from llm_gateway.schemas.chat import Usage
-from llm_gateway.schemas.common import ProviderName, RequestModel
+from llm_gateway.schemas.common import RequestModel
 from llm_gateway.schemas.embeddings import EmbeddingUsage
 
 MAX_REPORTED_PROBLEMS = 5
@@ -86,17 +82,3 @@ def record_usage(usage: Usage | EmbeddingUsage | None) -> None:
             usage.completion_tokens_details and usage.completion_tokens_details.reasoning_tokens
         ),
     )
-
-
-def require_price(
-    state: GatewayState, provider: ProviderName, model: str, kind: str, requested_at: datetime
-) -> ModelPrice:
-    price = state.catalog.find(provider, model, kind)
-    if price is None or price.at(requested_at) is None:
-        raise GatewayError(
-            404,
-            f"Model '{provider}/{model}' is not in this gateway's catalogue.",
-            type="invalid_request_error",
-            code="model_not_found",
-        )
-    return price

@@ -38,7 +38,7 @@ class Metrics:
         self.upstream_requests = Counter(
             "lgw_upstream_requests_total",
             "Provider attempts",
-            ("provider", "model", "outcome"),
+            ("provider", "model", "outcome", "alias"),
             registry=registry,
         )
         self.upstream_duration = Histogram(

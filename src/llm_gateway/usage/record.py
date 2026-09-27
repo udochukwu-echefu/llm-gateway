@@ -47,6 +47,7 @@ class UsageRecord:
     ttfb_ms: float | None
     attempt: int = 1
     fallback_from: str | None = None
+    alias: str | None = None
 
 
 class UsageEvent:
@@ -63,7 +64,9 @@ class UsageEvent:
         requested_at: datetime | None = None,
         attempt: int = 1,
         fallback_from: str | None = None,
+        alias: str | None = None,
     ) -> None:
+        self.alias = alias
         self.attempt = attempt
         self.fallback_from = fallback_from
         self.duration_ms: float | None = None
@@ -140,4 +143,5 @@ class UsageEvent:
             self.ttfb_ms if self.duration_ms is not None else ttfb_ms,
             self.attempt,
             self.fallback_from,
+            self.alias,
         )

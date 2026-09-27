@@ -8,7 +8,7 @@ from llm_gateway.schemas.common import ProviderName
 @pytest.mark.parametrize(
     ("model", "reason"),
     [
-        ("unprefixed", "prefix"),
+        ("unprefixed", "Unknown model alias"),
         ("unknown/model", "Unknown provider"),
         ("groq/", "Missing model"),
         ("openai/model", "not configured"),
@@ -36,7 +36,10 @@ async def test_invalid_model_has_actionable_404(
     assert error["type"] == "invalid_request_error"
     assert error["code"] == "model_not_found"
     assert reason in error["message"]
-    assert "Configured providers: groq" in error["message"]
+    if "/" in model:
+        assert "Configured providers: groq" in error["message"]
+    else:
+        assert "Available aliases: none" in error["message"]
     assert not upstream.calls
 
 

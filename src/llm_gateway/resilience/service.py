@@ -32,9 +32,11 @@ class ResilienceService:
         clock: Callable[[], float] = time.perf_counter,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         random_source: Callable[[], float] = random.random,
+        routing_random_source: Callable[[], float] = random.random,
         wall_clock: Callable[[], float] = time.time,
         metrics: Metrics | None = None,
     ) -> None:
+        self.routing_random = routing_random_source
         self.registry, self.catalog, self.settings = registry, catalog, settings
         self.clock, self.sleep, self.random, self.wall_clock = (
             clock,
@@ -64,6 +66,13 @@ class ResilienceService:
         return result
 
     async def _execute(self, request: ModelRequest, execution: Execution) -> ModelResult:
+        try:
+            return await self._recover(request, execution)
+        except GatewayError as exc:
+            exc.headers.update(execution.headers)
+            raise
+
+    async def _recover(self, request: ModelRequest, execution: Execution) -> ModelResult:
         deadline = self.clock() + self.settings.deadline_s
         target = resolve_target(
             request.model, request, self.registry, self.catalog, execution.requested_at
@@ -75,6 +84,8 @@ class ResilienceService:
                 error = deadline_error()
                 break
             if index:
+                if not execution.principal.policy.allows(name):
+                    continue
                 try:
                     target = resolve_target(
                         name, request, self.registry, self.catalog, execution.requested_at
@@ -87,7 +98,6 @@ class ResilienceService:
                 error = exc
                 if exc.code != "provider_unavailable" and not retryable(exc, self.settings):
                     break
-        error.headers.update(execution.headers)
         raise error
 
     async def _target(

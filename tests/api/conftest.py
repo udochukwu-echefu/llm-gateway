@@ -97,3 +97,33 @@ async def resilient(
             headers={"authorization": f"Bearer {issued_test_key}"},
         ) as client:
             yield ResilientApp(app, client, service, records, respx_mock, fake)
+
+
+@pytest.fixture
+def set_policy(memory_repository: MemoryKeyRepository):
+    from llm_gateway.routing.policy import ModelPolicy
+
+    def apply(org: tuple[str, ...] | None = None, team: tuple[str, ...] | None = None) -> None:
+        record = next(iter(memory_repository.records.values()))
+        memory_repository.records[record.key_id] = replace(record, policy=ModelPolicy(org, team))
+
+    return apply
+
+
+@pytest.fixture
+async def aliased(resilient: ResilientApp) -> ResilientApp:
+    from llm_gateway.routing.aliases import Alias
+
+    resilient.service.catalog.aliases = {
+        "fast": Alias.model_validate(
+            {
+                "targets": [
+                    {"model": "groq/model", "weight": 90},
+                    {"model": "deepseek/model", "weight": 10},
+                ]
+            }
+        ),
+        "private": Alias.model_validate({"targets": [{"model": "deepseek/model", "weight": 1}]}),
+        "embed": Alias.model_validate({"targets": [{"model": "openai/embedding", "weight": 1}]}),
+    }
+    return resilient

@@ -1,4 +1,4 @@
-version = "2026-09-27.2"
+version = "2026-09-27.3"
 
 [[models]]
 provider = "groq"
@@ -96,3 +96,16 @@ currency = "USD"
 input_price = "0.02"
 source_url = "https://platform.openai.com/docs/pricing"
 checked_on = 2026-09-26
+
+# Aliases are reviewed destinations, including permission to split traffic across providers.
+[aliases.fast]
+targets = [
+  { model = "groq/openai/gpt-oss-20b", weight = 90 },
+  { model = "deepseek/deepseek-flash", weight = 10 },
+]
+
+[aliases.smart]
+targets = [{ model = "groq/openai/gpt-oss-120b", weight = 100 }]
+
+[aliases.embed]
+targets = [{ model = "gemini/gemini-embedding-2", weight = 100 }]

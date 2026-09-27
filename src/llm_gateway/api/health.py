@@ -29,4 +29,6 @@ async def readyz(request: Request) -> dict[str, str]:
                 raise GatewayError(
                     503, "Limits unavailable.", type="server_error", code="limits_unavailable"
                 ) from exc
+            return {"status": "ok", "redis": "unavailable"}
+        return {"status": "ok", "redis": "ok"}
     return {"status": "ok"}

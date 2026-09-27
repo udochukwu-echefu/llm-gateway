@@ -202,6 +202,18 @@ async def test_readiness_redis_outage_respects_failure_mode(
     assert response.status_code == expected
     if mode == "closed":
         assert response.json()["error"]["code"] == "limits_unavailable"
+    else:
+        assert response.json() == {"status": "ok", "redis": "unavailable"}
+
+
+async def test_readiness_reports_healthy_redis(
+    limited_client: tuple[httpx.AsyncClient, MemoryKeyRepository, LimitService],
+) -> None:
+    client, _, _ = limited_client
+
+    response = await client.get("/readyz")
+
+    assert response.json() == {"status": "ok", "redis": "ok"}
 
 
 @pytest.mark.parametrize(("mode", "status"), [("open", 200), ("closed", 503)])

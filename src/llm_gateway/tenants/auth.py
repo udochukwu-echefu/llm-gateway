@@ -67,7 +67,17 @@ async def authenticate(request: Request) -> None:
     request.state.principal = principal
     if state.limits is not None:
         limits = resolve(record.limits, state.settings.limits)
-        lease, headers = await state.limits.admission(principal.team_id, limits)
+        try:
+            lease, headers = await state.limits.admission(principal.team_id, limits)
+        except GatewayError as exc:
+            for kind, limit in (("requests", limits.rpm), ("tokens", limits.tpm)):
+                for field, value in (
+                    ("limit", str(limit)),
+                    ("remaining", "unavailable"),
+                    ("reset", "unavailable"),
+                ):
+                    exc.headers.setdefault(f"x-ratelimit-{field}-{kind}", value)
+            raise
         request.state.limit_admission = (principal.team_id, lease, limits)
         request.state.limit_headers = headers
     annotate(

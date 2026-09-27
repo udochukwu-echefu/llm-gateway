@@ -202,3 +202,48 @@ async def test_readiness_redis_outage_respects_failure_mode(
     assert response.status_code == expected
     if mode == "closed":
         assert response.json()["error"]["code"] == "limits_unavailable"
+
+
+@pytest.mark.parametrize(("mode", "status"), [("open", 200), ("closed", 503)])
+async def test_authenticated_response_keeps_headers_when_redis_fails(
+    test_redis: Redis,
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+    test_catalog: Catalog,
+    issued_test_key: str,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    status: int,
+) -> None:
+    service = LimitService(test_redis, fail_mode=mode)
+    original_call = service.scripts.call
+
+    async def broken_after_ip(
+        name: str,
+        keys: list[str],
+        args: list[str | int | float],
+    ) -> list[int] | int:
+        if name == "window" and keys[0].startswith("lgw:auth-fail:"):
+            return await original_call(name, keys, args)
+        raise ConnectionError("simulated Redis outage after authentication")
+
+    monkeypatch.setattr(service.scripts, "call", broken_after_ip)
+    app_settings = settings.model_copy(
+        update={"limits": settings.limits.model_copy(update={"fail_mode": mode})}
+    )
+    app = create_app(
+        app_settings, key_repository=memory_repository, catalog=test_catalog, limit_service=service
+    )
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("192.0.2.88", 50000)),
+            base_url="http://gateway.test",
+            headers={"authorization": f"Bearer {issued_test_key}"},
+        ) as client,
+    ):
+        response = await client.get("/v1/models")
+
+    assert response.status_code == status
+    assert response.headers["x-ratelimit-limit-requests"] == "0"
+    assert response.headers["x-ratelimit-remaining-requests"] == "unavailable"

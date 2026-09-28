@@ -45,6 +45,44 @@ BEGIN/END delimiter and uses possessive repetition. Adversarial 100 KB inputs ha
 one-second test bound, including repeated email fragments, digits and incomplete keys.
 This test is a regression guard, not a mathematical performance guarantee for every input.
 
+### Large scans and step 12 performance baseline (2026-09-28)
+
+Card scanning retains at most five digit groups, rejects impossible layouts before
+checksumming, and computes each group's two Luhn parity contributions once. Overlapping
+windows combine these contributions rather than revisiting every digit. No global cache
+retains card text. Group-shaped candidates are still unioned before redaction.
+
+Measured locally with Python 3.13 using `perf_counter` around the pure `scan()` function;
+KiB is 1024 characters/bytes for these ASCII fixtures. Before is a single baseline run;
+after is the median of three runs. These are engineering measurements, not an SLO:
+
+| Input | Before seconds | Before ms/KiB | After seconds | After ms/KiB |
+|---|---:|---:|---:|---:|
+| 800 KiB repeated `1 ` | 5.439256 | 6.799070 | 0.177324 | 0.221655 |
+| 2 MiB repeated `1 ` | 13.948798 | 6.810937 | 0.456413 | 0.222858 |
+| 2 KiB ordinary prose | 0.000153 | 0.076333 | 0.000147 | 0.073312 |
+
+An additional stress case, 2 MiB repeated synthetic `0000 ` groups (many overlapping
+Luhn-valid windows), takes 1.912076 s / 0.933631 ms per KiB after optimization.
+The original numeric case has a 2-second CI bound at 2 MiB. An authenticated HTTP test
+also submits just under the 2 MiB body limit while `/healthz` must finish within 200 ms
+of inspection starting, including event-loop scheduling delay.
+
+Inspections totalling **32 Ki characters** or more run via AnyIO's worker-thread pool.
+The threshold counts aggregate strings, including nested schema keys, not just the
+largest field. This covers chat/embedding input, nonstreaming output and cache hits,
+restoration, and end-of-stream detection. Small requests avoid thread-dispatch overhead.
+Trace context propagates. Workers are not abandoned on cancellation: request finalization
+must not clear the sensitive mapping while a worker still mutates it.
+
+**GIL caveat:** a Python thread is not CPU isolation or a hard scheduling guarantee.
+Python work shares the interpreter lock; individual regex operations can hold it, and
+many concurrent scans can contend for CPU/pool capacity. Offloading removes the long
+synchronous scan from the event-loop task, while layout restrictions bound its costly
+search. Step 12 must load-test mixed small/large requests, both numeric stress patterns,
+worker saturation, memory and tail latency. These costs are not included in a claim
+that all input shapes or arbitrary load can meet the gateway-overhead SLO.
+
 Effective action is the maximum of default, organization and team, ordered
 `allow < redact < block`. Defaults block both secret types, redact cards/IBANs and allow
 other PII. Credentials should never reach inference; PII can be legitimate task data,

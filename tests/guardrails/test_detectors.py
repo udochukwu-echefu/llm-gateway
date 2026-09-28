@@ -75,6 +75,15 @@ def test_adversarial_scan_has_small_time_bound(text: str) -> None:
     assert time.monotonic() - started < 1
 
 
+def test_two_mebibytes_of_numeric_input_finishes_within_two_seconds() -> None:
+    text = "1 " * (2 * 1024 * 1024 // 2)
+    started = time.monotonic()
+
+    scan(text)
+
+    assert time.monotonic() - started < 2
+
+
 @pytest.mark.parametrize(
     ("text", "detector", "value"),
     [

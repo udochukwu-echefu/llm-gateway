@@ -4,6 +4,7 @@ from collections import defaultdict
 from collections.abc import AsyncIterator
 
 from llm_gateway.guardrails.redaction import RestoreBuffer
+from llm_gateway.guardrails.scheduling import inspect_large
 from llm_gateway.guardrails.session import GuardrailSession
 from llm_gateway.providers.base import ChatStream
 from llm_gateway.schemas.chat import (
@@ -31,7 +32,7 @@ class GuardedStream:
         try:
             await self.upstream.aclose()
         finally:
-            self._detect()
+            await self._detect()
 
     async def _chunks(self) -> AsyncIterator[ChatCompletionChunk]:
         last: ChatCompletionChunk | None = None
@@ -47,7 +48,7 @@ class GuardedStream:
                 if tails:
                     yield last.model_copy(update={"choices": tails, "usage": None})
         finally:
-            self._detect()
+            await self._detect()
 
     def _choice(self, choice: ChunkChoice) -> None:
         for name in ("content", "reasoning_content", "refusal"):
@@ -92,11 +93,12 @@ class GuardedStream:
             choices.append(ChunkChoice(index=index, delta=delta))
         return choices
 
-    def _detect(self) -> None:
+    async def _detect(self) -> None:
         if self.detected:
             return
         self.detected = True
-        self.session.detect_stream(["".join(parts) for parts in self.generated.values()])
+        texts = ["".join(parts) for parts in self.generated.values()]
+        await inspect_large(lambda: self.session.detect_stream(texts), texts)
         self.generated.clear()
 
 

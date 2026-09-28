@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import Request
 
 from llm_gateway.errors import GatewayError
+from llm_gateway.guardrails.scheduling import inspect_large
 from llm_gateway.guardrails.session import GuardrailSession
 from llm_gateway.guardrails.stream import GuardedStream
 from llm_gateway.providers.base import ChatStream
@@ -29,7 +30,7 @@ async def guarded_call(
     result = await call()
     if isinstance(result, ChatCompletion):
         try:
-            return session.protect_output(result)
+            return await inspect_large(lambda: session.protect_output(result), result)
         except GatewayError as exc:
             execution.events[-1].outcome = "upstream_error"
             execution.events[-1].status_code = exc.status_code

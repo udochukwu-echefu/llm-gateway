@@ -631,6 +631,11 @@ They do not prove that an account exists.
 Card checks use whole digit groups, so a separated CVV or expiry does not hide the card.
 Only reviewed card layouts are accepted; overlapping valid candidates are masked together
 so choosing one cannot leave another candidate's digits exposed.
+Large inspections (32 Ki characters in total) run in a worker thread, letting the event
+loop answer other requests such as health checks while the scan works. Threads still
+share Python's interpreter lock, so this is responsiveness protection, not CPU isolation;
+step 12 will load-test contention. Card checking keeps only five groups at a time and
+reuses checksum arithmetic instead of repeatedly examining the same digits.
 They do not search substrings of long unseparated numbers, which would often mistake
 tracking numbers for cards.
 Phone matching excludes date/time shapes and requires a plus prefix, 10–15 digits,

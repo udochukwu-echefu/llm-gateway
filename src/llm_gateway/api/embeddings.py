@@ -6,6 +6,7 @@ from llm_gateway.api.execution import begin_execution
 from llm_gateway.api.guardrails import begin_guardrails
 from llm_gateway.context import annotate
 from llm_gateway.gateway_state import get_state
+from llm_gateway.guardrails.scheduling import inspect_large
 from llm_gateway.observability.tracing import span
 from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
 
@@ -21,7 +22,8 @@ async def embeddings(request: Request) -> Response:
     annotate(model=embedding.model)
     execution = await begin_execution(request, embedding.model)
     embedding = embedding.model_copy(update={"model": execution.requested_model})
-    embedding = begin_guardrails(request).protect_input(embedding)
+    guardrails = begin_guardrails(request)
+    embedding = await inspect_large(lambda: guardrails.protect_input(embedding), embedding)
     result, cache_result = await execute_with_cache(
         request,
         embedding,

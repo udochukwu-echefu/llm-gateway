@@ -1,0 +1,55 @@
+{
+  "uid": "llm-gateway-usage",
+  "title": "LLM Gateway Usage",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "time": {"from": "now-30d", "to": "now"},
+  "templating": {
+    "list": [{
+      "name": "org",
+      "label": "Organization",
+      "type": "query",
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "query": "SELECT name AS __text, id::text AS __value FROM organizations ORDER BY name",
+      "refresh": 1,
+      "multi": false,
+      "includeAll": false
+    }]
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Team spend this month vs budget (USD)", "type": "table",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "targets": [{"format": "table", "rawQuery": true, "refId": "A", "rawSql": "SELECT t.name AS team, COALESCE(SUM(u.cost_usd), 0)::numeric AS spend_usd, l.monthly_budget_usd AS budget_usd, COUNT(*) FILTER (WHERE u.cost_status IN ('usage_missing','stream_incomplete')) AS unpriced FROM teams t LEFT JOIN usage_team_budgets l ON l.team_id=t.id LEFT JOIN usage_records u ON u.team_id=t.id AND u.created_at >= date_trunc('month', now() AT TIME ZONE 'UTC') WHERE t.organization_id = ${org:sqlstring}::uuid GROUP BY t.id, t.name, l.monthly_budget_usd ORDER BY spend_usd DESC"}]
+    },
+    {
+      "id": 2, "title": "Top models by cost", "type": "barchart",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "targets": [{"format": "table", "rawQuery": true, "refId": "A", "rawSql": "SELECT provider || '/' || model AS model, SUM(cost_usd)::numeric AS cost_usd FROM usage_records WHERE organization_id = ${org:sqlstring}::uuid AND $__timeFilter(created_at) GROUP BY provider, model ORDER BY cost_usd DESC NULLS LAST LIMIT 10"}]
+    },
+    {
+      "id": 3, "title": "Requests and tokens over time", "type": "timeseries",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "targets": [
+        {"format": "time_series", "rawQuery": true, "refId": "A", "rawSql": "SELECT $__timeGroupAlias(created_at, '1h'), COUNT(*) AS requests FROM usage_records WHERE organization_id = ${org:sqlstring}::uuid AND $__timeFilter(created_at) GROUP BY 1 ORDER BY 1"},
+        {"format": "time_series", "rawQuery": true, "refId": "B", "rawSql": "SELECT $__timeGroupAlias(created_at, '1h'), COALESCE(SUM(prompt_tokens),0) + COALESCE(SUM(completion_tokens),0) AS tokens FROM usage_records WHERE organization_id = ${org:sqlstring}::uuid AND $__timeFilter(created_at) GROUP BY 1 ORDER BY 1"}
+      ]
+    },
+    {
+      "id": 4, "title": "Cache hit ratio and estimated savings", "type": "table",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "targets": [{"format": "table", "rawQuery": true, "refId": "A", "rawSql": "SELECT t.name AS team, COUNT(*) FILTER (WHERE u.outcome='cache_hit') AS cache_hits, COUNT(u.id) AS requests, CASE WHEN COUNT(u.id)=0 THEN 0 ELSE ROUND(COUNT(*) FILTER (WHERE u.outcome='cache_hit')::numeric / COUNT(u.id), 4) END AS hit_ratio, COALESCE(SUM(u.saved_usd),0)::numeric AS saved_usd FROM teams t LEFT JOIN usage_records u ON u.team_id=t.id AND $__timeFilter(u.created_at) WHERE t.organization_id = ${org:sqlstring}::uuid GROUP BY t.id, t.name ORDER BY saved_usd DESC"}]
+    },
+    {
+      "id": 5, "title": "Unpriced usage (never counted as free)", "type": "table",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6},
+      "datasource": {"type": "postgres", "uid": "gateway-usage"},
+      "targets": [{"format": "table", "rawQuery": true, "refId": "A", "rawSql": "SELECT t.name AS team, COUNT(*) FILTER (WHERE u.cost_status='usage_missing') AS usage_missing, COUNT(*) FILTER (WHERE u.cost_status='stream_incomplete') AS stream_incomplete FROM teams t LEFT JOIN usage_records u ON u.team_id=t.id AND $__timeFilter(u.created_at) WHERE t.organization_id = ${org:sqlstring}::uuid GROUP BY t.id, t.name ORDER BY 2 DESC, 3 DESC"}]
+    }
+  ]
+}

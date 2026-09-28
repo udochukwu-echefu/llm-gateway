@@ -2,15 +2,15 @@
 
 from fastapi import APIRouter, Request
 
-from llm_gateway.admin_api.auth import service
-from llm_gateway.admin_api.models import (
+from llm_gateway.admin.api.auth import service
+from llm_gateway.admin.api.models import (
     BudgetBody,
     GuardrailsBody,
     LimitsBody,
     ModelsBody,
     ResidencyBody,
 )
-from llm_gateway.admin_limits import admin_defaults
+from llm_gateway.admin.service.limits import admin_defaults
 from llm_gateway.catalog import load_catalog
 from llm_gateway.guardrails.policy import DETECTORS
 from llm_gateway.limits.configuration import resolve

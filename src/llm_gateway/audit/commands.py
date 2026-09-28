@@ -4,7 +4,7 @@ import argparse
 import json
 from datetime import date
 
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.service import AdminService
 
 
 def add_commands(audit: argparse.ArgumentParser) -> None:

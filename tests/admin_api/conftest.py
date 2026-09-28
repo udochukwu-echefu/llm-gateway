@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from llm_gateway.admin_api.app import create_admin_app
-from llm_gateway.admin_api.auth import AdminContext
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.api.app import create_admin_app
+from llm_gateway.admin.api.auth import AdminContext
+from llm_gateway.admin.service.service import AdminService
 from tests.conftest import TEST_PEPPER
 
 

@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
-from llm_gateway.admin_api.app import create_admin_app
-from llm_gateway.admin_api.auth import AdminContext
-from llm_gateway.admin_api.server import admin_server
+from llm_gateway.admin.api.app import create_admin_app
+from llm_gateway.admin.api.auth import AdminContext
+from llm_gateway.admin.api.server import admin_server
 from llm_gateway.api import chat, embeddings, health, models
 from llm_gateway.cache.crypto import CacheCipher
 from llm_gateway.cache.service import ResponseCache

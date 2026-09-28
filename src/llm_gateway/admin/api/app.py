@@ -6,8 +6,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from llm_gateway.admin_api import organizations, policies, reports
-from llm_gateway.admin_api.auth import AdminContext, authenticate
+from llm_gateway.admin.api import organizations, policies, reports
+from llm_gateway.admin.api.auth import AdminContext, authenticate
 from llm_gateway.errors import (
     GatewayError,
     error_body,

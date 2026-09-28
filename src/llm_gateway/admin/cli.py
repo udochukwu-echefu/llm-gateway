@@ -11,8 +11,8 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.limits import admin_defaults, read_live_limits, render_limits
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.audit import commands as audit_commands
 from llm_gateway.guardrails import commands as guardrail_commands
 from llm_gateway.limits.configuration import resolve

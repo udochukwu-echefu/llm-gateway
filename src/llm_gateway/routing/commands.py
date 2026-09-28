@@ -2,7 +2,7 @@
 
 import argparse
 
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.catalog import load_catalog
 from llm_gateway.routing.repository import PolicyRepository
 from llm_gateway.tenants.repository import PostgresKeyRepository

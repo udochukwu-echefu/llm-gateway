@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.errors import GatewayError
 from llm_gateway.limits.service import LimitService
 from llm_gateway.tenants.auth import client_ip

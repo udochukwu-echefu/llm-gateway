@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 
-from llm_gateway.admin_limits import LiveLimits, render_limits
+from llm_gateway.admin.service.limits import LiveLimits, render_limits
 from llm_gateway.config import LimitsSettings
 from llm_gateway.limits.configuration import LimitOverrides
 from llm_gateway.limits.service import picos

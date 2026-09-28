@@ -2,7 +2,7 @@
 
 import argparse
 
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.guardrails.policy import DETECTORS, REGIONS
 from llm_gateway.guardrails.repository import GuardrailRepository
 from llm_gateway.tenants.repository import PostgresKeyRepository

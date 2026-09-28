@@ -7,7 +7,7 @@ import pytest
 from redis.asyncio import Redis
 from sqlalchemy import select
 
-from llm_gateway.admin_service.service import AdminService
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.tenants.models import Organization
 from tests.admin_api.conftest import AdminHarness, EmptyCache
 from tests.conftest import TEST_PEPPER

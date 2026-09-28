@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 
-from llm_gateway.admin_api.auth import context, service
+from llm_gateway.admin.api.auth import context, service
 from llm_gateway.errors import GatewayError
 
 router = APIRouter()

@@ -9,7 +9,7 @@ from fastapi import Request
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from llm_gateway.admin_api.auth import context
+from llm_gateway.admin.api.auth import context
 from llm_gateway.errors import GatewayError
 from llm_gateway.tenants.models import AdminIdempotency
 

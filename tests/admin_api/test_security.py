@@ -8,8 +8,8 @@ import pytest
 from redis.asyncio import Redis
 from sqlalchemy import select
 
-from llm_gateway.admin_api.app import create_admin_app
-from llm_gateway.admin_api.auth import AdminContext
+from llm_gateway.admin.api.app import create_admin_app
+from llm_gateway.admin.api.auth import AdminContext
 from llm_gateway.audit.models import AuditEvent
 from llm_gateway.config import Settings
 from llm_gateway.limits.service import LimitService

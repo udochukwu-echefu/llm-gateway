@@ -5,9 +5,9 @@ import uuid
 from fastapi import APIRouter, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from llm_gateway.admin_api.auth import service
-from llm_gateway.admin_api.idempotency import creation
-from llm_gateway.admin_api.models import KeyBody, NameBody
+from llm_gateway.admin.api.auth import service
+from llm_gateway.admin.api.idempotency import creation
+from llm_gateway.admin.api.models import KeyBody, NameBody
 from llm_gateway.errors import GatewayError
 
 router = APIRouter()

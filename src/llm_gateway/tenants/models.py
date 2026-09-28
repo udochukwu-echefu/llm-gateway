@@ -2,7 +2,16 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -61,3 +70,29 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminKey(Base):
+    __tablename__ = "admin_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    key_id: Mapped[str] = mapped_column(String(12), unique=True, index=True)
+    secret_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    role: Mapped[str] = mapped_column(String(16))
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organizations.id"))
+    name: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminIdempotency(Base):
+    __tablename__ = "admin_idempotency"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    actor: Mapped[str] = mapped_column(String(32))
+    route: Mapped[str] = mapped_column(String(256))
+    token_hash: Mapped[str] = mapped_column(String(64))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    response: Mapped[dict[str, object]] = mapped_column(JSON)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

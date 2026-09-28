@@ -6,8 +6,11 @@ import hmac
 import re
 import secrets
 from dataclasses import dataclass
+from typing import Literal
 
 KEY_PATTERN = re.compile(r"^lgw_([a-z2-7]{12})_([A-Za-z0-9_-]{43})$")
+ADMIN_KEY_PATTERN = re.compile(r"^lgwa_([a-z2-7]{12})_([A-Za-z0-9_-]{43})$")
+KeyPrefix = Literal["lgw", "lgwa"]
 
 
 @dataclass(frozen=True)
@@ -21,14 +24,15 @@ def hash_secret(pepper: bytes, secret: str) -> bytes:
     return hmac.digest(pepper, secret.encode("ascii"), "sha256")
 
 
-def issue_key(pepper: bytes) -> IssuedKey:
+def issue_key(pepper: bytes, *, prefix: KeyPrefix = "lgw") -> IssuedKey:
     key_id = base64.b32encode(secrets.token_bytes(8)).decode("ascii").lower()[:12]
     secret = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii").rstrip("=")
-    return IssuedKey(key_id, hash_secret(pepper, secret), f"lgw_{key_id}_{secret}")
+    return IssuedKey(key_id, hash_secret(pepper, secret), f"{prefix}_{key_id}_{secret}")
 
 
-def parse_key(value: str) -> tuple[str, str] | None:
-    match = KEY_PATTERN.fullmatch(value)
+def parse_key(value: str, *, prefix: KeyPrefix = "lgw") -> tuple[str, str] | None:
+    pattern = KEY_PATTERN if prefix == "lgw" else ADMIN_KEY_PATTERN
+    match = pattern.fullmatch(value)
     if match is None:
         return None
     try:

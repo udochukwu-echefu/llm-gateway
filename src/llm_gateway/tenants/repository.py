@@ -112,26 +112,38 @@ class PostgresKeyRepository:
                 ),
             )
 
-    async def create_org(self, name: str) -> Organization:
-        async with self.sessions.begin() as session:
-            org = Organization(name=name)
-            session.add(org)
-            await session.flush()
-            await session.refresh(org)
-            await append_event(session, self.actor, "create-org", "organization", str(org.id))
-            return org
+    async def create_org(self, name: str, session: AsyncSession | None = None) -> Organization:
+        if session is not None:
+            return await self._create_org(session, name)
+        async with self.sessions.begin() as owned:
+            return await self._create_org(owned, name)
 
-    async def create_team(self, org_name: str, name: str) -> Team:
-        async with self.sessions.begin() as session:
-            org = await session.scalar(select(Organization).where(Organization.name == org_name))
-            if org is None:
-                raise ValueError("Organization not found")
-            team = Team(organization_id=org.id, name=name)
-            session.add(team)
-            await session.flush()
-            await session.refresh(team)
-            await append_event(session, self.actor, "create-team", "team", str(team.id))
-            return team
+    async def _create_org(self, session: AsyncSession, name: str) -> Organization:
+        org = Organization(name=name)
+        session.add(org)
+        await session.flush()
+        await session.refresh(org)
+        await append_event(session, self.actor, "create-org", "organization", str(org.id))
+        return org
+
+    async def create_team(
+        self, org_name: str, name: str, session: AsyncSession | None = None
+    ) -> Team:
+        if session is not None:
+            return await self._create_team(session, org_name, name)
+        async with self.sessions.begin() as owned:
+            return await self._create_team(owned, org_name, name)
+
+    async def _create_team(self, session: AsyncSession, org_name: str, name: str) -> Team:
+        org = await session.scalar(select(Organization).where(Organization.name == org_name))
+        if org is None:
+            raise ValueError("Organization not found")
+        team = Team(organization_id=org.id, name=name)
+        session.add(team)
+        await session.flush()
+        await session.refresh(team)
+        await append_event(session, self.actor, "create-team", "team", str(team.id))
+        return team
 
     async def create_key(
         self,
@@ -141,26 +153,45 @@ class PostgresKeyRepository:
         key_id: str,
         secret_hash: bytes,
         expires_at: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self.sessions.begin() as session:
-            team = await session.scalar(
-                select(Team)
-                .join(Organization)
-                .where(Organization.name == org_name, Team.name == team_name)
+        if session is not None:
+            await self._create_key(
+                session, org_name, team_name, name, key_id, secret_hash, expires_at
             )
-            if team is None:
-                raise ValueError("Team not found")
-            session.add(
-                ApiKey(
-                    team_id=team.id,
-                    name=name,
-                    key_id=key_id,
-                    secret_hash=secret_hash,
-                    expires_at=expires_at,
-                )
+            return
+        async with self.sessions.begin() as owned:
+            await self._create_key(
+                owned, org_name, team_name, name, key_id, secret_hash, expires_at
             )
 
-            await append_event(session, self.actor, "create-key", "key", key_id)
+    async def _create_key(
+        self,
+        session: AsyncSession,
+        org_name: str,
+        team_name: str,
+        name: str,
+        key_id: str,
+        secret_hash: bytes,
+        expires_at: datetime | None,
+    ) -> None:
+        team = await session.scalar(
+            select(Team)
+            .join(Organization)
+            .where(Organization.name == org_name, Team.name == team_name)
+        )
+        if team is None:
+            raise ValueError("Team not found")
+        session.add(
+            ApiKey(
+                team_id=team.id,
+                name=name,
+                key_id=key_id,
+                secret_hash=secret_hash,
+                expires_at=expires_at,
+            )
+        )
+        await append_event(session, self.actor, "create-key", "key", key_id)
 
     async def list_keys(self, org_name: str, team_name: str | None = None) -> list[ApiKey]:
         async with self.sessions() as session:

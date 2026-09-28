@@ -693,6 +693,10 @@ actor. If an admin tool retries a create request after losing its response, an
 a second team or key. A client key is shown only in the first response. A retry returns
 its key ID without the secret; if the first response was lost, the tool revokes that
 key and creates a new one. Postgres never holds a usable client key, even encrypted.
+Admins can read team limits and budgets and the org or team model, guardrail and
+residency policies over the private door. Each read shows what was saved and what is
+currently effective after defaults and inherited org rules, so a management tool can
+display why a team has a particular setting.
 
 Per-team spend would make too many Prometheus label combinations, so the usage
 dashboard queries Postgres. Its database login has read permission only for

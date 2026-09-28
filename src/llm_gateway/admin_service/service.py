@@ -16,8 +16,10 @@ from llm_gateway.audit.chain import append_event, first_broken
 from llm_gateway.audit.models import AuditEvent
 from llm_gateway.cache.purge import purge
 from llm_gateway.catalog import load_catalog
+from llm_gateway.guardrails.policy import GuardrailPolicy
 from llm_gateway.guardrails.repository import GuardrailRepository
 from llm_gateway.limits.configuration import LimitOverrides
+from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.routing.repository import PolicyRepository
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.models import AdminKey, ApiKey, Organization, Team, utc_now
@@ -195,6 +197,10 @@ class AdminService:
         await PolicyRepository(self.sessions, self.actor).set_models(
             org, team, patterns, load_catalog()
         )
+
+    async def policies(self, org: str, team: str | None) -> tuple[GuardrailPolicy, ModelPolicy]:
+        await self.authorize_org(org)
+        return await GuardrailRepository(self.sessions, self.actor).get_policy(org, team)
 
     async def set_policy(
         self, org: str, team: str | None, *, residency: bool, values: list[str] | None

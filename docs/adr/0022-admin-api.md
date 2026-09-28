@@ -28,8 +28,11 @@ IDs from becoming an existence oracle. The audit actor for HTTP is the verified
 use a separate Redis IP counter.
 
 One admin service backs the CLI and HTTP routes; repositories still write each
-mutation and its audit event in one Postgres transaction. Creation requests may
-carry `Idempotency-Key`. A transaction-scoped advisory lock serializes retries of
+mutation and its audit event in one Postgres transaction. The private API also reads
+limit, budget, model, guardrail and residency settings, returning both saved overrides
+and resolved effective values for management tools.
+
+Creation requests may carry `Idempotency-Key`. A transaction-scoped advisory lock serializes retries of
 the same actor, path and header. The request digest must match; a mismatch returns
 409. The created row, audit event and replay record commit together. The record
 expires after 24 hours, and a later keyed creation deletes expired records. A replay

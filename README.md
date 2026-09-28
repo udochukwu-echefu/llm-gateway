@@ -105,7 +105,10 @@ curl 'http://127.0.0.1:8081/admin/v1/orgs/example-org/usage?group_by=team' \
 ```
 
 Create operations accept `Idempotency-Key`: repeating the same request within 24
-hours returns its original response; a different body with the same key returns 409.
+hours returns the same resource ID. For key creation, only the first response contains
+the secret; a retry omits it and sets `secret_already_returned: true`. If a tool loses
+the first response, revoke that key and create a new one. A different body with the
+same idempotency key returns 409.
 List responses use `data` and `next_cursor`; pass the latter as `cursor`, with
 `page_size` from 1 to 500 (default 50). Budget amounts are decimal strings.
 

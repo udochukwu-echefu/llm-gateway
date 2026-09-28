@@ -689,9 +689,10 @@ row fails the inventory test.
 The CLI and HTTP handlers call the same admin service. A changed setting and its
 audit event commit together. HTTP events name the verified admin key ID as their
 actor. If an admin tool retries a create request after losing its response, an
-`Idempotency-Key` repeats the original result for 24 hours rather than creating a
-second team or key. The saved result is encrypted because it can contain a client
-key that must not appear in plaintext in Postgres.
+`Idempotency-Key` repeats the same creation metadata for 24 hours rather than creating
+a second team or key. A client key is shown only in the first response. A retry returns
+its key ID without the secret; if the first response was lost, the tool revokes that
+key and creates a new one. Postgres never holds a usable client key, even encrypted.
 
 Per-team spend would make too many Prometheus label combinations, so the usage
 dashboard queries Postgres. Its database login has read permission only for

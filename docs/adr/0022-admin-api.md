@@ -32,11 +32,14 @@ mutation and its audit event in one Postgres transaction. Creation requests may
 carry `Idempotency-Key`. A transaction-scoped advisory lock serializes retries of
 the same actor, path and header. The request digest must match; a mismatch returns
 409. The created row, audit event and replay record commit together. The record
-expires after 24 hours. Its JSON response is encrypted using a key derived from
-the server-only pepper, since a key-creation response contains the full client key.
-Network retries from admin tools must not create two keys or lose the original
-response. Other POST actions, such as revocation and purge, retain their existing
-audited action semantics.
+expires after 24 hours, and a later keyed creation deletes expired records. A replay
+record holds only resource IDs and non-secret metadata. For client-key creation, the
+first response contains the full key; a replay returns the same `key_id` without the
+secret and sets `secret_already_returned: true`. An admin tool that loses the first
+response must revoke that key and create a new one. This avoids duplicate keys while
+preserving ADR 0006's rule that the database never stores a usable key, even if both
+the database and pepper leak. Other POST actions, such as revocation and purge, retain
+their existing audited action semantics.
 
 The Grafana usage dashboard reads Postgres via `gateway_readonly`, a role granted
 SELECT only on organizations, teams, usage records and a budget-only view. The view
@@ -50,9 +53,9 @@ The private port and key prefix reduce accidental exposure; operators must still
 restrict the listener, protect admin keys, and configure TLS at the edge. Org-scoped
 404s prevent a direct IDOR probe, but timing and traffic patterns are not a formal
 side-channel guarantee. The global audit chain remains serialized, and database
-owners can still tamper with it as described in ADR 0015. The idempotency result
-is intentionally replayable only to the same admin actor and header for 24 hours;
-pepper rotation makes old encrypted results unreadable along with invalidating keys.
+owners can still tamper with it as described in ADR 0015. Idempotency metadata is
+replayable only to the same admin actor and header for 24 hours. Losing the first
+key-creation response requires key revocation and replacement.
 The reporting role has no login until a password is provided during migration.
 
 ## Alternatives considered
@@ -63,5 +66,5 @@ The reporting role has no login until a password is provided during migration.
 - Return 403 for another organization: rejected because it confirms that the ID exists.
 - Keep CLI and HTTP mutation logic separate: rejected because audit and validation
   could drift.
-- Store plaintext key responses for replay: rejected because Postgres backups would
-  then contain usable client credentials.
+- Store encrypted key responses for replay: rejected because a leak of Postgres and
+  the pepper would reveal usable client credentials from idempotency rows.

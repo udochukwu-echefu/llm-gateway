@@ -12,6 +12,11 @@ FAKE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nRkFLRQ==\n-----END PRIVATE KEY-
 # Stripe's published test Visa: https://docs.stripe.com/testing#cards
 CARD = "4242 4242 4242 4242"
 CARD_CONTEXTS = (
+    ("4242 4242 4242 4242 123 12/27", "4242 4242 4242 4242"),
+    ("Amex 3782 822463 10005", "3782 822463 10005"),
+    # Obviously synthetic all-zero 19-digit candidate, not an issued account.
+    ("Card 0000 0000 0000 0000 000", "0000 0000 0000 0000 000"),
+    ("Diners 3056 930902 5904", "3056 930902 5904"),
     ("Card 4111 1111 1111 1111 123 please", "4111 1111 1111 1111"),
     ("My card is 4242424242424242 1227", "4242424242424242"),
     ("ref 99 4242424242424242 1227", "4242424242424242"),

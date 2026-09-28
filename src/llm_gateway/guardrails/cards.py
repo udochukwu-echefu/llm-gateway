@@ -3,30 +3,32 @@
 import re
 
 GROUP = re.compile(r"[0-9]+")
+LAYOUTS = ((4, 4, 4, 4), (4, 6, 5), (4, 6, 4), (4, 4, 4, 4, 3))
 
 
 def card_spans(value: str) -> list[tuple[int, int]]:
     if any(char not in "0123456789 -\t" for char in value):
         return []
     groups = list(GROUP.finditer(value))
-    candidates: list[tuple[int, int, int]] = []
-    for start in range(len(groups)):
-        digits = ""
-        for end in range(start, min(start + 19, len(groups))):
-            if len(digits) + len(groups[end].group()) > 19:
-                break
-            digits += groups[end].group()
-            if len(digits) >= 13 and luhn(digits):
-                candidates.append((len(digits), start, end))
-    occupied: set[int] = set()
-    spans: list[tuple[int, int]] = []
-    for _, start, end in sorted(candidates, key=lambda item: (-item[0], item[1])):
-        indices = range(start, end + 1)
-        if any(index in occupied for index in indices):
+    candidates: list[tuple[int, int]] = []
+    for start, group in enumerate(groups):
+        if 13 <= len(group.group()) <= 19 and luhn(group.group()):
+            candidates.append((group.start(), group.end()))
+        if len(group.group()) != 4:
             continue
-        occupied.update(indices)
-        spans.append((groups[start].start(), groups[end].end()))
-    return sorted(spans)
+        for layout in LAYOUTS:
+            window = groups[start : start + len(layout)]
+            if tuple(len(item.group()) for item in window) != layout:
+                continue
+            if luhn("".join(item.group() for item in window)):
+                candidates.append((group.start(), window[-1].end()))
+    spans: list[tuple[int, int]] = []
+    for start, end in sorted(candidates):
+        if spans and start < spans[-1][1]:
+            spans[-1] = (spans[-1][0], max(end, spans[-1][1]))
+        else:
+            spans.append((start, end))
+    return spans
 
 
 def luhn(digits: str) -> bool:

@@ -3,10 +3,11 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 7 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 11 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
-> approved opt-in fallback recover from provider failures. See the
+> approved opt-in fallback recover from provider failures. Guardrails block secrets,
+> redact configured personal data and enforce tenant data residency. See the
 > [roadmap](docs/roadmap.md).
 
 ## Quick start
@@ -62,7 +63,7 @@ client.chat.completions.create(
 | Endpoint | Notes |
 |---|---|
 | `POST /v1/chat/completions` | Streaming and non-streaming; optional features depend on provider and model |
-| `POST /v1/embeddings` | Only catalogued embedding models; currently `openai/text-embedding-3-small` |
+| `POST /v1/embeddings` | Catalogued text embedding models: OpenAI and Gemini |
 | `GET /v1/models` | Authenticated list of permitted models and aliases for configured providers |
 | `GET /healthz` | Liveness |
 | `GET /readyz` | Database and Redis readiness (Redis outage keeps it ready in fail-open mode) |
@@ -151,7 +152,7 @@ uv run ruff format .     # format
 uv run pyright           # strict type check
 uv run --env-file .env pytest -m live  # opt-in smoke calls, skipped for missing keys
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' uv run pytest -q -m db
-GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
+GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
 ```
 
 CI runs all four plus migrations, Postgres and Redis tests, then builds and smoke-tests the image.
@@ -162,8 +163,8 @@ Redis tests skip locally without `GATEWAY_TEST_REDIS_URL` and fail in CI without
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
 (load `.env` explicitly with `uv run --env-file .env`), and optional matching `BASE_URL`
 overrides. They run one chat and one stream with priced records per configured provider;
-OpenAI embeddings run when configured. Gemini's embedding smoke test is skipped until
-its model has an official published price. The default suite deselects live tests and
+OpenAI and Gemini embeddings run when configured. The guardrail live test spies on the
+outgoing transport body to prove email redaction and client restoration. The default suite deselects live tests and
 blocks real provider HTTP requests.
 
 Override smoke-test model IDs without editing code:
@@ -182,7 +183,7 @@ provider prefix. Unset or empty overrides retain the defaults below.
 |---|---|---|
 | Groq | `openai/gpt-oss-20b` | None (unsupported endpoint) |
 | DeepSeek | `deepseek-flash` | None (unsupported endpoint) |
-| Gemini | `gemini-3.8-flash` | `gemini-embedding-001` (skipped: no verified price) |
+| Gemini | `gemini-3.8-flash` | `gemini-embedding-2` |
 | OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
 
 Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
@@ -240,6 +241,81 @@ refused. Environment mode
 keeps `GATEWAY_PROVIDERS__*__API_KEY` (including `.env`) working. At least one nonempty
 provider key is required. Each enabled provider has its own connection pool;
 timeout and pool-size settings are global. The old `GATEWAY_UPSTREAM_*` settings are removed.
+
+## Guardrails and data residency
+
+Run `uv run alembic upgrade head` before deployment (migration 0008). Policies are stored
+on organizations/teams, changed offline and audited atomically; no new dependency or
+guardrail environment variable is required. Defaults are a minimum protection level:
+
+| Detector | Default | Validation |
+|---|---|---|
+| `secret_api_key` | block | Known prefixes and length/charset, including gateway `lgw_` keys |
+| `secret_private_key` | block | Complete matching BEGIN/END private-key block |
+| `card_number` | redact | 13–19 digits and Luhn checksum |
+| `iban` | redact | 15–34 characters and mod-97 checksum |
+| `email` | allow | RFC-ish pattern with TLD |
+| `phone` | allow | 7–15 digits after normalization |
+| `ip_address` | allow | Valid IPv4 or IPv6 |
+
+The strictest default/org/team action wins (`allow < redact < block`). Teams cannot
+loosen organization rules or defaults. Set replaces that scope's override list; clear
+removes it. Residency is organization ∩ team, with an absent policy allowing all regions.
+Both policy types share the key-cache TTL (30 seconds by default).
+
+```bash
+uv run gateway-admin set-guardrails example-org --action email=redact --action card_number=block
+uv run gateway-admin set-guardrails example-org --team example-team --action phone=redact
+uv run gateway-admin set-residency example-org --allow-region us --allow-region eu
+uv run gateway-admin show-guardrails example-org --team example-team
+uv run gateway-admin clear-guardrails example-org --team example-team
+uv run gateway-admin clear-residency example-org
+```
+
+Inspection runs after model/residency authorization and before RPM/cache. Typed codes
+such as `[EMAIL_1]` preserve repeated references; originals are restored on the response,
+including codes split across streaming chunks. Only a request-local in-memory mapping
+knows the originals. Cache keys use redacted input; cached output is never restored.
+New nonstreaming output is scanned and masked (`[OUTPUT_EMAIL_1]`) or blocked before
+restore; stream output scanning is **detect-only**, reported at the end. Delivery holds
+back only possible unfinished placeholders; detection also retains generated text in
+request memory until completion/close.
+
+| Error | Meaning |
+|---|---|
+| `400 guardrail_blocked` (`invalid_request_error`) | Input blocked; detector names only, no values, no provider receipt |
+| `502 guardrail_blocked_output` (`upstream_error`) | Generated nonstreaming output blocked; provider usage still accounted |
+| `403 model_not_allowed` | Model/region policy denied a direct model or all alias destinations |
+
+Disallowed fallback targets are skipped, retaining the primary error/503 when none is
+usable. `/v1/models` filters both models and aliases by region. `global` and `unknown`
+are literal categories, not aliases for permitted US/EU processing.
+
+### Reviewed processing regions (verified 2026-09-27)
+
+| Model | Region | Official documentation |
+|---|---|---|
+| `groq/openai/gpt-oss-20b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
+| `groq/openai/gpt-oss-120b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
+| `deepseek/deepseek-flash` | `cn` | [DeepSeek privacy policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html) |
+| `gemini/gemini-3.8-flash` | `global` | [Gemini API terms](https://ai.google.dev/gemini-api/terms) |
+| `gemini/gemini-embedding-2` | `global` | [Gemini API terms](https://ai.google.dev/gemini-api/terms) |
+| `openai/gpt-4.1-nano` | `global` | [OpenAI data controls](https://platform.openai.com/docs/guides/your-data) |
+| `openai/text-embedding-3-small` | `global` | [OpenAI data controls](https://platform.openai.com/docs/guides/your-data) |
+
+Groq guarantees US retention, not US-only inference. DeepSeek states processing/storage
+in PRC. Gemini allows worldwide facilities; OpenAI's default global endpoint has no
+processing constraint. Regional endpoint eligibility alone is not a guarantee for this
+deployment. Therefore US/EU-only policies currently deny every reviewed model. Review
+contracts and actual endpoints when changing regions or base URLs; see
+[ADR 0021](docs/adr/0021-redaction-restore-and-residency.md).
+
+Metrics use `lgw_guardrail_findings_total{direction,detector,action}`; logs emit one
+`guardrail_findings` event per inspected request; spans are `guardrails.input` and
+`guardrails.output`; receipts add nullable `redaction_count` (input replacement occurrences).
+All contain types/counts, never matched values. Pattern matching is incomplete: images,
+audio, files, integer embedding tokens, names/addresses and obfuscated PII are not covered.
+This is not content moderation or prompt-injection detection. Presidio is a future option.
 
 ## Response caching
 

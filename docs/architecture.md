@@ -607,6 +607,55 @@ answer cannot safely be replayed as a complete one. The offline purge command re
 one team's or all of an organization's cached copies; every purge has an audit entry.
 See ADRs 0018 and 0019.
 
+## Step 11: replace names with codes before passing notes
+
+Imagine a translator who swaps names for codes before passing notes to a stranger, then
+swaps the codes back when the reply returns. Here `ada@example.com` becomes `[EMAIL_1]`.
+Repeating the same email repeats the same code, so the model can follow references. The
+translator's notebook stays only in this request's memory: it never goes into logs,
+traces, Postgres or Redis. A cached reply still contains codes, and each new caller gets
+their own fresh translation back. Literal codes already in a prompt are reserved to avoid
+accidentally treating them as newly redacted values.
+
+**Guardrails** are deterministic checks before data leaves the gateway. API/private keys
+are blocked by default, payment cards and IBANs are redacted, and other recognized personal
+data (emails, phones and IP addresses) are allowed unless an organization or team tightens
+the policy. An action can allow, redact or block. The strictest of defaults, organization
+and team wins; a team cannot weaken its organization. A rejected prompt consumes no RPM,
+provider call or usage receipt. Offline CLI changes and their audit events commit together
+and become effective within the existing key-cache TTL.
+
+**Checksums** are arithmetic consistency checks. Luhn checks card digits; mod-97 checks
+IBAN digits and letters. Most random order numbers fail them, cutting false positives.
+They do not prove that an account exists. **Pattern matching** cannot catch everything:
+names, addresses, obfuscated emails, unknown key formats and encoded data can escape it.
+Images, audio, files and integer embedding-token inputs are not inspected. Presidio, a
+context-aware personal-data recognizer, is one possible future extension.
+
+Streaming can split a code into `[EMA`, `IL_`, `1]`. A small buffer holds only a possible
+unfinished code; unrelated text goes straight through. Each choice, reasoning field,
+refusal and tool argument has its own buffer. New nonstreaming output is inspected before
+restoring known input codes, so new sensitive data can be masked or blocked without
+masking the originals the caller already supplied. Streams only **detect** new output
+findings at the end: bytes already sent cannot be taken back. That detection uses a
+request-local copy of generated text, separate from the small delivery buffer.
+
+**Data residency** means restrictions on where data is processed or stored. Laws and
+contracts may restrict transfers across borders, but a region label is not a complete
+legal assessment. The reviewed catalogue uses official processing/privacy documentation;
+a US storage promise alone is not a US inference promise. Unknown locations stay `unknown`,
+and global endpoints stay `global`. Organization and team allowed regions intersect inside
+the same policy engine that already checks model access. It filters concrete destinations
+behind aliases, weighted trials and fallbacks, and hides denied destinations in `/v1/models`.
+An EU-only policy currently permits none of the reviewed models; we do not invent an EU
+guarantee to make the list look more useful.
+
+Visibility consists of detector counts: `lgw_guardrail_findings_total`, one final
+`guardrail_findings` log event, `guardrails.input` / `guardrails.output` spans and nullable
+`redaction_count` in each receipt. Values and restore mappings never enter them. See
+[ADR 0020](adr/0020-deterministic-guardrails.md) and
+[ADR 0021](adr/0021-redaction-restore-and-residency.md) for limits and verified sources.
+
 ## What the gateway deliberately does NOT do yet
 
 - No semantic, streaming or cross-team response cache.

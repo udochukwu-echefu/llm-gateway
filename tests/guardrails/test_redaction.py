@@ -1,5 +1,8 @@
 from llm_gateway.guardrails.detectors import Finding
+from llm_gateway.guardrails.policy import GuardrailPolicy
 from llm_gateway.guardrails.redaction import Redactor, RestoreBuffer
+from llm_gateway.guardrails.session import GuardrailSession
+from llm_gateway.schemas.chat import ChatCompletionRequest
 from tests.guardrails.fixtures import EMAIL
 
 
@@ -20,3 +23,17 @@ def test_substitution_does_not_recursively_restore_originals() -> None:
     redactor.originals.update({"[EMAIL_1]": "[EMAIL_2]", "[EMAIL_2]": EMAIL})
 
     assert redactor.restore("[EMAIL_1]") == "[EMAIL_2]"
+
+
+def test_request_finalization_releases_restore_mapping() -> None:
+    session = GuardrailSession(GuardrailPolicy((("email", "redact"),)))
+    request = ChatCompletionRequest.model_validate(
+        {"model": "groq/model", "messages": [{"role": "user", "content": EMAIL}]}
+    )
+    session.protect_input(request)
+    assert session.redactor.originals
+
+    session.report()
+
+    assert not session.redactor.originals
+    assert not session.redactor.tokens

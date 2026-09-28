@@ -30,7 +30,7 @@ from tests.guardrails.fixtures import (
         ),
         ("email", EMAIL, "ada@localhost"),
         ("phone", "+1 (415) 555-0100", "12345"),
-        ("phone", "0801 234 5678", "12345678901234567890"),
+        ("phone", "07700 900123", "12345678901234567890"),
         ("card_number", CARD, "4242 4242 4242 4243"),
         ("card_number", "4111-1111-1111-1111", "1234567890123456"),
         ("iban", IBAN, "GB83 WEST 1234 5698 7654 32"),

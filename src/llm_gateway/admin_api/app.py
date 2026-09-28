@@ -61,7 +61,11 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
 
 async def _integrity_error(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
-        error_body("Administrative resource already exists.", type="invalid_request_error", code="conflict"),
+        error_body(
+            "Administrative resource already exists.",
+            type="invalid_request_error",
+            code="conflict",
+        ),
         status_code=409,
     )
 

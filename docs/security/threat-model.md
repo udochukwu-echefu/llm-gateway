@@ -1,4 +1,4 @@
-# Gateway threat model (through step 11)
+# Gateway threat model (through step 12a)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -16,7 +16,11 @@ ratings are qualitative for this early deployment.
 | Learning which key IDs exist | Plausible / medium | Generic errors, null unverified ID in logs, dummy constant-time comparison | Database lookup and network variance may still differ; no strict timing guarantee |
 | Revocation delay | Likely after urgent revocation / medium | 30-second bounded successful-key cache; hits never extend the TTL | Revocation takes effect within TTL seconds of revocation, even for a key in continuous use, on **each** replica |
 | Leaked provider key | Plausible / high | Resolve via secret store, mask in settings; never send to clients | Rotate it at the provider; an attacker can spend directly until revoked |
-| Admin CLI misuse | Plausible / high | Offline CLI; no public admin API; database account access required | Transactional audit chain records changes; protect shell history and operator access |
+| Admin CLI misuse | Plausible / high | Database account access required; changes share the audited service | Protect shell history and operator access |
+| Stolen admin key | Plausible / high | Distinct 256-bit admin keys stored as HMAC hashes; private listener; scoped org role and audit actor | The key works until revoked/expired; restrict storage, rotate after theft and protect the private network |
+| Admin IDOR (changing an org ID in a URL) | Plausible / high | Every scoped operation checks the verified key's organization UUID; other-org access returns 404; complete route-role test matrix | Incorrect future queries still need review; timing is not a formal existence-hiding guarantee |
+| Admin endpoint exposed on public port | Unlikely / high | Separate FastAPI app and loopback listener; public app has no admin routes; route isolation tests | Deployment proxy or container port publication can expose the private listener; restrict network and add TLS |
+| Dashboard database credential stolen | Plausible / medium | Dedicated read-only role reads organization, team and usage tables plus a budget-only view; password supplied outside repo | It exposes spending patterns until rotated; protect Grafana config, connection and backups |
 | Malicious base-URL override | Unlikely / high | Strict HTTP(S) URL validation, no embedded credentials/query/fragment | An operator with config access can still send provider keys to a hostile endpoint; lock down deployment config |
 | Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
 | Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
@@ -26,7 +30,7 @@ ratings are qualitative for this early deployment.
 | Client forces a cheaper or weaker fallback | Plausible / medium | Client can only disable fallback; destination and order come exclusively from the reviewed catalogue, never a client-selected header | A client can induce load or request an explicitly catalogued model; org/team model access policies now limit concrete targets |
 | Exposed metrics | Plausible / high | Separate loopback metrics socket; no public API route; no published metrics port in local profile | Traffic, models and spend remain sensitive; restrict scrape-network and Grafana access in production |
 | Audit tampering | Plausible / high | UPDATE/DELETE trigger; serialized same-transaction hash chain; verification CLI | Owner can disable triggers, rewrite the whole chain or remove the tail; external trusted checkpoints/backups are required to detect that |
-| Spoofed audit actor | Plausible / medium | Record explicit operator label or OS user plus hostname | Neither proves identity; environment and host access allow spoofing; SSO is out of scope |
+| Spoofed audit actor | Plausible / medium | HTTP mutations use the verified `admin:<key_id>` identity; CLI records explicit operator label or OS user plus hostname | Stolen admin keys impersonate their holder; CLI labels remain claims; SSO is out of scope |
 | Trace IDs or content leaking to providers | Plausible / medium | Manual metadata-only spans; no headers, content or exception events; outgoing trace propagation defaults off | Opt-in propagation shares correlation IDs; protect collector/UI access and retention; incoming parent context can influence sampling |
 | Alias hides a forbidden destination | Plausible / high | Resolve aliases and check concrete model permissions and region before budget/rate admission; provider_options cannot override model | Catalogue reviewers must verify actual endpoint processing commitments |
 | Weighted trial selects a forbidden provider | Plausible / high | Remove forbidden targets before the draw and rescale remaining weights; all forbidden returns 403 | Actual trial proportions differ by each team's permissions and configured providers |

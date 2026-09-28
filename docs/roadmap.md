@@ -15,7 +15,8 @@ Each step ends with tests, docs and a working gateway.
 | 9 | Model routing and per-team model access policies | ✅ Done |
 | 10 | Caching, isolated per team | ✅ Done |
 | 11 | Guardrails: deterministic PII/secret detection, redaction and restore, data residency | ✅ Done |
-| 12 | Admin API, usage dashboard, load test report against our targets (SLOs) | Next |
+| 12a | Private admin API and Postgres usage dashboard | ✅ Done |
+| 12b | Load test report against our targets (SLOs) | Next |
 
 ## Targets (SLOs) we'll load-test against in step 12
 

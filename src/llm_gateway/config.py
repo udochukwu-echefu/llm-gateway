@@ -95,6 +95,14 @@ class CacheSettings(BaseModel):
     max_entry_bytes: int = Field(default=1024 * 1024, gt=0)
 
 
+class AdminApiSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int = Field(default=8081, ge=1, le=65535)
+
+
 class Settings(BaseSettings):
     """Runtime configuration, read from GATEWAY_* environment variables (and `.env` locally).
 
@@ -112,6 +120,7 @@ class Settings(BaseSettings):
     redis_url: SecretStr | None = None
     cache_encryption_key: SecretStr | None = None
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    admin_api: AdminApiSettings = Field(default_factory=AdminApiSettings)
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
     tracing: TracingSettings = Field(default_factory=TracingSettings)

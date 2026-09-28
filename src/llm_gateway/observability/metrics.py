@@ -11,6 +11,12 @@ BUCKETS = (0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 1
 class Metrics:
     def __init__(self, registry: CollectorRegistry) -> None:
         self.registry = registry
+        self.guardrail_findings = Counter(
+            "lgw_guardrail_findings_total",
+            "Detected patterns, never values",
+            ("direction", "detector", "action"),
+            registry=registry,
+        )
         self.requests = Counter(
             "lgw_requests_total", "Client requests", ("route", "status_class"), registry=registry
         )

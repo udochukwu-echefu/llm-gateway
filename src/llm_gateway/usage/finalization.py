@@ -1,12 +1,14 @@
 """Settle all attempts before enqueuing receipts, preserving budget reconciliation order."""
 
 import time
+from dataclasses import replace
 
 import anyio
 import structlog
 from starlette.types import Scope
 
 from llm_gateway.gateway_state import get_app_state
+from llm_gateway.guardrails.session import GuardrailSession
 from llm_gateway.observability.tracing import current, span
 from llm_gateway.usage.record import UsageEvent, UsageRecord
 
@@ -36,6 +38,11 @@ async def finalize_usage(
     cache_record = state.get("cache_record")
     if isinstance(cache_record, UsageRecord):
         records.append(cache_record)
+    guardrails = state.get("guardrails")
+    if isinstance(guardrails, GuardrailSession):
+        records = [
+            replace(record, redaction_count=guardrails.redaction_count) for record in records
+        ]
     admitted = state.get("limit_admission")
     if admitted is not None:
         team, lease, limits = admitted

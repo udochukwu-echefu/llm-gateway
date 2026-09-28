@@ -13,6 +13,7 @@ from llm_gateway.cache.crypto import CacheCipher
 from llm_gateway.cache.service import ResponseCache
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.gateway_state import get_app_state
+from llm_gateway.guardrails.policy import GuardrailPolicy
 from llm_gateway.main import create_app
 from llm_gateway.secrets import EnvSecretStore
 from llm_gateway.tenants.keys import issue_key
@@ -36,8 +37,15 @@ def live_records() -> list[UsageRecord]:
 
 
 @pytest.fixture
+def live_guardrail_policy(request: pytest.FixtureRequest) -> GuardrailPolicy:
+    return cast(GuardrailPolicy, getattr(request, "param", GuardrailPolicy()))
+
+
+@pytest.fixture
 async def live_client(
-    live_provider: LiveProvider, live_records: list[UsageRecord]
+    live_provider: LiveProvider,
+    live_records: list[UsageRecord],
+    live_guardrail_policy: GuardrailPolicy,
 ) -> AsyncIterator[httpx.AsyncClient]:
     prefix = f"GATEWAY_PROVIDERS__{live_provider.name.upper()}__"
     block = {"api_key": os.environ[prefix + "API_KEY"]}
@@ -52,7 +60,11 @@ async def live_client(
     issued = issue_key(pepper)
     repo = MemoryKeyRepository()
     repo.records[issued.key_id] = KeyRecord(
-        issued.key_id, issued.secret_hash, uuid.uuid4(), uuid.uuid4()
+        issued.key_id,
+        issued.secret_hash,
+        uuid.uuid4(),
+        uuid.uuid4(),
+        guardrails=live_guardrail_policy,
     )
 
     class LiveStore:

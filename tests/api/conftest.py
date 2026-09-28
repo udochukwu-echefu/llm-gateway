@@ -17,8 +17,10 @@ from llm_gateway.cache.service import ResponseCache
 from llm_gateway.catalog import Catalog
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.gateway_state import get_app_state
+from llm_gateway.guardrails.policy import GuardrailPolicy, Region
 from llm_gateway.main import create_app
 from llm_gateway.resilience.service import ResilienceService
+from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.usage.record import UsageRecord
 from tests.conftest import UPSTREAM_KEY, MemoryKeyRepository, OfflineLimitService
 
@@ -162,3 +164,27 @@ async def aliased(resilient: ResilientApp) -> ResilientApp:
         "embed": Alias.model_validate({"targets": [{"model": "openai/embedding", "weight": 1}]}),
     }
     return resilient
+
+
+@pytest.fixture
+def set_guardrails(memory_repository: MemoryKeyRepository):
+    def apply(policy: GuardrailPolicy) -> None:
+        record = next(iter(memory_repository.records.values()))
+        memory_repository.records[record.key_id] = replace(record, guardrails=policy)
+
+    return apply
+
+
+@pytest.fixture
+def set_residency(memory_repository: MemoryKeyRepository, test_catalog: Catalog):
+    # Synthetic regions test routing; they do not claim real provider locations.
+    for entry in test_catalog.models:
+        entry.region = "us" if entry.provider == "groq" else "cn"
+
+    def apply(org: tuple[Region, ...] | None, team: tuple[Region, ...] | None = None) -> None:
+        record = next(iter(memory_repository.records.values()))
+        memory_repository.records[record.key_id] = replace(
+            record, policy=ModelPolicy(organization_regions=org, team_regions=team)
+        )
+
+    return apply

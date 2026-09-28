@@ -23,7 +23,8 @@ def visible_aliases(catalog: Catalog, policy: ModelPolicy, available: set[str]) 
         name
         for name, alias in catalog.aliases.items()
         if any(
-            target.model in available and policy.allows(target.model) for target in alias.targets
+            target.model in available and policy.allows(target.model, catalog.region(target.model))
+            for target in alias.targets
         )
     ]
 
@@ -36,7 +37,7 @@ def resolve_model(
     random_source: Callable[[], float] = random.random,
 ) -> tuple[str, str | None]:
     if "/" in name:
-        policy.require(name)
+        policy.require(name, catalog.region(name))
         return name, None
     alias = catalog.aliases.get(name)
     if alias is None:
@@ -47,8 +48,19 @@ def resolve_model(
             type="invalid_request_error",
             code="model_not_found",
         )
-    allowed = [target for target in alias.targets if policy.allows(target.model)]
+    allowed = [
+        target
+        for target in alias.targets
+        if policy.allows(target.model, catalog.region(target.model))
+    ]
     if not allowed:
+        if any(not policy.allows_region(catalog.region(target.model)) for target in alias.targets):
+            raise GatewayError(
+                403,
+                f"Alias '{name}' has no permitted target; target regions are not permitted.",
+                type="invalid_request_error",
+                code="model_not_allowed",
+            )
         raise denied(name)
     targets = [target for target in allowed if target.model in available]
     if not targets:
@@ -59,7 +71,7 @@ def resolve_model(
             code="model_not_found",
         )
     concrete = _choose(targets, random_source)
-    policy.require(concrete)
+    policy.require(concrete, catalog.region(concrete))
     return concrete, name
 
 

@@ -9,6 +9,7 @@ import structlog
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from llm_gateway.guardrails.session import GuardrailSession
 from llm_gateway.usage.finalization import finalize_usage
 
 log = structlog.get_logger("llm_gateway.usage")
@@ -42,6 +43,9 @@ class UsageMiddleware:
         try:
             await self.app(scope, receive, send_with_usage)
         finally:
+            guardrails = scope.get("state", {}).get("guardrails")
+            if isinstance(guardrails, GuardrailSession):
+                guardrails.report()
             heartbeat = scope.get("state", {}).get("limit_heartbeat")
             if isinstance(heartbeat, asyncio.Task):
                 heartbeat.cancel()

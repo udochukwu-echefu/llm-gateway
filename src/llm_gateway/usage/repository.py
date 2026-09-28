@@ -36,6 +36,7 @@ class UsageRow(Base):
     reasoning_tokens: Mapped[int | None] = mapped_column(Integer)
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
     saved_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
+    redaction_count: Mapped[int | None] = mapped_column(Integer)
     catalog_version: Mapped[str] = mapped_column(String(64))
     duration_ms: Mapped[float | None] = mapped_column(Float)
     ttfb_ms: Mapped[float | None] = mapped_column(Float)

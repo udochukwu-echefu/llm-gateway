@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from llm_gateway.admin import execute, parser
+from llm_gateway.admin.cli import execute, parser
 from llm_gateway.audit.models import AuditEvent
 from llm_gateway.cache.purge import purge
 from llm_gateway.tenants.repository import PostgresKeyRepository

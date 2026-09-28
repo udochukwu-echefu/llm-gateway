@@ -12,6 +12,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
+from llm_gateway.admin.api.app import create_admin_app
+from llm_gateway.admin.api.auth import AdminContext
+from llm_gateway.admin.api.server import admin_server
 from llm_gateway.api import chat, embeddings, health, models
 from llm_gateway.cache.crypto import CacheCipher
 from llm_gateway.cache.service import ResponseCache
@@ -171,6 +174,19 @@ def create_app(
                     provider.get_tracer("llm-gateway") if provider else trace.NoOpTracer()
                 )
                 await stack.enter_async_context(metrics_server(settings.metrics, metrics.registry))
+                if settings.admin_api.enabled:
+                    if engine is None or redis_client is None:
+                        raise ValueError("Admin API requires owned Postgres and Redis connections")
+                    admin_app = create_admin_app(
+                        AdminContext(
+                            async_sessionmaker(engine, expire_on_commit=False),
+                            pepper.get_secret_value().encode(),
+                            limits,
+                            redis_client,
+                            settings.trusted_proxy_hops,
+                        )
+                    )
+                    await stack.enter_async_context(admin_server(settings.admin_api, admin_app))
                 registry = await stack.enter_async_context(provider_pools(settings))
                 app.state.gateway = GatewayState(
                     settings=settings,

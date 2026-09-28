@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import select
 
-from llm_gateway.admin import execute, parser
+from llm_gateway.admin.cli import execute, parser
 from llm_gateway.audit.chain import first_broken
 from llm_gateway.audit.models import AuditEvent
 from llm_gateway.guardrails.repository import GuardrailRepository

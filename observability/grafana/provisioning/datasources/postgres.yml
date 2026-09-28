@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: Gateway Usage
+    uid: gateway-usage
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    user: gateway_readonly
+    jsonData:
+      database: gateway
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: false
+    secureJsonData:
+      password: ${GATEWAY_READONLY_DB_PASSWORD}
+    editable: false

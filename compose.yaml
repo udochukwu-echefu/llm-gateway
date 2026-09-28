@@ -33,9 +33,13 @@ services:
       GATEWAY_METRICS__ENABLED: "true"
       GATEWAY_TRACING__OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       GATEWAY_LOG_FORMAT: json
+      GATEWAY_READONLY_DB_PASSWORD: ${GATEWAY_READONLY_DB_PASSWORD:-}
+      GATEWAY_ADMIN_API__ENABLED: ${GATEWAY_ADMIN_API__ENABLED:-false}
+      GATEWAY_ADMIN_API__HOST: 0.0.0.0
     command: [sh, -c, "alembic upgrade head && exec uvicorn llm_gateway.main:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log"]
     ports:
       - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +59,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GATEWAY_READONLY_DB_PASSWORD: ${GATEWAY_READONLY_DB_PASSWORD:-}
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro

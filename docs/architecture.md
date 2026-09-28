@@ -669,9 +669,45 @@ Visibility consists of detector counts: `lgw_guardrail_findings_total`, one fina
 [ADR 0020](adr/0020-deterministic-guardrails.md) and
 [ADR 0021](adr/0021-redaction-restore-and-residency.md) for limits and verified sources.
 
+## Step 12a: a private management door and a usage view
+
+Applications still use the public `/v1` door with a team key. Administrators use a
+different door: a loopback HTTP listener on port 8081 with `lgwa_` admin keys. The
+admin door can be enabled for an internal portal, while the public port has no admin
+routes. Its first platform key comes from the database-connected CLI, so a fresh
+deployment cannot grant itself admin access over HTTP.
+
+An **IDOR** bug means someone changes an ID in a URL and sees another tenant's data.
+For example, an org administrator might replace their organization's name in
+`/admin/v1/orgs/acme/teams` with a competitor's name. The service checks every
+resource against the verified admin key's organization UUID before reading or
+changing it. It responds with 404 for a different organization, revealing no more
+than it does for a nonexistent one. A test matrix lists every admin route and tests
+platform, own-org, other-org and missing-key access; adding a route without a matrix
+row fails the inventory test.
+
+The CLI and HTTP handlers call the same admin service. A changed setting and its
+audit event commit together. HTTP events name the verified admin key ID as their
+actor. If an admin tool retries a create request after losing its response, an
+`Idempotency-Key` repeats the same creation metadata for 24 hours rather than creating
+a second team or key. A client key is shown only in the first response. A retry returns
+its key ID without the secret; if the first response was lost, the tool revokes that
+key and creates a new one. Postgres never holds a usable client key, even encrypted.
+Admins can read team limits and budgets and the org or team model, guardrail and
+residency policies over the private door. Each read shows what was saved and what is
+currently effective after defaults and inherited org rules, so a management tool can
+display why a team has a particular setting.
+
+Per-team spend would make too many Prometheus label combinations, so the usage
+dashboard queries Postgres. Its database login has read permission only for
+organizations, teams, usage receipts and a budget-only view. It cannot see key hashes or change
+records. The dashboard shows spend against budget, models, traffic, cache savings
+and unknown-cost calls; unknown cost is visible rather than mistaken for zero.
+See [ADR 0022](adr/0022-admin-api.md).
+
 ## What the gateway deliberately does NOT do yet
 
 - No semantic, streaming or cross-team response cache.
-- No HTTP admin API yet (step 12).
+- No admin SSO, admin web UI or automated key rotation.
 
 See [roadmap.md](roadmap.md) for the order.

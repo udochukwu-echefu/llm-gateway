@@ -2,6 +2,7 @@
 
 import argparse
 
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.catalog import load_catalog
 from llm_gateway.routing.repository import PolicyRepository
 from llm_gateway.tenants.repository import PostgresKeyRepository
@@ -14,12 +15,14 @@ def add_commands(cli: argparse.ArgumentParser) -> None:
         cli.add_argument("--allow", action="append", required=True)
 
 
-async def execute(args: argparse.Namespace, repository: PostgresKeyRepository) -> str:
+async def execute(
+    args: argparse.Namespace, repository: PostgresKeyRepository, service: AdminService
+) -> str:
     catalog = load_catalog()
     policies = PolicyRepository(repository.sessions, repository.actor)
     if args.command != "show-models":
-        await policies.set_models(
-            args.org, args.team, args.allow if args.command == "set-models" else None, catalog
+        await service.set_models(
+            args.org, args.team, args.allow if args.command == "set-models" else None
         )
     policy = await policies.get_models(args.org, args.team)
     models = [

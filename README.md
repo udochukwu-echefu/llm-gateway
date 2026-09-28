@@ -3,7 +3,7 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 11 of 12.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 12a.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
@@ -71,6 +71,59 @@ client.chat.completions.create(
 `/healthz` and `/readyz` are public; `/v1/*` requires `Authorization: Bearer lgw_...`.
 Missing, unknown, revoked and expired keys all receive the same 401 body. Manage keys
 offline with `gateway-admin list-keys <org> [<team>]` and `gateway-admin revoke-key <key_id>`.
+
+## Private admin API and usage dashboard
+
+Set `GATEWAY_ADMIN_API__ENABLED=true` to start the separate admin listener at
+`127.0.0.1:8081` (override with `GATEWAY_ADMIN_API__HOST` and `__PORT`). The public
+port does not serve `/admin/v1`; the admin port does not serve `/v1` model calls.
+Restrict this listener to trusted administrators and terminate TLS at the deployment
+edge. Its OpenAPI documentation is at `http://127.0.0.1:8081/docs`.
+
+After migrations, bootstrap the first platform key with database access:
+
+```bash
+uv run gateway-admin create-admin-key --role platform platform-operator
+# Store the printed lgwa_ key privately as GATEWAY_ADMIN_KEY; it is shown once.
+uv run gateway-admin create-admin-key --role org --org example-org org-operator
+```
+
+An org key can manage only its own organization. Another organization's URL returns
+404. Admin and client keys are never interchangeable. Examples using a shell variable
+so the key does not appear in command text:
+
+```bash
+curl http://127.0.0.1:8081/admin/v1/orgs \
+  -H "authorization: Bearer $GATEWAY_ADMIN_KEY"
+curl -X POST http://127.0.0.1:8081/admin/v1/orgs/example-org/teams \
+  -H "authorization: Bearer $GATEWAY_ADMIN_KEY" \
+  -H 'content-type: application/json' \
+  -H 'idempotency-key: fake-example-team-create-1' \
+  -d '{"name":"example-team-2"}'
+curl 'http://127.0.0.1:8081/admin/v1/orgs/example-org/usage?group_by=team' \
+  -H "authorization: Bearer $GATEWAY_ADMIN_KEY"
+curl 'http://127.0.0.1:8081/admin/v1/orgs/example-org/teams/example-team/limits' \
+  -H "authorization: Bearer $GATEWAY_ADMIN_KEY"
+```
+
+Create operations accept `Idempotency-Key`: repeating the same request within 24
+hours returns the same resource ID. For key creation, only the first response contains
+the secret; a retry omits it and sets `secret_already_returned: true`. If a tool loses
+the first response, revoke that key and create a new one. A different body with the
+same idempotency key returns 409.
+Configuration reads are available for team `limits` and `budget`, plus org or team
+`model-policy`, `guardrails`, and `residency` (add `?team=example-team` for team
+policy). Each returns saved `overrides` and resolved `effective` values; budget
+amounts are strings.
+List responses use `data` and `next_cursor`; pass the latter as `cursor`, with
+`page_size` from 1 to 500 (default 50). Budget amounts are decimal strings.
+
+For the Grafana usage dashboard, provide `GATEWAY_READONLY_DB_PASSWORD` securely in
+the migration and observability profile environments, then run
+`docker compose --profile observability up -d --build`. Open the
+[usage dashboard](http://127.0.0.1:3000/d/llm-gateway-usage/llm-gateway-usage).
+It reads Postgres as `gateway_readonly`, which has no key-table access. The local
+Grafana profile allows anonymous viewing; restrict it in production.
 
 ## Pricing and usage
 
@@ -211,6 +264,10 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_CACHE__ENABLED` | `true` | Turn response caching off entirely with `false` |
 | `GATEWAY_CACHE__TTL_S` | `3600` | Cache lifetime in seconds, at most 604800 (7 days) |
 | `GATEWAY_CACHE__MAX_ENTRY_BYTES` | `1048576` | Largest serialized answer to cache |
+| `GATEWAY_ADMIN_API__ENABLED` | `false` | Enable the private admin HTTP listener |
+| `GATEWAY_ADMIN_API__HOST` | `127.0.0.1` | Admin listener bind address |
+| `GATEWAY_ADMIN_API__PORT` | `8081` | Admin listener port |
+| `GATEWAY_READONLY_DB_PASSWORD` | unset | Deployment-supplied Grafana database password; migration leaves role without login when absent |
 | `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from llm_gateway.admin import execute, parser
+from llm_gateway.admin.cli import execute, parser
 from llm_gateway.audit.chain import first_broken
 from llm_gateway.audit.models import AuditEvent
 from llm_gateway.tenants.repository import PostgresKeyRepository

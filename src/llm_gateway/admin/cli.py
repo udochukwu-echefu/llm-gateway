@@ -1,25 +1,24 @@
-"""Offline administrative commands; never expose key management over HTTP."""
+"""Offline administrative CLI backed by the shared admin service."""
 
 import argparse
 import asyncio
 import os
 from contextlib import suppress
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from llm_gateway.admin_limits import admin_defaults, read_live_limits, render_limits
+from llm_gateway.admin.service.limits import admin_defaults, read_live_limits, render_limits
+from llm_gateway.admin.service.service import AdminService
 from llm_gateway.audit import commands as audit_commands
-from llm_gateway.cache.purge import purge
 from llm_gateway.guardrails import commands as guardrail_commands
 from llm_gateway.limits.configuration import resolve
 from llm_gateway.limits.service import LimitService
 from llm_gateway.routing import commands as model_commands
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
-from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import PostgresKeyRepository
 from llm_gateway.usage.repository import PostgresUsageRepository
 
@@ -28,6 +27,10 @@ def parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(prog="gateway-admin")
     commands = cli.add_subparsers(dest="command", required=True)
     commands.add_parser("create-org").add_argument("name")
+    admin_key = commands.add_parser("create-admin-key")
+    admin_key.add_argument("name")
+    admin_key.add_argument("--role", choices=("platform", "org"), required=True)
+    admin_key.add_argument("--org")
     team = commands.add_parser("create-team")
     team.add_argument("org")
     team.add_argument("name")
@@ -76,23 +79,28 @@ async def execute(
     limits_service: LimitService | None = None,
     cache_client: Redis | None = None,
 ) -> str:
+    service = AdminService(
+        repository.sessions, pepper, repository.actor, usage_repository=usage_repository
+    )
+    if args.command == "create-admin-key":
+        return await service.create_admin_key(args.name, args.role, args.org)
     if args.command in guardrail_commands.COMMANDS:
-        return await guardrail_commands.execute(args, repository)
+        return await guardrail_commands.execute(args, repository, service)
     if args.command == "cache":
         if cache_client is None:
             raise ValueError("Redis is required for cache purge")
-        count = await purge(repository, cache_client, args.org, args.team)
+        count = await service.purge_cache(args.org, args.team, cache_client)
         return f"Purged {count} cache entries"
     if args.command in {"set-models", "clear-models", "show-models"}:
-        return await model_commands.execute(args, repository)
+        return await model_commands.execute(args, repository, service)
     if args.command == "audit":
-        return await audit_commands.execute(args, repository.sessions)
+        return await audit_commands.execute(args, service)
     if args.command in {"set-limits", "set-budget", "show-limits", "clear-limits"}:
         if args.command == "set-limits":
             values = (args.rpm, args.tpm, args.max_concurrency)
             if any(value is not None and value < 0 for value in values):
                 raise ValueError("Limits must be nonnegative")
-            await repository.set_limits(
+            await service.set_limits(
                 args.org,
                 args.team,
                 rpm=args.rpm,
@@ -107,10 +115,10 @@ async def execute(
                 or not 0 < args.alert_at <= 1
             ):
                 raise ValueError("Budget must be nonnegative and alert threshold in (0, 1]")
-            await repository.set_limits(args.org, args.team, budget=args.usd, alert=args.alert_at)
+            await service.set_limits(args.org, args.team, budget=args.usd, alert=args.alert_at)
         elif args.command == "clear-limits":
-            await repository.set_limits(args.org, args.team, clear=True)
-        team_id, overrides = await repository.team_limits(args.org, args.team)
+            await service.set_limits(args.org, args.team, clear=True)
+        team_id, overrides = await service.team_limits(args.org, args.team)
         defaults = admin_defaults()
         live = None
         if limits_service is not None:
@@ -123,9 +131,7 @@ async def execute(
             raise ValueError("--since must be on or before --until")
         if usage_repository is None:
             raise ValueError("usage repository unavailable")
-        rows = await usage_repository.report(
-            args.org, args.team, args.since, args.until, args.group_by
-        )
+        rows = await service.usage(args.org, args.team, args.since, args.until, args.group_by)
         return "\n".join(
             "  ".join(
                 f"{key}={value if value is not None else 'NULL'}" for key, value in row.items()
@@ -133,26 +139,17 @@ async def execute(
             for row in rows
         )
     if args.command == "create-org":
-        org = await repository.create_org(args.name)
+        org = await service.create_org(args.name)
         return f"Created organization {org.name} ({org.id})"
     if args.command == "create-team":
-        team = await repository.create_team(args.org, args.name)
+        team = await service.create_team(args.org, args.name)
         return f"Created team {team.name} ({team.id})"
     if args.command == "create-key":
         if args.expires_in_days is not None and args.expires_in_days <= 0:
             raise ValueError("--expires-in-days must be positive")
-        expiry = (
-            datetime.now(UTC) + timedelta(days=args.expires_in_days)
-            if args.expires_in_days is not None
-            else None
-        )
-        issued = issue_key(pepper)
-        await repository.create_key(
-            args.org, args.team, args.name, issued.key_id, issued.secret_hash, expiry
-        )
-        return issued.full_key
+        return await service.create_key(args.org, args.team, args.name, args.expires_in_days)
     if args.command == "list-keys":
-        rows = await repository.list_keys(args.org, args.team)
+        rows = await service.list_keys(args.org, args.team, None, None)
         now = datetime.now(UTC)
         lines: list[str] = []
         for row in rows:
@@ -166,7 +163,7 @@ async def execute(
             lines.append(f"{row.key_id}  {row.name}  {status}")
         return "\n".join(lines)
     if args.command == "revoke-key":
-        if not await repository.revoke_key(args.key_id):
+        if not await service.revoke_key(args.key_id):
             raise ValueError("Key not found")
         return "Key revoked"
     raise ValueError("Unknown command")

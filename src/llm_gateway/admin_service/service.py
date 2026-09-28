@@ -6,7 +6,7 @@ The repositories own transactions and append the matching audit event before com
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from redis.asyncio import Redis
 from sqlalchemy import String, or_, select
@@ -17,6 +17,7 @@ from llm_gateway.audit.models import AuditEvent
 from llm_gateway.cache.purge import purge
 from llm_gateway.catalog import load_catalog
 from llm_gateway.guardrails.repository import GuardrailRepository
+from llm_gateway.limits.configuration import LimitOverrides
 from llm_gateway.routing.repository import PolicyRepository
 from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.models import AdminKey, ApiKey, Organization, Team, utc_now
@@ -158,7 +159,7 @@ class AdminService:
             await append_event(session, self.actor, "revoke-admin-key", "admin-key", key_id)
             return True
 
-    async def team_limits(self, org: str, team: str):
+    async def team_limits(self, org: str, team: str) -> tuple[uuid.UUID, LimitOverrides]:
         if self.role == "org":
             await self.authorize_org(org)
         return await self.tenants.team_limits(org, team)
@@ -211,7 +212,7 @@ class AdminService:
         since: date | None,
         until: date | None,
         group_by: Literal["team", "key", "model", "day"],
-    ):
+    ) -> list[dict[str, Any]]:
         await self.authorize_org(org)
         if since is not None and until is not None and since > until:
             raise ValueError("since must be on or before until")

@@ -36,6 +36,10 @@ separated by spaces/dashes). Exclude candidates overlapping date/time shapes
 not calendar validity, is the exclusion. Plain 7–9-digit counts are not phones.
 Plain 10–15-digit counts can still be false positives under this explicit heuristic;
 phone-style formatting is evidence, not proof that a number belongs to a telephone.
+Parenthesized area-code matches include the opening parenthesis in the redaction span.
+Whitespace-separated sequences consisting entirely of years from 1000 through 2999
+are excluded (for example `2024 2025 2026`). This may miss a telephone number deliberately
+written as a sequence of such years; context-free patterns cannot disambiguate every case.
 
 ReDoS means regular-expression denial of service: an attacker supplies text that makes
 an engine try exponentially many ways to match a pattern. Candidate lengths are bounded

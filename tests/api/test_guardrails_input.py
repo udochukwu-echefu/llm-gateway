@@ -188,7 +188,14 @@ async def test_guardrail_changes_use_original_key_cache_ttl(
 
 
 @pytest.mark.parametrize(
-    "text", ["Meeting on 2026-09-28", "Meeting on 28/09/2026", "At 12:34", "We sold 1234567 units"]
+    "text",
+    [
+        "Meeting on 2026-09-28",
+        "Meeting on 28/09/2026",
+        "At 12:34",
+        "We sold 1234567 units",
+        "In 2024 2025 2026 we grew",
+    ],
 )
 async def test_phone_redaction_preserves_dates_times_and_plain_counts(
     resilient: ResilientApp, set_guardrails: SetGuardrails, text: str

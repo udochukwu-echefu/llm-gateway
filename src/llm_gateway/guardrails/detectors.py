@@ -52,8 +52,11 @@ def scan(text: str) -> list[Finding]:
             Finding(match.start() + start, match.start() + stop, "card_number")
             for start, stop in card_spans(value)
         )
-        if is_phone(text, match.start(), end, digits):
-            findings.append(Finding(match.start(), end, "phone"))
+        phone_start = match.start()
+        if phone_start and text[phone_start - 1] == "(":
+            phone_start -= 1
+        if is_phone(text, phone_start, end, digits):
+            findings.append(Finding(phone_start, end, "phone"))
     for match in IBAN.finditer(text):
         candidate = match.group()
         # Uppercase prose after a spaced IBAN is not part of the account number.

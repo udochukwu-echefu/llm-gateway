@@ -6,6 +6,7 @@ from llm_gateway.guardrails.detectors import scan
 from llm_gateway.guardrails.policy import Detector
 from tests.guardrails.fixtures import (
     CARD,
+    CARD_CONTEXTS,
     EMAIL,
     FAKE_GATEWAY_KEY,
     FAKE_KEY,
@@ -80,3 +81,22 @@ def test_adversarial_scan_has_small_time_bound(text: str) -> None:
 )
 def test_detector_boundaries(text: str, detector: Detector, value: str) -> None:
     assert any(f.detector == detector and text[f.start : f.end] == value for f in scan(text))
+
+
+@pytest.mark.parametrize(("text", "card"), CARD_CONTEXTS)
+def test_card_adjacent_to_other_digit_groups(text: str, card: str) -> None:
+    found = [text[f.start : f.end] for f in scan(text) if f.detector == "card_number"]
+
+    assert found == [card]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "123456789012345678901234567890",
+        "99 4242424242424243 1227",
+        "4111 1111 1111 1112 123",
+    ],
+)
+def test_invalid_card_groups_and_unseparated_tracking_numbers(text: str) -> None:
+    assert not any(f.detector == "card_number" for f in scan(text))

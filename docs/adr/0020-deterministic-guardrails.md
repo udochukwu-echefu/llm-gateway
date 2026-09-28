@@ -17,6 +17,14 @@ blocks, emails with a TLD, 7–15-digit phones, cards with Luhn validation, IBAN
 mod-97 validation, and IPv4/IPv6 parsed with Python's `ipaddress` module. Card candidates
 have 13–19 digits. These are format checks, not verification of an actual account.
 
+Review amendment: for space/tab/dash-separated number runs, examine contiguous whole
+digit-group windows totalling 13–19 digits. Select non-overlapping Luhn-valid windows,
+preferring the most digits, then the earliest start. Each start considers at most 19
+groups, so adjacent CVV/expiry/table columns cannot hide an otherwise valid card.
+Do not slide inside an unseparated group longer than 19 digits: arbitrary 16-digit
+windows pass Luhn about 10% of the time. A card concatenated directly with other digits
+without separators remains a deliberate residual gap to avoid flagging tracking numbers.
+
 ReDoS means regular-expression denial of service: an attacker supplies text that makes
 an engine try exponentially many ways to match a pattern. Candidate lengths are bounded
 where possible. Unbounded digit runs use possessive repetition, so the engine cannot

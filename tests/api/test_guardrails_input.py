@@ -10,6 +10,7 @@ from tests.api.conftest import ResilientApp
 from tests.fixtures import CHAT_REQUEST, COMPLETION, EMBEDDINGS
 from tests.guardrails.fixtures import (
     CARD,
+    CARD_CONTEXTS,
     EMAIL,
     FAKE_GATEWAY_KEY,
     FAKE_KEY,
@@ -116,8 +117,10 @@ async def test_embeddings_are_redacted_before_provider(
     ]
 
 
-@pytest.mark.parametrize("text", [CARD, IBAN])
-async def test_payment_data_is_redacted_by_default(resilient: ResilientApp, text: str) -> None:
+@pytest.mark.parametrize(("text", "sensitive"), [(CARD, CARD), (IBAN, IBAN), *CARD_CONTEXTS])
+async def test_payment_data_is_redacted_by_default(
+    resilient: ResilientApp, text: str, sensitive: str
+) -> None:
     route = resilient.router.post("https://groq.test/v1/chat/completions").respond(
         200, json=COMPLETION
     )
@@ -125,7 +128,7 @@ async def test_payment_data_is_redacted_by_default(resilient: ResilientApp, text
     response = await resilient.client.post("/v1/chat/completions", json=prompt(text))
 
     assert response.status_code == 200
-    assert text.encode() not in route.calls.last.request.content
+    assert sensitive not in json.loads(route.calls.last.request.content)["messages"][0]["content"]
     assert "_1]" in json.loads(route.calls.last.request.content)["messages"][0]["content"]
 
 

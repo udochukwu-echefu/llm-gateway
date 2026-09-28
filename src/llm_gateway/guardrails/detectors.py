@@ -4,6 +4,7 @@ import ipaddress
 import re
 from dataclasses import dataclass
 
+from llm_gateway.guardrails.cards import card_spans
 from llm_gateway.guardrails.policy import Detector
 
 
@@ -28,7 +29,7 @@ EMAIL = re.compile(
     r"(?<![\w.+%-])[A-Za-z0-9_+%-][A-Za-z0-9_.+%-]{0,63}@"
     r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?\.[A-Za-z]{2,63}(?![\w-]|\.[A-Za-z0-9])"
 )
-NUMBER = re.compile(r"(?<![\w+])\+?[0-9][0-9 ()-]*+")
+NUMBER = re.compile(r"(?<![\w+])\+?[0-9][0-9 ()\t-]*+")
 IBAN = re.compile(r"(?<!\w)[A-Z]{2}[0-9]{2}(?: ?[A-Z0-9]){11,30}(?![A-Z0-9])")
 IP = re.compile(r"(?<![\w.:])[0-9A-Fa-f:.]{2,45}(?![\w.:])")
 
@@ -46,8 +47,10 @@ def scan(text: str) -> list[Finding]:
         value = match.group().rstrip(" ()-")
         end = match.start() + len(value)
         digits = "".join(c for c in value if c.isascii() and c.isdigit())
-        if 13 <= len(digits) <= 19 and all(c in "0123456789 -" for c in value) and luhn(digits):
-            findings.append(Finding(match.start(), end, "card_number"))
+        findings.extend(
+            Finding(match.start() + start, match.start() + stop, "card_number")
+            for start, stop in card_spans(value)
+        )
         if 7 <= len(digits) <= 15:
             findings.append(Finding(match.start(), end, "phone"))
     for match in IBAN.finditer(text):
@@ -66,14 +69,6 @@ def scan(text: str) -> list[Finding]:
             continue
         findings.append(Finding(match.start(), match.start() + len(candidate), "ip_address"))
     return sorted(findings, key=lambda f: (f.start, -f.end, f.detector))
-
-
-def luhn(digits: str) -> bool:
-    total = 0
-    for index, char in enumerate(reversed(digits)):
-        value = int(char) * (2 if index % 2 else 1)
-        total += value - 9 if value > 9 else value
-    return total % 10 == 0
 
 
 def valid_iban(value: str) -> bool:

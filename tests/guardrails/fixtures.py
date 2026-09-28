@@ -11,6 +11,12 @@ FAKE_GATEWAY_KEY = "lgw_aaaaaaaaaaaa_" + "F" * 43
 FAKE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nRkFLRQ==\n-----END PRIVATE KEY-----"
 # Stripe's published test Visa: https://docs.stripe.com/testing#cards
 CARD = "4242 4242 4242 4242"
+CARD_CONTEXTS = (
+    ("Card 4111 1111 1111 1111 123 please", "4111 1111 1111 1111"),
+    ("My card is 4242424242424242 1227", "4242424242424242"),
+    ("ref 99 4242424242424242 1227", "4242424242424242"),
+    ("| 99\t4242424242424242\t1227 |", "4242424242424242"),
+)
 # SWIFT's documented GB example: https://www.swift.com/standards/data-standards/iban
 IBAN = "GB82 WEST 1234 5698 7654 32"
 

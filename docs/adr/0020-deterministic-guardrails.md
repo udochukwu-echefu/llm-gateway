@@ -25,6 +25,14 @@ Do not slide inside an unseparated group longer than 19 digits: arbitrary 16-dig
 windows pass Luhn about 10% of the time. A card concatenated directly with other digits
 without separators remains a deliberate residual gap to avoid flagging tracking numbers.
 
+Phone review amendment: retain the 7–15-digit bound, but require a leading `+`, at
+least 10 digits, or local phone-style grouping (`3-4` or `2/3-3-2/3` digit groups,
+separated by spaces/dashes). Exclude candidates overlapping date/time shapes
+`YYYY-MM-DD`, `DD/MM/YYYY` and `HH:MM`, including impossible calendar values: shape,
+not calendar validity, is the exclusion. Plain 7–9-digit counts are not phones.
+Plain 10–15-digit counts can still be false positives under this explicit heuristic;
+phone-style formatting is evidence, not proof that a number belongs to a telephone.
+
 ReDoS means regular-expression denial of service: an attacker supplies text that makes
 an engine try exponentially many ways to match a pattern. Candidate lengths are bounded
 where possible. Unbounded digit runs use possessive repetition, so the engine cannot

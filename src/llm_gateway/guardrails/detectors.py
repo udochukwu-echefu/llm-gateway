@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 
 from llm_gateway.guardrails.cards import card_spans
+from llm_gateway.guardrails.phones import is_phone
 from llm_gateway.guardrails.policy import Detector
 
 
@@ -44,14 +45,14 @@ def scan(text: str) -> list[Finding]:
     for pattern, detector in patterns:
         findings.extend(Finding(m.start(), m.end(), detector) for m in pattern.finditer(text))
     for match in NUMBER.finditer(text):
-        value = match.group().rstrip(" ()-")
+        value = match.group().rstrip(" ()-\t")
         end = match.start() + len(value)
         digits = "".join(c for c in value if c.isascii() and c.isdigit())
         findings.extend(
             Finding(match.start() + start, match.start() + stop, "card_number")
             for start, stop in card_spans(value)
         )
-        if 7 <= len(digits) <= 15:
+        if is_phone(text, match.start(), end, digits):
             findings.append(Finding(match.start(), end, "phone"))
     for match in IBAN.finditer(text):
         candidate = match.group()

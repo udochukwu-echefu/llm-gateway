@@ -185,3 +185,20 @@ async def test_guardrail_changes_use_original_key_cache_ttl(
     assert first.status_code == cached.status_code == 200
     assert denied.status_code == 400
     assert route.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "text", ["Meeting on 2026-09-28", "Meeting on 28/09/2026", "At 12:34", "We sold 1234567 units"]
+)
+async def test_phone_redaction_preserves_dates_times_and_plain_counts(
+    resilient: ResilientApp, set_guardrails: SetGuardrails, text: str
+) -> None:
+    set_guardrails(GuardrailPolicy((("phone", "redact"),)))
+    route = resilient.router.post("https://groq.test/v1/chat/completions").respond(
+        200, json=COMPLETION
+    )
+
+    response = await resilient.client.post("/v1/chat/completions", json=prompt(text))
+
+    assert response.status_code == 200
+    assert json.loads(route.calls.last.request.content)["messages"][0]["content"] == text

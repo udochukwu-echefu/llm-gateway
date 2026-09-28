@@ -255,7 +255,7 @@ guardrail environment variable is required. Defaults are a minimum protection le
 | `card_number` | redact | 13–19 digits and Luhn checksum |
 | `iban` | redact | 15–34 characters and mod-97 checksum |
 | `email` | allow | RFC-ish pattern with TLD |
-| `phone` | allow | 7–15 digits after normalization |
+| `phone` | allow | 7–15 digits; plus prefix, 10+ digits or local phone grouping; excludes date/time shapes |
 | `ip_address` | allow | Valid IPv4 or IPv6 |
 
 The strictest default/org/team action wins (`allow < redact < block`). Teams cannot

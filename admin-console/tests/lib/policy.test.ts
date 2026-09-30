@@ -20,7 +20,6 @@ test("money is formatted and compared exactly from decimal strings", () => {
   expect(money("1E-12")).toBe("$0.000000000001");
   expect(money("0.1")).toBe("$0.10");
   expect(money(null)).toBe("Unpriced");
-  expect(money("None")).toBe("Unpriced");
   expect(pico("0.1") + pico("0.2")).toBe(pico("0.3"));
   expect(budgetPercent("0.1", "0.3")).toBe(33);
   expect(budgetPercent("2", "1")).toBe(100);

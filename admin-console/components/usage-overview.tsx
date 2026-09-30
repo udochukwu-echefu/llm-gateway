@@ -39,9 +39,9 @@ export function UsageOverview({ org }: {
         <tbody>{data.budgets.map(({ team, budget }) => {
           const row = data.byTeam.find((r) => r.group === team.name); const spend = row ? row.cost_usd : "0"; return <tr key={team.id}>
             <td>{team.name}</td>
-            <td>{money(spend)} / {pico(budget.effective.usd) === 0n ? "Unlimited" : money(budget.effective.usd)}<progress aria-label={`${team.name} budget used`} max="100" value={spend && spend !== "None" ? budgetPercent(spend, budget.effective.usd) : 0} />
+            <td>{money(spend)} / {pico(budget.effective.usd) === 0n ? "Unlimited" : money(budget.effective.usd)}<progress aria-label={`${team.name} budget used`} max="100" value={spend !== null ? budgetPercent(spend, budget.effective.usd) : 0} />
             </td>
-            <td>{(row?.usage_missing ?? 0) + (row?.stream_incomplete ?? 0)}{row && ((row.usage_missing + row.stream_incomplete) > 0 || spend === "None" || spend === null) && <span className="warning"> · Unpriced usage</span>}</td>
+            <td>{(row?.usage_missing ?? 0) + (row?.stream_incomplete ?? 0)}{row && ((row.usage_missing + row.stream_incomplete) > 0 || spend === null) && <span className="warning"> · Unpriced usage</span>}</td>
             <td>{row ? money(row.saved_usd) : money("0")} · {row?.cache_hits ?? 0} hits</td>
           </tr>;
         })}</tbody>

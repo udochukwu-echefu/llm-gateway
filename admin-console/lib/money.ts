@@ -15,7 +15,7 @@ export function pico(value: string): bigint {
   return digits / divisor;
 }
 export function money(value: string | null): string {
-  if (value === null || value === "None")
+  if (value === null)
     return "Unpriced";
   const amount = pico(value);
   const fraction = (amount % SCALE).toString().padStart(12, "0").replace(/0+$/, "").padEnd(2, "0");
@@ -29,7 +29,7 @@ export function budgetPercent(spend: string, budget: string): number {
   return Number(percentage > 100n ? 100n : percentage);
 }
 export function compareMoney(a: string | null, b: string | null) {
-  const left = pico(a && a !== "None" ? a : "0");
-  const right = pico(b && b !== "None" ? b : "0");
+  const left = pico(a ?? "0");
+  const right = pico(b ?? "0");
   return left === right ? 0 : left > right ? -1 : 1;
 }

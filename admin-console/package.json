@@ -6,7 +6,7 @@
     "node": "24.15.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs dev",
     "build": "next build",
     "start": "node scripts/start.mjs",
     "lint": "eslint .",

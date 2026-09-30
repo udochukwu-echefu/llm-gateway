@@ -99,3 +99,38 @@ step 13b policy editors remain out of scope.
   easier to exercise through HTTP, audit and pair with the existing REST API here.
 - Floating-point money: fails exact decimal accounting.
 - External fonts or elaborate charts: require unnecessary network/CSP exceptions.
+
+## Amendment: startup and browser-client throttling (2026-09-30)
+
+Both production entry points validate the same zod schema before loading Next or
+opening a listener. The Docker CMD runs the checked entry point. Compose refuses
+a missing session secret during configuration interpolation. Instrumentation keeps
+a defence-in-depth check, but is not the startup guarantee.
+
+Next 16.3.7's `NextRequestAdapter.fromNodeNextRequest` copies headers into the Web
+Request and does not expose the socket. `base-server.js` sets X-Forwarded-For only
+when absent, so a Route Handler cannot safely treat that header as the client IP.
+Node 24's `http.server.request.start` diagnostics channel runs before the request
+listener. The entry points subscribe there and overwrite `x-console-client-address`
+with the socket address. Route Handlers trust only this overwritten header. The
+standard generated standalone Next server is retained; no custom Next server or
+new dependency is required. Development propagates the preload to its worker.
+
+`ADMIN_CONSOLE_TRUSTED_PROXY_HOPS` is an integer 0–32, default 0. Zero ignores every
+forwarded address. With N trusted hops, select the Nth valid IP from the right of
+X-Forwarded-For; missing/invalid selected values fall back to the socket. Deployments
+behind a load balancer must restrict direct access to the console, ensure the trusted
+proxy appends the actual peer (or replaces an untrusted chain), and set the exact hop
+count, mirroring the gateway. Setting hops on a publicly reachable origin would let
+attackers claim addresses. With hops zero behind a balancer, its socket IP shares
+a login quota; operators must configure that topology deliberately.
+
+Ten failed sign-ins per client within a fixed minute trigger 429 with a plain message
+and Retry-After. Malformed keys and upstream authentication rejections count; Origin
+rejections and gateway outages do not. Successful sign-in clears that client's count.
+The throttle is bounded to 10,000 entries, in-memory and per replica; restart resets
+it and replicas do not share counters. Oldest entries can be evicted under pressure,
+so it is best effort rather than a distributed rate-limit guarantee. Load balancers
+should add their own abuse controls for larger deployments. Already authenticated
+requests are never subject to this login throttle. Gateway valid keys bypass its
+shared-IP authentication-failure limiter, as amended in ADR 0022.

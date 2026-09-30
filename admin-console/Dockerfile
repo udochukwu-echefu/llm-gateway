@@ -8,7 +8,7 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-# Only build-time placeholders; runtime configuration is validated by instrumentation.
+# Only build-time placeholders; runtime configuration is validated before starting the server.
 RUN ADMIN_API_URL=http://gateway-console:8081 ADMIN_CONSOLE_ORIGIN=http://localhost:3100 ADMIN_CONSOLE_SESSION_SECRET=obviously-fake-build-only-secret-at-least-32-bytes npm run build
 
 FROM node:24.15.0-alpine AS runner
@@ -17,6 +17,8 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup -S -g 1001 console && adduser -S -u 1001 -G console console
 COPY --from=builder --chown=console:console /app/.next/standalone ./
 COPY --from=builder --chown=console:console /app/.next/static ./.next/static
+COPY --from=builder --chown=console:console /app/lib/config-schema.mjs ./lib/config-schema.mjs
+COPY --from=builder --chown=console:console /app/scripts/bootstrap.mjs /app/scripts/docker-start.mjs /app/scripts/client-address.mjs /app/scripts/request-address.mjs ./scripts/
 USER console
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "scripts/docker-start.mjs"]

@@ -1,3 +1,5 @@
+import "./bootstrap.mjs";
+import "./request-address.mjs";
 import { cpSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 const root = new URL("../", import.meta.url);

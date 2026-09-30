@@ -45,3 +45,19 @@ Raw local artifacts stay ignored; publish only metadata, charts and a stack-only
 - Closed-loop VUs only: slow responses reduce offered load, hiding overload.
 - Rewriting RPM as a fixed window: changes accepted policy instead of measuring it.
 - Declaring an unrun scenario successful: not evidence.
+
+## Campaign amendment (2026-09-30)
+
+The step-12b amendment supersedes the original stopping rules and dependencies.
+Warm each run with 30 seconds at its offered rate, then exclude those requests
+using distinct request-ID prefixes. Exact access overhead is the verdict input;
+histogram deltas remain a corroborating estimate with count-coverage validation.
+Ramp 10, 25, 50, 100, 200, 400, 800/s with at least 3000 scheduled requests per
+stage. Continue after overhead misses; stop on >1% errors, client p99 >5 times
+the measured fake baseline, or incomplete generation/telemetry. Keep the stopping
+stage. SLO capacity uses <10 ms exact p99 and <0.1% errors; saturation throughput
+uses <0.1% errors. Select a whole median ramp by saturation throughput.
+S2/S4/S7 always run at half S1 SLO capacity, or 50/s if none exists. Run S1/S3/S6
+three times, S2/S4/idle/S7 once, retaining S5's original three repetitions.
+S6 checks atomic Redis admission timestamps, including its warmup, against 630.
+Idle traffic is informational; it has no SLO verdict.

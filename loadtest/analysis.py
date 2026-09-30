@@ -28,10 +28,7 @@ def histogram_quantile(buckets: Mapping[float, float], quantile: float) -> float
 
 def capacity_passes(overhead_p99_ms: float | None, error_rate: float, dropped: int) -> bool:
     return (
-        overhead_p99_ms is not None
-        and overhead_p99_ms < 10
-        and error_rate <= 0.001
-        and dropped == 0
+        overhead_p99_ms is not None and overhead_p99_ms < 10 and error_rate < 0.001 and dropped == 0
     )
 
 

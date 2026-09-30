@@ -18,14 +18,33 @@ uv run python -m loadtest.run S7 --skip-setup
 uv run python -m loadtest.run all
 ```
 
-Each scenario runs three times. S1/S3 increase offered arrivals through 1, 5, 10, 20,
-40, 80, 160, 320, 640 and 1280 requests/s, holding each plateau for 60 seconds, stopping
-at the first SLO failure. Capacity is the highest passing plateau, not an interpolated
-claim. S3 uses exactly the same shape against two replicas. S2/S4/S7 use floor(70% of
-S1's median capacity); S5 uses 5/s for repeat embeddings. S6 drives 50/s for
-180 seconds with a fresh team's RPM=600. S7 runs 600 seconds per repetition.
-If S1 finds no passing rate, S2/S4/S7 stop rather than invent a baseline. `all` records
-them as BLOCKED, continues independent scenarios, and exits nonzero for incompleteness.
+Every run starts with 30 seconds of traffic excluded from measurement. S1/S3
+ramp through 10, 25, 50, 100, 200, 400 and 800 requests/s. Each plateau lasts
+max(60 seconds, 3000 / rate), ensuring at least 3000 scheduled measured requests.
+Overhead misses do not stop the ramp. Stop when errors exceed 1%, client p99
+exceeds five times the measured direct-provider p99, or generation/telemetry is
+incomplete. Keep the stopping stage and all repetitions.
+
+SLO capacity is the highest offered stage with exact overhead p99 <10 ms and
+errors <0.1%. Saturation throughput is the successful throughput of the highest
+stage with errors <0.1%. The two-replica/one-replica saturation throughput ratio
+is the scaling factor. If the 800/s ceiling is reached, capacity beyond it is
+unmeasured. Median ramps are selected by saturation throughput, ties by repetition.
+
+S2/S4/S7 always run at floor(50% of S1 SLO capacity), minimum 1/s, or fallback
+50/s if S1 found no SLO capacity. The result records which rule applied. S1/S3/S6
+run three times; S2/S4/idle/S7 once. S5 retains three repetitions at 5/s. S6 uses
+50/s for 180 measured seconds across two replicas, RPM=600, default B=30; atomic
+Redis admission timestamps (including warmup) must respect a rolling bound of 630.
+S7 holds the declared rate for 600 measured seconds. Idle is informational: 1/s
+for 300 measured seconds, with hit/miss overhead distributions and no SLO verdict.
+Run it with `uv run python -m loadtest.run idle --skip-setup`.
+
+Stop all profile containers at the end (preserve volumes and raw evidence):
+
+```bash
+docker compose --env-file /dev/null --profile loadtest down
+```
 
 `loadtest/.state/` (0700) contains generated runtime credentials and one CLI-issued
 key per run (0600). It is ignored by git. Credentials are never printed, passed in
@@ -49,7 +68,10 @@ Every plateau has k6 `points.json`, `summary.json`, and `measurement.json` under
 ignored `loadtest/results/`. These contain aggregate/point metrics only, never request
 headers or payloads. Keep all repetitions, including failed plateaus. Prometheus
 histogram bucket deltas are aggregated over the selected replicas before interpolating
-p50/p95/p99. They are estimates, not exact request timings. Client latency is k6's full
+p50/p95/p99. They are estimates, not exact request timings. Exact overhead_ms percentiles come
+from access logs with a unique per-run request-ID prefix. Warmup has a distinct
+prefix and is excluded. Both access and histogram counts must match k6 requests
+for a complete measurement. The profile enables JSON access logs at INFO. Client latency is k6's full
 HTTP duration; streaming TTFB is reported separately. SSE validation checks 20 content
 chunks, usage, DONE and no error event. Expected RPM 429s are not availability errors.
 
@@ -62,8 +84,8 @@ not claim zero lost receipts merely because the queue is empty.
 
 ## CI smoke
 
-`uv run python -m loadtest.run smoke --skip-setup` currently runs three 30-second,
-5-request/s repetitions and fails for errors, dropped iterations, missing overhead or
+`uv run python -m loadtest.run smoke --skip-setup` runs one 30-second,
+5-request/s measurement and fails for errors, dropped iterations, missing overhead or
 overhead p99 >=50 ms. CI uses a single 30-second repetition (see the workflow).
 
 ## Charts and profile

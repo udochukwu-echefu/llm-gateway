@@ -41,7 +41,7 @@ const headers = {'Content-Type': 'application/json', 'x-lgw-cache': embedding ? 
 if (!direct) headers.Authorization = `Bearer ${key}`;
 
 export default function () {
-  const response = http.post(`${base}/v1/${embedding ? 'embeddings' : 'chat/completions'}`, body, {headers, timeout: '90s'});
+  const response = http.post(`${base}/v1/${embedding ? 'embeddings' : 'chat/completions'}`, body, {headers: {...headers, 'x-request-id': `${__ENV.OUTPUT}-request-${__VU}-${__ITER}`}, timeout: '90s'});
   let valid = response.status === 200;
   if (valid && stream) {
     const text = String(response.body);

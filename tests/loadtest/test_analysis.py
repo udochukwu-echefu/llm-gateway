@@ -30,7 +30,8 @@ def test_counter_reset_is_rejected() -> None:
 
 
 def test_capacity_checks_exact_slo_boundaries() -> None:
-    assert capacity_passes(9.99, 0.001, 0)
+    assert capacity_passes(9.99, 0.0009, 0)
+    assert not capacity_passes(9.99, 0.001, 0)
     assert not capacity_passes(10, 0, 0)
     assert not capacity_passes(1, 0.0011, 0)
     assert not capacity_passes(1, 0, 1)

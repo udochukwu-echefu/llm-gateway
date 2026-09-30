@@ -110,7 +110,8 @@ services:
       GATEWAY_METRICS__ENABLED: "true"
       GATEWAY_ADMIN_API__ENABLED: "false"
       GATEWAY_LIMITS__FAIL_MODE: closed
-      GATEWAY_LOG_LEVEL: WARNING
+      GATEWAY_LOG_LEVEL: INFO
+      GATEWAY_LOG_FORMAT: json
     ports: ["127.0.0.1:18001:8000"]
     networks: [loadtest]
     depends_on:

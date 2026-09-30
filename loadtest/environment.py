@@ -13,7 +13,7 @@ from loadtest.runtime import ROOT
 def environment() -> dict[str, object]:
     return {
         "tooling_commit": _git("rev-parse", "HEAD"),
-        "app_main_commit": _git("rev-parse", "main"),
+        "app_commit": _git("rev-parse", "HEAD"),
         "app_source_sha256": source_hash(ROOT / "src"),
         "catalog_sha256": hashlib.sha256((ROOT / "catalog/models.toml").read_bytes()).hexdigest(),
         "uv_lock_sha256": hashlib.sha256((ROOT / "uv.lock").read_bytes()).hexdigest(),
@@ -35,7 +35,7 @@ def environment() -> dict[str, object]:
 
 def source_hash(directory: Path) -> str:
     digest = hashlib.sha256()
-    for path in sorted(directory.rglob("*.py")):
+    for path in sorted(path for path in directory.rglob("*") if path.suffix in {".py", ".lua"}):
         digest.update(str(path.relative_to(directory)).encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()

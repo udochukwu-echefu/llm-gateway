@@ -20,7 +20,7 @@ def rpm_observation(org: str) -> dict[str, object]:
     return inspect_times(json.loads(output), 600)
 
 
-def inspect_times(times: Sequence[float], limit: int) -> dict[str, object]:
+def inspect_times(times: Sequence[float], limit: int, *, burst: int = 0) -> dict[str, object]:
     ordered = sorted(times)
     buckets = Counter(int(timestamp // 60) for timestamp in ordered)
     left = maximum = 0
@@ -33,6 +33,8 @@ def inspect_times(times: Sequence[float], limit: int) -> dict[str, object]:
         "fixed_minute_max": max(buckets.values(), default=0),
         "rolling_60s_max": maximum,
         "fixed_bucket_no_over_admission": bool(times) and max(buckets.values()) <= limit,
-        "exact_rolling_no_over_admission": bool(times) and maximum <= limit,
+        "exact_rolling_no_over_admission": bool(times) and maximum <= limit + burst,
+        "burst": burst,
+        "rolling_bound": limit + burst,
         "timestamp_basis": "receipt request-start time, not an atomic Redis admission timestamp",
     }

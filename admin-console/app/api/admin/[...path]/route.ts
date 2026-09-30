@@ -22,7 +22,7 @@ async function forward(request: NextRequest, context: Context) {
   catch {
     return reply({ error: "Not found." }, 404);
   }
-  if (segments.some((s) => !s || s === "." || s === ".." || /[/\\?#%]/.test(s)))
+  if (segments.some((s) => !s || s === "." || s === ".." || /[/]/.test(s)))
     return reply({ error: "Not found." }, 404);
   const path = "/" + segments.map(encodeURIComponent).join("/");
   const schema = operationSchema(request.method, path);

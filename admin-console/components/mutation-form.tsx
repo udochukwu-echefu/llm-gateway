@@ -31,7 +31,7 @@ export function MutationForm({ path, method = "POST", fields, label, onSuccess }
     const body = Object.fromEntries(fields.map((f) => { const value = String(values.get(f.name) ?? "").trim(); return [f.name, f.type === "integer" ? (value ? Number(value) : null) : value]; }));
     const schema = operationSchema(method, path);
     if (!schema?.safeParse(body).success) {
-      setError("Check the form values. Names are required; limits must be whole non-negative numbers, budgets decimal amounts, and thresholds greater than 0 and at most 1.");
+      setError("Check the form values. Names are required and cannot contain / or be . or ..; limits must be whole non-negative numbers, budgets decimal amounts, and thresholds greater than 0 and at most 1.");
       return;
     }
     lock.current = true;

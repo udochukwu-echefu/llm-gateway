@@ -50,10 +50,16 @@ test("idle-expired session is destroyed before upstream access", async () => {
   expect(mocks.session.destroy).toHaveBeenCalledOnce();
   expect(mocks.request).not.toHaveBeenCalled();
 });
-test("encoded separators and repeated encoding cannot escape a BFF path segment", async () => {
-  for (const part of ["..", "a%2Fb", "a%5Cb", "a%252Fb", "bad%ZZ"]) {
+test("encoded slashes and traversal cannot escape a BFF path segment", async () => {
+  for (const part of ["..", "a%2Fb", "bad%ZZ"]) {
     const response = await GET(request("GET"), { params: Promise.resolve({ path: ["orgs", part, "teams"] }) });
     expect(response.status).toBe(404);
   }
   expect(mocks.request).not.toHaveBeenCalled();
+});
+
+test("literal percent, query and fragment characters keep the resource scope", async () => {
+  const response = await GET(request("GET"), {params: Promise.resolve({path:["orgs","Fake%25%3F%23%5C","teams"]})});
+  expect(response.status).toBe(200);
+  expect(mocks.request).toHaveBeenCalledWith("http://fake.test","fake","/orgs/Fake%25%3F%23%5C/teams",expect.anything());
 });

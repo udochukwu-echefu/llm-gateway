@@ -1,5 +1,5 @@
 import { z } from "zod";
-const name = z.string().trim().min(1).max(256).refine((v) => !/lgwa_|lgw_/.test(v), "Names cannot contain credentials.");
+const name = z.string().trim().min(1).max(256).refine((v) => !v.includes("/") && v !== "." && v !== "..", "Names cannot contain / or be . or ..").refine((v) => !/lgwa_|lgw_/.test(v), "Names cannot contain credentials.");
 export const nameSchema = z.object({ name }).strict();
 export const keySchema = nameSchema.extend({ expires_in_days: z.number().int().positive().max(36500).nullable().optional() });
 export const limitsSchema = z.object({ rpm: z.number().int().nonnegative().nullable(), tpm: z.number().int().nonnegative().nullable(), max_concurrency: z.number().int().nonnegative().nullable() }).strict();

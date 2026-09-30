@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { hasSameOrigin } from "@/lib/origin";
 import { readConfig } from "@/lib/config";
-import { budgetSchema, limitsSchema, operationSchema } from "@/lib/bff-policy";
+import { budgetSchema, limitsSchema, nameSchema, operationSchema } from "@/lib/bff-policy";
 import { budgetPercent, money, pico } from "@/lib/money";
 import { submissionId } from "@/lib/submission";
 test("Origin is mandatory and matches configured origin including scheme and port", () => {
@@ -35,6 +35,8 @@ test("same submission and retry use one ID; a later submission uses another", ()
 test("BFF permits only the specified screens and validates mutations", () => {
   expect(operationSchema("PUT", "/orgs/fake/guardrails")).toBeUndefined();
   expect(operationSchema("POST", "/orgs")).toBeDefined();
+  for (const name of ["fake/team", ".", ".."]) expect(nameSchema.safeParse({ name }).success).toBe(false);
+  expect(nameSchema.safeParse({ name: "Fake%?#\\ workspace" }).success).toBe(true);
   expect(limitsSchema.safeParse({ rpm: -1, tpm: null, max_concurrency: null }).success).toBe(false);
   expect(budgetSchema.safeParse({ usd: "0.1", alert_at: "0.8" }).success).toBe(true);
   for (const usd of [0.1, "NaN", "1e3", "9223372.036854775808"])

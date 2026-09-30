@@ -5,6 +5,7 @@ import { readSession } from "@/lib/session";
 import { isActive } from "@/lib/session-policy";
 import { AdminApiError, adminRequest } from "@/lib/admin-client";
 import { isCreation, operationSchema } from "@/lib/bff-policy";
+import { policyHeaders } from "@/lib/policy-schemas";
 import { browserResponse } from "@/lib/bff-response";
 type Context = {
   params: Promise<{
@@ -31,12 +32,24 @@ async function forward(request: NextRequest, context: Context) {
     if (!parsed.success) return reply({ error: "Check the form values and try again." }, 400);
     body = parsed.data;
   }
+  const conditional = policyHeaders(request.method, path, request.headers.get("if-match"));
+  if (conditional === null)
+    return reply({ error: "A valid policy version is required. Reload the policy." }, 400);
   const idempotency = request.headers.get("idempotency-key");
   if (isCreation(request.method, path) && (!idempotency || !/^[0-9a-f-]{36}$/.test(idempotency)))
     return reply({ error: "A submission ID is required." }, 400);
   const query = filterQuery(request.nextUrl.searchParams);
   if (query instanceof NextResponse) return query;
-  return forwardAuthenticated(request, config, session, path, query, body, idempotency);
+  return forwardAuthenticated(
+    request,
+    config,
+    session,
+    path,
+    query,
+    body,
+    idempotency,
+    conditional,
+  );
 }
 async function forwardAuthenticated(
   request: NextRequest,
@@ -46,12 +59,18 @@ async function forwardAuthenticated(
   query: URLSearchParams,
   body: unknown,
   idempotency: string | null,
+  conditional: Record<string, string>,
 ) {
   try {
     const target = path + (query.size ? `?${query}` : "");
     const result = await adminRequest(config.ADMIN_API_URL, session.adminKey!, target, {
       method: request.method,
-      headers: idempotency ? { "Idempotency-Key": idempotency } : {},
+      headers: {
+        ...(idempotency && isCreation(request.method, path)
+          ? { "Idempotency-Key": idempotency }
+          : {}),
+        ...conditional,
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     session.lastSeen = Date.now();

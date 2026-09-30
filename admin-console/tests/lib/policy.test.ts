@@ -50,7 +50,7 @@ test("same submission and retry use one ID; a later submission uses another", ()
   expect(submission.begin()).not.toBe(first);
 });
 test("BFF permits only the specified screens and validates mutations", () => {
-  expect(operationSchema("PUT", "/orgs/fake/guardrails")).toBeUndefined();
+  expect(operationSchema("PUT", "/orgs/fake/catalog")).toBeUndefined();
   expect(operationSchema("POST", "/orgs")).toBeDefined();
   for (const name of ["fake/team", ".", ".."])
     expect(nameSchema.safeParse({ name }).success).toBe(false);

@@ -130,3 +130,37 @@ test("literal percent, query and fragment characters keep the resource scope", a
     expect.anything(),
   );
 });
+
+for (const kind of ["model-policy", "guardrails", "residency"])
+  test(`BFF forwards If-Match only for ${kind} writes`, async () => {
+    const req = request("DELETE");
+    const version = '"' + "a".repeat(64) + '"';
+    req.headers.set("If-Match", version);
+    const response = await DELETE(req, {
+      params: Promise.resolve({ path: ["orgs", "Own", kind] }),
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.request).toHaveBeenCalledWith(
+      "http://fake.test",
+      "fake",
+      `/orgs/Own/${kind}`,
+      expect.objectContaining({ headers: { "If-Match": version } }),
+    );
+  });
+test("BFF rejects missing and malformed conditional headers before mutation", async () => {
+  for (const header of [null, "bad", "*"]) {
+    const req = request("DELETE");
+    if (header) req.headers.set("If-Match", header);
+    expect(
+      (await DELETE(req, { params: Promise.resolve({ path: ["orgs", "Own", "residency"] }) }))
+        .status,
+    ).toBe(400);
+  }
+  expect(mocks.request).not.toHaveBeenCalled();
+});
+test("BFF does not forward If-Match on nonpolicy mutations", async () => {
+  const req = request("DELETE");
+  req.headers.set("If-Match", '"' + "a".repeat(64) + '"');
+  expect((await DELETE(req, limits)).status).toBe(200);
+  expect(mocks.request.mock.calls[0][3].headers).toEqual({});
+});

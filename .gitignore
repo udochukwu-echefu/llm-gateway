@@ -15,3 +15,7 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Load-test credentials and raw local output (may be large)
+loadtest/.state/
+loadtest/results/

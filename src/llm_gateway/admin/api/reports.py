@@ -29,7 +29,8 @@ async def usage(
         "data": [
             {
                 key: str(value)
-                if key == "cost_usd" or key == "saved_usd" or isinstance(value, date)
+                if value is not None
+                and (key == "cost_usd" or key == "saved_usd" or isinstance(value, date))
                 else value
                 for key, value in row.items()
             }

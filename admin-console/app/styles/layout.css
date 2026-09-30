@@ -1,0 +1,292 @@
+.console {
+  display: flex;
+  min-height: 100vh;
+}
+
+aside {
+  width: 230px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  align-self: stretch;
+}
+
+.sidebar-content {
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 0 10px;
+  font-size: 23px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 48px;
+}
+
+.brand-mark {
+  grid-row: span 2;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: 8px;
+  padding: 4px;
+  text-align: center;
+  font-family: Georgia, serif;
+}
+
+.brand-sub {
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  color: var(--muted);
+  margin-top: 7px;
+}
+
+nav a {
+  display: block;
+  border-radius: 5px;
+  padding: 11px 12px;
+  margin-bottom: 6px;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+nav a[aria-current] {
+  background: var(--nav);
+  color: var(--accent);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+.sidebar-footer p {
+  margin: 12px 0 4px;
+}
+
+.workspace {
+  min-width: 0;
+  flex: 1;
+}
+
+header {
+  height: 78px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  padding: 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+main {
+  max-width: 1400px;
+  padding: 36px;
+  margin: auto;
+}
+
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.page-heading p:last-child {
+  margin-bottom: 0;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  padding: 26px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2 {
+  margin-bottom: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.breadcrumb {
+  font-size: 12px;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+footer {
+  padding: 12px 36px 28px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.login {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 460px;
+  padding: 44px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.login-form {
+  margin-top: 30px;
+}
+
+.login-form .muted {
+  font-size: 12px;
+  margin-top: 12px;
+}
+
+.login-footnote {
+  margin: 28px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.skip {
+  position: fixed;
+  top: -80px;
+  left: 20px;
+  background: var(--panel);
+  padding: 12px;
+  z-index: 20;
+}
+
+.skip:focus {
+  top: 10px;
+}
+
+@media (max-width: 1100px) {
+  aside {
+    width: 185px;
+  }
+
+  .sidebar-content {
+    padding: 24px 14px;
+  }
+
+  main {
+    padding: 28px 24px;
+  }
+
+  header {
+    padding: 0 24px;
+  }
+
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-heading {
+    align-items: flex-start;
+  }
+
+  .section-heading {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .console {
+    display: block;
+  }
+
+  aside {
+    width: 100%;
+  }
+
+  .sidebar-content {
+    position: static;
+    height: auto;
+    padding: 16px;
+  }
+
+  aside .brand {
+    margin-bottom: 16px;
+    width: 200px;
+  }
+
+  aside nav {
+    display: flex;
+    gap: 8px;
+  }
+
+  .nav-label,
+  .sidebar-footer {
+    display: none;
+  }
+
+  header {
+    padding: 12px 16px;
+    height: auto;
+    flex-wrap: wrap;
+  }
+
+  main {
+    padding: 24px 16px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .page-heading {
+    flex-wrap: wrap;
+  }
+
+  .login-card {
+    padding: 28px;
+  }
+
+  .mutation-form label {
+    max-width: none;
+  }
+
+  .theme-label {
+    font-size: 11px;
+  }
+}

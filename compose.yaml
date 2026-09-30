@@ -144,6 +144,34 @@ services:
       - ./loadtest/results:/results
     networks: [loadtest]
 
+  gateway-console:
+    profiles: [console]
+    build: .
+    env_file: .env
+    environment:
+      GATEWAY_DATABASE_URL: postgresql+asyncpg://gateway:local-only-example@postgres:5432/gateway
+      GATEWAY_REDIS_URL: redis://redis:6379/0
+      GATEWAY_ADMIN_API__ENABLED: "true"
+      GATEWAY_ADMIN_API__HOST: 0.0.0.0
+      GATEWAY_ADMIN_API__PORT: 8081
+      GATEWAY_METRICS__ENABLED: "false"
+    command: [sh, -c, "alembic upgrade head && exec uvicorn llm_gateway.main:create_app --factory --host 0.0.0.0 --port 8000 --no-access-log"]
+    expose: ["8081"]
+    ports: ["127.0.0.1:8001:8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  admin-console:
+    profiles: [console]
+    build: ./admin-console
+    environment:
+      ADMIN_API_URL: http://gateway-console:8081
+      ADMIN_CONSOLE_ORIGIN: ${ADMIN_CONSOLE_ORIGIN:-http://localhost:3100}
+      ADMIN_CONSOLE_TRUSTED_PROXY_HOPS: ${ADMIN_CONSOLE_TRUSTED_PROXY_HOPS:-0}
+      ADMIN_CONSOLE_SESSION_SECRET: ${ADMIN_CONSOLE_SESSION_SECRET:?Set ADMIN_CONSOLE_SESSION_SECRET (at least 32 bytes)}
+    ports: ["127.0.0.1:3100:3000"]
+    depends_on: [gateway-console]
+
 networks:
   loadtest:
     internal: true

@@ -1,0 +1,13 @@
+node_modules/
+.next/
+next-env.d.ts
+out/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.env*
+!.env.example
+
+tests/e2e/.state.json
+__pycache__/

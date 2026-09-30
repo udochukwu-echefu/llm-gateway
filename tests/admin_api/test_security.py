@@ -211,3 +211,32 @@ async def test_admin_auth_failures_have_separate_redis_counter(
     assert [first.status_code, second.status_code, third.status_code] == [401, 401, 429]
     assert keys
     assert tenant_keys == []
+
+
+@pytest.mark.redis
+async def test_valid_admin_bypasses_exhausted_failure_limit(
+    admin_harness: AdminHarness, test_redis: Redis
+) -> None:
+    from dataclasses import replace
+
+    harness = admin_harness
+    limits = LimitService(test_redis, ip_limit=2)
+    await limits.start()
+    harness.app.state.admin_context = replace(harness.app.state.admin_context, limits=limits)
+    ip = "admin-lockout-" + uuid.uuid4().hex
+    invalid = "lgwa_aaaaaaaaaaaa_" + "A" * 43
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=harness.app, client=(ip, 1)),
+        base_url="http://admin.test",
+    ) as client:
+        failures = [
+            await client.get("/admin/v1/me", headers=harness.headers(invalid)) for _ in range(3)
+        ]
+        valid = await client.get("/admin/v1/me", headers=harness.headers(harness.platform_key))
+        still_invalid = await client.get("/admin/v1/me", headers=harness.headers(invalid))
+
+    assert [response.status_code for response in failures] == [401, 401, 429]
+    assert valid.status_code == 200
+    assert valid.json()["role"] == "platform"
+    assert still_invalid.status_code == 429
+    assert still_invalid.json()["error"]["code"] == "rate_limit_exceeded"

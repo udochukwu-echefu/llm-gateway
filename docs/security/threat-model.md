@@ -1,4 +1,4 @@
-# Gateway threat model (through step 12b tooling)
+# Gateway threat model (through step 13a console)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -54,3 +54,31 @@ ratings are qualitative for this early deployment.
 | Load test calls a real provider | Unlikely / high | Runner ignores `.env` and inherited gateway settings; explicit fake base URLs; fake provider and replicas have only an internal Docker network | Do not manually replace benchmark URLs/networks with production configuration |
 | Benchmark credentials leak into reports/builds | Plausible / medium | CLI output captured; private 0700 directory and 0600 files; git and Docker context ignore state; only synthetic metric output is collected | Docker administrators can inspect generated container credentials; protect the local machine and do not archive `.state` |
 | Profiling permissions reused in production | Plausible / high | Optional separate py-spy image joins only the fake-key replica's PID namespace; network disabled; no locals captured; normal gateways get no extra capabilities | SYS_PTRACE/disabled seccomp are debugging privileges, never a production deployment default |
+
+
+## Admin console boundary (step 13a)
+
+| Threat | Prevention | Residual risk |
+|---|---|---|
+| Session theft | Encrypted __Host cookie; Secure, httpOnly, Strict; 8 h absolute / 30 min idle; key revocation checked at the API | Stolen ciphertext is replayable; stateless logout cannot revoke stolen copies; revoke the admin key |
+| Admin key in browser responses | server-only BFF client and session; explicit identity DTO; redact credential-shaped strings/errors; scan all browser responses in e2e | Server/process compromise can expose keys; never enable body logging or browser traces for real sessions |
+| XSS | React text escaping; fresh nonce CSP; no unsafe-inline scripts, external fonts or third-party scripts; no browser-stored admin key | Same-origin injected code could still invoke actions during a session; CSP is layered protection |
+| CSRF | SameSite=Strict plus exact configured Origin on login, logout and every mutation; reject absent Origin | Deployment must configure the public origin correctly; route handlers do not inherit Server Action checks |
+| Clickjacking | CSP frame-ancestors 'none' | Deployment proxy must preserve response headers |
+| UI-only authorization / org tampering | Gateway verifies key role and organization on each API operation; BFF preserves scope, allowed routes and credential; other-org 404 tests | Future endpoint/BFF changes require matrix and browser isolation tests |
+| Tenant secret revealed again | Only first creation response contains secret; dialog state discarded on close/unmount; no reveal control/storage; no-store responses | User must secure their clipboard/secret store; lost first response requires revoke/reissue |
+| Cached authenticated pages | Dynamic rendering, no-store pages/BFF responses, full navigation on authentication changes | Browser/device compromise or screenshots can expose public administrative metadata |
+
+The console's login-failure throttle is per socket-derived client IP, in memory on
+each replica: ten failures in a fixed minute, bounded to 10,000 entries. NAT clients
+share a quota; replicas/restarts do not share or preserve counters. Authenticated
+requests bypass it. The admin API verifies valid keys before its separate failure
+counter to prevent the BFF's shared IP from becoming an administrator-wide lockout.
+
+The Node entry points overwrite the internal client-address header before Next
+handles requests. Forwarded addresses are ignored unless validated trusted proxy
+hops are configured (default zero). Behind a balancer, restrict direct origin access
+and require the trusted chain to append real peers. Misconfigured trust lets clients
+claim identities, while no trust behind a balancer shares its quota across callers.
+Startup validation runs before Next starts for both local and Docker entry points;
+missing secrets fail compose interpolation and invalid settings stop the process.

@@ -14,6 +14,8 @@ The branch is for reviewer inspection: nothing was pushed or merged.
 - Org/team Cache panels with exact-name confirmation, purged counts and Redis 503 messages.
 - Overview after sign-in: scoped org inventory, six cards, requests chart with accessible
   table alternative, top five models, budget alert badges and five recent audit events.
+- Catalogue-driven residency options and BFF validation, with one replaceable five-region
+  fallback and no hard-coded new region.
 - Helpful empty states for organizations, teams, keys, usage and filtered audit results;
   the copyable curl contains only YOUR_TEAM_API_KEY.
 - Opt-in Demo Co seeder: Search, Support and Engineering, six key records, budgets/limits
@@ -57,6 +59,13 @@ Other open implementation choices:
 - Money uses format(value, "f") without floating-point conversion or rounding; a zero
   PostgreSQL Numeric(20, 12) sum is "0.000000000000", never "0E-12". Unknown values
   stay null/NULL. Existing hashed audit records are not rewritten.
+- The complete catalogue `regions` field is authoritative when present. Older APIs combine
+  model regions with the fallback five so valid regions with no models remain selectable.
+  `catalogRegions` is shared by the editor and dynamic BFF enum/bounds; each residency PUT
+  reads the catalogue server-side and rejects unadvertised regions before mutation. A read
+  failure blocks the write. New regions get a neutral description, not an invented country
+  guarantee. Tests use only an obviously fake identifier; Singapore was not added. Step 14's
+  parallel branch was not touched and its eventual merged integration was not claimed.
 - Current reviewed catalogue entries have no verified EU processing region. EU-only
   correctly produces zero usable models; no regional guarantee was invented.
 - Demo secrets are discarded, not printed. Deterministic receipt IDs and a seed lock make
@@ -107,13 +116,13 @@ All checks passed!
 ### Database suite (-m db)
 
 ```text
-127 passed, 11 skipped, 1092 deselected in 36.44s
+127 passed, 11 skipped, 1092 deselected in 35.23s
 ```
 
 ### Redis suite (-m redis)
 
 ```text
-65 passed, 1165 deselected in 48.49s
+65 passed, 1165 deselected in 46.31s
 ```
 
 ### Console format:check
@@ -140,9 +149,9 @@ Exit 0; no diagnostics.
 ### Console unit/component
 
 ```text
-Test Files  13 passed (13)
-Tests  54 passed (54)
-Duration  1.89s (environment 64%, tests 14%, setup 10%, transform 9%, import 3%)
+Test Files  14 passed (14)
+Tests  64 passed (64)
+Duration  2.07s (environment 60%, tests 16%, setup 10%, transform 9%, import 4%)
 ```
 
 ### Console production build
@@ -151,10 +160,10 @@ Duration  1.89s (environment 64%, tests 14%, setup 10%, transform 9%, import 3%)
 
 ```text
 ▲ Next.js 16.3.7 (Turbopack)
-✓ Compiled successfully in 525ms
-✓ Generating static pages using 11 workers (9/9) in 113ms
+✓ Compiled successfully in 513ms
+✓ Generating static pages using 11 workers (9/9) in 126ms
 ƒ Proxy (Middleware)
-ƒ (Dynamic) server-rendered on demand
+ƒ  (Dynamic)  server-rendered on demand
 ```
 
 Routes include `/overview`, org/team pages, audit, login and the server BFF.
@@ -162,7 +171,9 @@ Formatting, lint and typing were checked again after restoring the break mutatio
 
 ### Console e2e: each named test
 
-`CONSOLE_TEST_PORT=3110 CONSOLE_SCREENSHOTS=1 npm run test:e2e` exited 0.
+`CONSOLE_TEST_PORT=3110 CONSOLE_SCREENSHOTS=0 npm run test:e2e` exited 0.
+The retained screenshots were captured in the preceding seeded production run; current
+legacy-API region options are visually unchanged.
 Port 3100 was already occupied by an existing local Node process, causing the first
 server-start attempt to fail; the configurable 3110 test port resolved it without stopping
 that process. Initial richer-fixture failures exposed two old small-fixture assumptions
@@ -170,25 +181,25 @@ that process. Initial richer-fixture failures exposed two old small-fixture assu
 and multiple teams. The final production run below passed.
 
 ```text
-✓   1 tests/e2e/console.spec.ts:4:5 › platform workflow (5.2s)
-✓   2 tests/e2e/console.spec.ts:85:5 › one-time key dialog (2.0s)
+✓   1 tests/e2e/console.spec.ts:4:5 › platform workflow (4.7s)
+✓   2 tests/e2e/console.spec.ts:85:5 › one-time key dialog (1.9s)
 ✓   3 tests/e2e/console.spec.ts:111:5 › org-admin isolation and URL tampering (1.8s)
-✓   4 tests/e2e/console.spec.ts:131:5 › security headers and CSP (1.9s)
-✓   5 tests/e2e/console.spec.ts:171:5 › cookie flags and cross-origin POST (1.1s)
+✓   4 tests/e2e/console.spec.ts:131:5 › security headers and CSP (1.8s)
+✓   5 tests/e2e/console.spec.ts:171:5 › cookie flags and cross-origin POST (1.0s)
 ✓   6 tests/e2e/console.spec.ts:189:5 › revocation logs out (1.5s)
 ✓   7 tests/e2e/console.spec.ts:202:5 › login throttle and no shared-IP lockout (2.5s)
-✓   8 tests/e2e/empty-states.spec.ts:2:5 › empty workspace guides first team key request and unmatched audit filter (2.4s)
-✓   9 tests/e2e/overview.spec.ts:5:5 › Overview landing numbers match the seeded org usage API and org scope (1.0s)
-✓  10 tests/e2e/overview.spec.ts:69:5 › Overview platform landing includes all organisations and recent activity (1.3s)
+✓   8 tests/e2e/empty-states.spec.ts:2:5 › empty workspace guides first team key request and unmatched audit filter (2.2s)
+✓   9 tests/e2e/overview.spec.ts:5:5 › Overview landing numbers match the seeded org usage API and org scope (935ms)
+✓  10 tests/e2e/overview.spec.ts:69:5 › Overview platform landing includes all organisations and recent activity (1.1s)
 ✓  11 tests/e2e/policies.spec.ts:23:5 › org policy and team intersection enforced by public API (2.3s)
-✓  12 tests/e2e/policies.spec.ts:64:5 › guardrail tightening and weaker choice has no effect (2.1s)
+✓  12 tests/e2e/policies.spec.ts:64:5 › guardrail tightening and weaker choice has no effect (2.2s)
 ✓  13 tests/e2e/policies.spec.ts:95:5 › EU residency shrinks usable models using the API view (1.8s)
 ✓  14 tests/e2e/policies.spec.ts:119:5 › two browser contexts preserve the first policy and keep the conflicted draft (3.0s)
 ✓  15 tests/e2e/policies.spec.ts:153:5 › cache purge requires a typed name and reports its count (2.0s)
 ✓  16 tests/e2e/policies.spec.ts:166:5 › org admin cannot view or edit another org policies by URL tampering (1.7s)
-✓  17 tests/e2e/policies.spec.ts:194:5 › every policy write and cache purge appears in the audit log (3.3s)
+✓  17 tests/e2e/policies.spec.ts:194:5 › every policy write and cache purge appears in the audit log (3.4s)
 ✓  18 tests/e2e/policies.spec.ts:244:5 › unsaved policy changes warn before tab page and browser Back navigation (1.6s)
-18 passed (44.7s)
+18 passed (42.6s)
 ```
 
 ## No-leak scan and five break checks
@@ -232,7 +243,11 @@ Invalid console configuration: check ADMIN_API_URL, ADMIN_CONSOLE_ORIGIN, a sess
 - `uv run python scripts/seed_demo.py`, with GATEWAY_DEMO_SEED=1 and fake configuration,
   ran twice in a disposable migrated database: 1 org, 3 teams, 6 keys, 855 rows on both
   runs; identical IDs/name-only output, no duplicates. Without opt-in it refuses with exit 1.
-- No unresolved sandbox execution failure. Docker image builds did not fail for network.
+- During the residency follow-up, the DB rerun reported 138 setup errors because
+  127.0.0.1:5432 refused connections. The Docker daemon socket was absent. Docker Desktop
+  was restarted and `env -u ADMIN_CONSOLE_SESSION_SECRET docker compose up -d postgres redis`
+  succeeded. The ordered DB/Redis/e2e rerun reported above then passed. No unresolved sandbox
+  execution failure. Docker image builds did not fail for network.
   GitHub-hosted CI was not run because this branch was intentionally not pushed; the
   requested local gateway and console checks all passed. Remote CI results are not claimed.
 

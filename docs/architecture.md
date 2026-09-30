@@ -872,6 +872,11 @@ is an **intersection**, meaning both lists must allow the destination. If an org
 `groq/*` and its Search team allows only `groq/openai/gpt-oss-20b`, Search can use one model.
 Removing the team's override returns to the org boundary. Saving an empty list instead
 allows nothing. The UI makes those choices separate and confirms a deliberate deny-all.
+Residency choices come from the catalogue's complete regions field when present. Older
+responses use model regions plus the current five in one fallback constant, so a valid
+region remains selectable even when it currently has no models. The editor and BFF share
+that rule; the BFF reads the catalogue before validating a residency write. It blocks a
+write if that read fails and still lets the gateway make the final authorization decision.
 Region lists work the same way: `global` and `unknown` are real categories, not permission
 to process in the EU. None of today's reviewed models has an EU processing guarantee.
 

@@ -39,6 +39,12 @@ in a confirmation. Deny-all and any weakened/removed guardrail action need a con
 confirmation. Lower actions show the default/org floor inline. Per-detector Inherit omits
 that detector from the replacing list. Effective models, aliases, regions and actions come
 from API views, including residency's usable-model list; the browser never authorizes models.
+Residency choices and BFF validation share `catalogRegions`: an optional catalogue `regions`
+field is authoritative. Older API responses extend a single five-region fallback with model
+regions, retaining valid empty regions such as EU. New advertised identifiers get a neutral
+label rather than an invented processing guarantee. A residency PUT first reads the catalogue
+server-side, then validates its bounded, deduplicated enum before mutation. Catalogue read
+failure blocks the write; the API remains the final authority. No new region is hard-coded.
 
 On 412 the console preserves the draft, disables another save and offers an explicit reload.
 It never retries automatically. If a write succeeds but the refreshed API view fails, the

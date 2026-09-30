@@ -184,8 +184,10 @@ request containing only YOUR_TEAM_API_KEY.
 
 Org and team Policies tabs edit model access, guardrails and residency, showing saved
 org/team overrides and API-effective models, aliases, regions and detector actions.
-Inherit and deny-all are distinct. Changes appear before save; deny-all, weakening and
-removal need consequence confirmations. Every console policy write sends If-Match;
+Residency options and BFF validation use the catalogue's `regions` field when available;
+older APIs use model regions plus one shared five-region fallback. Additional API-advertised
+regions need no editor enum update. Inherit and deny-all are distinct. Changes appear
+before save; deny-all, weakening and removal need consequence confirmations. Every console policy write sends If-Match;
 412 preserves edits and offers explicit reload without automatic retry. Unsaved edits
 warn before leaving. Apply migration 0010 for policy revision counters before starting.
 GET /admin/v1/catalog contains reviewed routing metadata without secrets or provider URLs.

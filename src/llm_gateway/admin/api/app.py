@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from llm_gateway.admin.api import organizations, policies, reports
+from llm_gateway.admin.api import identity, organizations, policies, reports
 from llm_gateway.admin.api.auth import AdminContext, authenticate
 from llm_gateway.errors import (
     GatewayError,
@@ -20,7 +20,7 @@ def create_admin_app(context: AdminContext) -> FastAPI:
     app = FastAPI(title="LLM Gateway Admin", version="1")
     app.state.admin_context = context
     router = APIRouter(prefix="/admin/v1", dependencies=[Depends(authenticate)])
-    for module in (organizations, policies, reports):
+    for module in (identity, organizations, policies, reports):
         router.include_router(module.router)
     app.include_router(router)
     app.add_exception_handler(GatewayError, gateway_error_handler)

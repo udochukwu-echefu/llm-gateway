@@ -32,6 +32,7 @@ class AdminPrincipal:
     key_id: str
     role: Literal["platform", "org"]
     organization_id: uuid.UUID | None
+    name: str
 
 
 def context(request: Request) -> AdminContext:
@@ -61,7 +62,10 @@ async def authenticate(request: Request) -> None:
     ):
         await _reject(ctx.limits, ip)
     request.state.admin_principal = AdminPrincipal(
-        record.key_id, cast(Literal["platform", "org"], record.role), record.organization_id
+        record.key_id,
+        cast(Literal["platform", "org"], record.role),
+        record.organization_id,
+        record.name,
     )
 
 

@@ -19,6 +19,7 @@ class Case:
 
 
 CASES = [
+    Case("GET", "/me", scoped=False),
     Case("POST", "/orgs", {"name": "created"}, True, False),
     Case("GET", "/orgs", scoped=False),
     Case("POST", "/orgs/{org}/teams", {"name": "new-team"}),

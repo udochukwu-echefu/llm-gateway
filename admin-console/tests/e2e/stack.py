@@ -27,6 +27,7 @@ ENV = {
     "GATEWAY_PROVIDERS__GROQ__BASE_URL": "http://127.0.0.1:1/v1",
     "GATEWAY_API_KEY_PEPPER": "obviously-fake-e2e-pepper-at-least-32-bytes",
     "GATEWAY_CACHE__ENABLED": "false",
+    "GATEWAY_DEMO_SEED": "1",
     "GATEWAY_METRICS__ENABLED": "false",
     "GATEWAY_ADMIN_API__ENABLED": "true",
     "GATEWAY_ADMIN_API__HOST": "127.0.0.1",
@@ -50,6 +51,9 @@ def main() -> None:
     try:
         subprocess.run(  # noqa: S603 -- fixed repo executable/arguments; no shell or user command.
             [str(ROOT / ".venv/bin/alembic"), "upgrade", "head"], cwd=ROOT, env=ENV, check=True
+        )
+        subprocess.run(  # noqa: S603 -- fixed synthetic seeder; explicit fake environment.
+            [sys.executable, str(ROOT / "scripts/seed_demo.py")], cwd=ROOT, env=ENV, check=True
         )
         subprocess.run(  # noqa: S603 -- fixed repo executable/arguments; no shell or user command.
             [sys.executable, str(Path(__file__).with_name("seed.py"))],

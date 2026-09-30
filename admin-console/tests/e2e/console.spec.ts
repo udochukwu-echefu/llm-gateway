@@ -55,7 +55,14 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await page.getByRole("link", { name: "Audit log", exact: true }).click();
   await page.getByRole("button", { name: "Verify chain" }).click();
   await expect(page.getByText(/^Chain verified:/)).toBeVisible();
-  await page.getByRole("button", { name: "Next events" }).click();
+  while (
+    !(await page.getByRole("cell", { name: "revoke-key", exact: true }).count()) &&
+    (await page.getByRole("button", { name: "Next events" }).count())
+  ) {
+    const firstRow = await page.locator("tbody tr").first().textContent();
+    await page.getByRole("button", { name: "Next events" }).click();
+    await expect(page.locator("tbody tr").first()).not.toHaveText(firstRow!);
+  }
   await expect(page.getByRole("cell", { name: "revoke-key", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "First page" }).click();
   for (const action of [
@@ -141,7 +148,7 @@ test("security headers and CSP", async ({ page, credentials }) => {
   await signIn(page, credentials.platform);
   await page.goto(`/orgs/${encodeURIComponent(credentials.org)}`);
   await expect(page.getByRole("img", { name: "Daily total tokens" })).toBeVisible();
-  await expect(page.getByText("Unpriced usage", { exact: false })).toBeVisible();
+  await expect(page.getByText("Unpriced usage", { exact: false }).first()).toBeVisible();
   await screenshot(page, "usage");
   for (const theme of ["light", "dark"]) {
     await page.getByLabel("Theme", { exact: true }).selectOption(theme);

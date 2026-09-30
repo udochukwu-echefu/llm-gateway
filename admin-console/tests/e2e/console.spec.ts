@@ -1,0 +1,144 @@
+import { test, expect, type Page } from "@playwright/test";
+import { readFileSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { responseScanner } from "./no-leak";
+const state = () => JSON.parse(readFileSync(resolve("tests/e2e/.state.json"), "utf8")) as {
+  platform: string;
+  orgKey: string;
+  org: string;
+  other: string;
+};
+const images = resolve("../docs/images");
+async function signIn(page: Page, key: string) { await page.goto("/login"); await page.getByLabel("Admin API key").fill(key); await page.getByRole("button", { name: "Sign in", exact: true }).click(); await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible(); }
+async function screenshot(page: Page, name: string) {
+  if (process.env.CONSOLE_SCREENSHOTS === "1") {
+    mkdirSync(images, { recursive: true });
+    await page.screenshot({ path: resolve(images, `console-${name}.png`), fullPage: true });
+  }
+}
+test("real admin workflows, isolation, browser security and no-leak scan", async ({ page, context }) => {
+  const credentials = state();
+  const scan = await responseScanner(page);
+  const cspErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && /Content Security Policy/.test(message.text()))
+      cspErrors.push(message.text());
+  });
+  const login = await page.goto("/login");
+  expect(login!.headers()["content-security-policy"]).toMatch(/script-src[^;]*'nonce-[^']+'/);
+  expect(login!.headers()["content-security-policy"]).not.toContain("unsafe-inline");
+  expect(login!.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(login!.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(login!.headers()["x-content-type-options"]).toBe("nosniff");
+  await screenshot(page, "login");
+  await signIn(page, credentials.platform);
+  const cookie = (await context.cookies()).find((c) => c.name === "__Host-lgw-console")!;
+  expect(cookie.httpOnly).toBe(true);
+  expect(cookie.secure).toBe(true);
+  expect(cookie.sameSite).toBe("Strict");
+  expect((await page.evaluate(() => document.cookie)).includes("lgw-console")).toBe(false);
+  for (const route of ["/api/auth/login", "/api/auth/logout", "/api/admin/orgs"]) {
+    const denied = await context.request.post(route, { headers: { Origin: "https://evil.invalid" }, data: { name: "fake-cross-origin", key: "fake" } });
+    expect(denied.status()).toBe(403);
+    const missing = await context.request.post(route, { data: { name: "fake-no-origin" } });
+    expect(missing.status()).toBe(403);
+  }
+  await expect(page.getByRole("link", { name: credentials.org, exact: true })).toBeVisible();
+  await screenshot(page, "organisations");
+  const org = "E2E workspace";
+  const team = "Applications";
+  await page.getByLabel("Organisation name").fill(org);
+  await page.getByRole("button", { name: "Create organisation" }).click();
+  await page.getByRole("link", { name: org, exact: true }).click();
+  await page.getByLabel("Team name").fill(team);
+  await page.getByRole("button", { name: "Create team", exact: true }).click();
+  await page.getByRole("link", { name: team, exact: true }).click();
+  await page.getByLabel("Key name").fill("Fake application key");
+  await page.getByLabel("Expires in days").fill("30");
+  await page.getByRole("button", { name: "Create API key" }).click();
+  const secret = await page.getByTestId("created-key").textContent();
+  expect(Boolean(secret?.startsWith("lgw_"))).toBe(true);
+  await expect(page.getByRole("dialog")).toContainText("You won’t see this again");
+  await page.keyboard.press("Shift+Tab");
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect((await page.content()).includes(secret!)).toBe(false);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Create API key" })).toBeVisible();
+  expect((await page.content()).includes(secret!)).toBe(false);
+  await expect(page.getByRole("button", { name: /reveal|show key|reopen/i })).toHaveCount(0);
+  await screenshot(page, "keys");
+  await page.getByRole("button", { name: "Limits", exact: true }).click();
+  await page.getByLabel("Requests per minute").fill("120");
+  await page.getByLabel("Tokens per minute").fill("50000");
+  await page.getByLabel("Max concurrency").fill("8");
+  await page.getByRole("button", { name: "Save limits" }).click();
+  await expect(page.getByText("Limits saved.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Override", exact: true })).toHaveCount(3);
+  await screenshot(page, "limits");
+  await page.getByRole("button", { name: "Clear overrides" }).click();
+  await expect(page.getByText("Overrides cleared.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Override", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Budget", exact: true }).click();
+  await page.getByLabel("Monthly budget (USD)").fill("25.000000000001");
+  await page.getByLabel("Alert threshold (0–1)").fill("0.75");
+  await page.getByRole("button", { name: "Save budget" }).click();
+  await expect(page.getByText("Budget saved.", { exact: true })).toBeVisible();
+  await expect(page.getByText("$25.000000000001", { exact: false })).toBeVisible();
+  await screenshot(page, "budget");
+  await page.getByRole("button", { name: "API keys", exact: true }).click();
+  const revoke = page.getByRole("button", { name: /^Revoke / });
+  const keyId = (await revoke.textContent())!.replace("Revoke ", "");
+  await revoke.click();
+  await expect(page.getByRole("button", { name: "Confirm revoke" })).toBeDisabled();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Confirm revoke" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Audit log", exact: true }).click();
+  await page.getByRole("button", { name: "Verify chain" }).click();
+  await expect(page.getByText(/^Chain verified:/)).toBeVisible();
+  await page.getByRole("button", { name: "Next events" }).click();
+  await expect(page.getByRole("cell", { name: "revoke-key", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "First page" }).click();
+  for (const action of ["create-org", "create-team", "create-key", "set-limits", "clear-limits", "set-budget", "revoke-key"]) {
+    await page.getByLabel("Action", { exact: true }).fill(action);
+    await page.getByRole("button", { name: "Filter events" }).click();
+    await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
+  }
+  await expect(page.getByText(keyId, { exact: true })).toBeVisible();
+  await screenshot(page, "audit");
+  await page.goto(`/orgs/${encodeURIComponent(credentials.org)}`);
+  await expect(page.getByText("Unpriced usage", { exact: false })).toBeVisible();
+  await screenshot(page, "usage");
+  await page.getByLabel("Theme", { exact: true }).selectOption("dark");
+  await screenshot(page, "usage-dark");
+  await page.setViewportSize({ width: 820, height: 1100 });
+  await screenshot(page, "tablet");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await signIn(page, credentials.orgKey);
+  await expect(page).toHaveURL(new RegExp(encodeURIComponent(credentials.org)));
+  await expect(page.getByRole("link", { name: credentials.other, exact: true })).toHaveCount(0);
+  await page.goto(`/orgs/${encodeURIComponent(credentials.other)}`);
+  await expect(page.getByText("Organization not found", { exact: true })).toBeVisible();
+  await page.goto(`/orgs/${encodeURIComponent(credentials.other)}/teams/Private%20team`);
+  await expect(page.getByText("Organization not found", { exact: true })).toBeVisible();
+  await page.goto("/audit");
+  await expect(page.getByRole("button", { name: "Verify chain" })).toHaveCount(0);
+  const forbidden = await context.request.get("/api/admin/audit/verify");
+  expect(forbidden.status()).toBe(403);
+  const escaped = await context.request.get("/api/admin/orgs/Other%2520workspace/teams");
+  expect(escaped.status()).toBe(404);
+  const revokeAdmin = await context.request.post(`http://127.0.0.1:18091/admin/v1/keys/${credentials.orgKey.split("_")[1]}/revoke`, { headers: { Authorization: `Bearer ${credentials.platform}` } });
+  expect(revokeAdmin.status()).toBe(200);
+  await page.goto("/orgs");
+  await expect(page).toHaveURL(/\/login$/);
+  expect((await context.cookies()).some((c) => c.name === "__Host-lgw-console")).toBe(false);
+  expect(cspErrors, "Production browser must have no CSP violations").toEqual([]);
+  await scan.verify([credentials.platform, credentials.orgKey], secret!);
+});

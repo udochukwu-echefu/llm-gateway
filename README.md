@@ -3,7 +3,7 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 12a.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 12b tooling and partial benchmark report.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
@@ -179,7 +179,11 @@ Postgres when Redis is offline and display live values as `unavailable`.
 
 NULL team values inherit global defaults. A zero (or unset) default means unlimited.
 Limit updates become visible when the verified-key cache expires (30 seconds by default).
-RPM checks at admission; TPM adds actual tokens only once the response ends. A finite
+RPM uses atomic GCRA slots with Redis time: any rolling minute admits at most
+RPM + B while Redis is available and retains state. B defaults to 5% of RPM
+rounded up (minimum one), or `GATEWAY_LIMITS__RPM_BURST`. Remaining requests means
+slots available now; reset means seconds until the next slot. TPM remains an
+approximate sliding counter and adds actual tokens only once the response ends. A finite
 concurrency limit bounds the number of in-flight calls that can overshoot TPM. Monthly
 USD budgets block at 100%; one `budget_alert` warning per team and month occurs at
 the threshold. Unknown or missing usage and in-flight calls are not included; this
@@ -195,6 +199,26 @@ is RPM, TPM or failed-IP authentication; `429 concurrency_limit_exceeded` has
 `Retry-After: 1`; `429 budget_exceeded` has type `insufficient_quota` and retries
 next month. If Redis is unavailable, the default `open` mode allows requests and
 logs a bounded error; `closed` returns `503 limits_unavailable`.
+
+## Performance
+
+Amended local campaign on Apple M2 Pro / Docker Desktop with a synthetic 200 ms
+provider, 30-second warmups and exact per-request overhead:
+
+- Fully generated scaling: **199 → 399 successful responses/s** from one to two
+  replicas (**2.0×**), at eligible offered stages of 200/s and 400/s.
+- One-replica SLO capacity: **100 offered requests/s**.
+- At low traffic (10–25 req/s), exact overhead p99 is about **10–15 ms**
+  (the cold-path "idle penalty"); **50–100 req/s meets the 10 ms target**.
+- RPM=600, B=30: maximum rolling-60s atomic admissions **629**, bound **630**.
+- Streaming, guardrail and ten-minute soak scenarios all ran at their declared
+  amended rates. Idle-path tails are reported separately by key-cache hit/miss.
+
+These are laptop measurements at discrete stages, including Docker virtualization;
+capacity beyond the tested ceiling and production performance are unmeasured.
+See the [full report and charts](docs/benchmarks/load-test-report.md),
+[reproduction commands](loadtest/README.md), and [deployment checklist](docs/deployment.md).
+The benchmark ignores .env and uses only a fake provider.
 
 ## Development
 
@@ -268,6 +292,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_ADMIN_API__HOST` | `127.0.0.1` | Admin listener bind address |
 | `GATEWAY_ADMIN_API__PORT` | `8081` | Admin listener port |
 | `GATEWAY_READONLY_DB_PASSWORD` | unset | Deployment-supplied Grafana database password; migration leaves role without login when absent |
+| `GATEWAY_LIMITS__RPM_BURST` | unset | Immediate request burst; defaults to max(1, ceil(RPM × 0.05)) |
 | `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |
@@ -594,3 +619,6 @@ GROUP BY alias, provider, model;
 
 Receipts remain best effort; NULL cost is unknown, not free, and retries count as separate
 attempts. See ADRs 0016 and 0017 for policy and routing decisions.
+
+Access logs include unrounded `overhead_ms` and verified-key `key_cache` hit/miss
+(null before a key lookup); overhead uses the same observation as Prometheus.

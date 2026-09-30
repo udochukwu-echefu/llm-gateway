@@ -1,7 +1,6 @@
 """Cache decisions are exercised through the authenticated HTTP API."""
 
 import asyncio
-import time
 import uuid
 from dataclasses import replace
 
@@ -255,19 +254,26 @@ async def test_slow_redis_lookup_is_bounded_by_timeout(
 ) -> None:
     app, redis = cached
     app.router.post("https://openai.test/v1/embeddings").respond(200, json=EMBEDDINGS)
+    entered = asyncio.Event()
+    cancelled = asyncio.Event()
 
     async def slow_lookup(key: str) -> bytes | None:
-        await asyncio.sleep(1)
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
         return redis.values.get(key)
 
     monkeypatch.setattr(redis, "get", slow_lookup)
-    start = time.monotonic()
-    response = await app.client.post(
-        "/v1/embeddings", json={"model": "openai/embedding", "input": "same"}
-    )
+    async with asyncio.timeout(5):
+        response = await app.client.post(
+            "/v1/embeddings", json={"model": "openai/embedding", "input": "same"}
+        )
 
     assert response.headers["x-lgw-cache"] == "bypass"
-    assert time.monotonic() - start < 0.2
+    assert entered.is_set()
+    assert cancelled.is_set()
 
 
 async def test_hit_skips_budget_tpm_and_lease_but_counts_rpm(

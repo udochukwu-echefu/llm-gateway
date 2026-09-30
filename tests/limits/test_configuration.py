@@ -60,3 +60,10 @@ def test_x_forwarded_for_is_ignored_without_trusted_proxy_hops() -> None:
     assert client_ip(request, 1) == "198.51.100.4"
     assert client_ip(request, 2) == "203.0.113.3"
     assert client_ip(request, 3) == "192.0.2.2"
+
+
+def test_rpm_burst_must_be_positive_or_unset() -> None:
+    assert LimitsSettings().rpm_burst is None
+    assert LimitsSettings(rpm_burst=30).rpm_burst == 30
+    with pytest.raises(ValueError, match="greater than or equal to 1"):
+        LimitsSettings(rpm_burst=0)

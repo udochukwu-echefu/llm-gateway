@@ -33,7 +33,10 @@ async def replicas(
     clients: list[httpx.AsyncClient] = []
     for _ in range(2):
         app = create_app(
-            settings, key_repository=repository, catalog=catalog, limit_service=LimitService(redis)
+            settings,
+            key_repository=repository,
+            catalog=catalog,
+            limit_service=LimitService(redis, rpm_burst=10),
         )
         await stack.enter_async_context(app.router.lifespan_context(app))
         client = await stack.enter_async_context(

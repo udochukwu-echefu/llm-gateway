@@ -55,6 +55,8 @@ class RequestContextMiddleware:
             await send(message)
 
         fields, token = context.begin_request()
+        fields["key_cache"] = None
+        fields["rpm_admitted_at_us"] = None
         with structlog.contextvars.bound_contextvars(request_id=request_id):
             try:
                 await self.app(scope, receive, send_with_context)
@@ -63,6 +65,9 @@ class RequestContextMiddleware:
                 if status is None:
                     await _send_internal_error(send_with_context)
             finally:
+                observe = state.get("gateway_observe")
+                if callable(observe):
+                    observe()
                 log.info(
                     "request",
                     method=scope["method"],

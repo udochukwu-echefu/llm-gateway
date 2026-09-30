@@ -73,6 +73,7 @@ class LimitsSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     default_rpm: int = Field(default=0, ge=0)
+    rpm_burst: int | None = Field(default=None, ge=1)
     default_tpm: int = Field(default=0, ge=0)
     default_max_concurrency: int = Field(default=0, ge=0)
     default_monthly_budget_usd: Decimal = Field(

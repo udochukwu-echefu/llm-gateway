@@ -51,7 +51,7 @@ select = [
 "tests/**" = ["S101", "S105", "S106"]  # asserts and fake secrets are expected in tests
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "loadtest"]
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 

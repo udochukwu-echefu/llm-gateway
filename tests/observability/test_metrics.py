@@ -72,3 +72,33 @@ def test_registries_are_isolated() -> None:
         second.get_sample_value("lgw_requests_total", {"route": "other", "status_class": "4xx"})
         is None
     )
+
+
+def test_overhead_and_ttfb_have_fine_slo_buckets() -> None:
+    registry = CollectorRegistry()
+    metrics = Metrics(registry)
+    for instrument, name in (
+        (metrics.overhead, "gateway_overhead"),
+        (metrics.ttfb, "time_to_first_byte"),
+    ):
+        instrument.labels("other").observe(0.011)
+        for bound in (
+            "0.0005",
+            "0.001",
+            "0.002",
+            "0.003",
+            "0.004",
+            "0.005",
+            "0.0075",
+            "0.01",
+            "0.0125",
+            "0.015",
+            "0.02",
+            "0.025",
+            "0.05",
+            "0.1",
+        ):
+            value = registry.get_sample_value(
+                f"lgw_{name}_seconds_bucket", {"route": "other", "le": bound}
+            )
+            assert value == int(float(bound) >= 0.011)

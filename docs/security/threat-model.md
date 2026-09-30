@@ -1,4 +1,4 @@
-# Gateway threat model (through step 12a)
+# Gateway threat model (through step 12b tooling)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -51,3 +51,6 @@ ratings are qualitative for this early deployment.
 | Model generates new secrets/PII | Plausible / high | Nonstreaming output masks or blocks before cache/restore; stream findings counted at completion/close | Streams are detect-only because sent bytes cannot be recalled; incomplete/obfuscated patterns can escape |
 | Stream detection memory growth | Plausible / medium | Delivery hold-back bounded by placeholder length; detection copies released at close, including disconnect | End-of-stream detection retains generated text per channel in memory; very long outputs increase memory use; incremental detectors remain future work |
 | Restored originals contaminate cache | Plausible / high | Cache key uses redacted input; stored output precedes restore; each hit restores using its own mapping; no-leak test inspects decrypted entries | Allowed, unredacted PII and other confidential output can still be cached encrypted; policy changes require appropriate retention/purge decisions |
+| Load test calls a real provider | Unlikely / high | Runner ignores `.env` and inherited gateway settings; explicit fake base URLs; fake provider and replicas have only an internal Docker network | Do not manually replace benchmark URLs/networks with production configuration |
+| Benchmark credentials leak into reports/builds | Plausible / medium | CLI output captured; private 0700 directory and 0600 files; git and Docker context ignore state; only synthetic metric output is collected | Docker administrators can inspect generated container credentials; protect the local machine and do not archive `.state` |
+| Profiling permissions reused in production | Plausible / high | Optional separate py-spy image joins only the fake-key replica's PID namespace; network disabled; no locals captured; normal gateways get no extra capabilities | SYS_PTRACE/disabled seccomp are debugging privileges, never a production deployment default |

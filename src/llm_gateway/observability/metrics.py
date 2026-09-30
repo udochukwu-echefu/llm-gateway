@@ -5,7 +5,30 @@ from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 from llm_gateway.usage.record import UsageRecord
 
 # Fine resolution around the gateway's 10 ms overhead target, plus provider-scale buckets.
-BUCKETS = (0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60)
+BUCKETS = (
+    0.0005,
+    0.001,
+    0.002,
+    0.003,
+    0.004,
+    0.005,
+    0.0075,
+    0.01,
+    0.0125,
+    0.015,
+    0.02,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1,
+    2.5,
+    5,
+    10,
+    30,
+    60,
+)
 
 
 class Metrics:

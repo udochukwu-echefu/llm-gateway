@@ -7,6 +7,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from llm_gateway.context import annotate
 from llm_gateway.observability.tracing import ProviderWait, Telemetry, current, provider_wait
 
 ROUTES = frozenset({"/v1/chat/completions", "/v1/embeddings", "/v1/models", "/healthz", "/readyz"})
@@ -66,18 +67,31 @@ class ObservabilityMiddleware:
                 first, first_wait = time.perf_counter(), wait.seconds
             await send(message)
 
-        try:
-            await self.app(scope, receive, observe)
-        finally:
+        observed = False
+
+        def finish() -> None:
+            nonlocal observed
+            if observed:
+                return
+            observed = True
             elapsed = time.perf_counter() - started
             overhead = elapsed - wait.seconds
             if streaming and first is not None:
                 metrics.ttfb.labels(route).observe(first - started)
                 overhead = first - started - first_wait
-            metrics.overhead.labels(route).observe(max(0, overhead))
+            overhead = max(0, overhead)
+            annotate(overhead_ms=overhead * 1000)
+            metrics.overhead.labels(route).observe(overhead)
             metrics.duration.labels(route).observe(elapsed)
             metrics.requests.labels(route, f"{status // 100}xx").inc()
             metrics.inflight.labels(route).dec()
             active.set_attribute("http.response.status_code", status)
             if status >= 500:
                 active.set_status(trace.StatusCode.ERROR)
+
+        # The access log needs this exact observation while its trace is still active.
+        scope.setdefault("state", {})["gateway_observe"] = finish
+        try:
+            await self.app(scope, receive, observe)
+        finally:
+            finish()

@@ -36,7 +36,9 @@ async def test_each_limit_rejection_moves_its_metric(
     subject = str(record.team_id)
     client_ip = "192.0.2.123"
     await test_redis.delete(*(f"lgw:auth-fail:{client_ip}:{slot - i}" for i in (0, 1)))
-    if kind in {"requests", "tokens"}:
+    if kind == "requests":
+        await service.window(subject, "requests", 1, 1)
+    elif kind == "tokens":
         await test_redis.set(f"lgw:{kind}:{subject}:{slot}", 1, ex=120)
     elif kind == "concurrency":
         await test_redis.zadd(f"lgw:leases:{subject}", {"existing": now + 60})

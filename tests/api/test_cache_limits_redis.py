@@ -44,7 +44,7 @@ async def limited_cache_client(
             monthly_budget_usd=Decimal("0.000000000001"),
         ),
     )
-    service = LimitService(test_redis)
+    service = LimitService(test_redis, rpm_burst=2)
     app = create_app(
         settings, key_repository=memory_repository, catalog=test_catalog, limit_service=service
     )

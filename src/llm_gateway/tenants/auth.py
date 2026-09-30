@@ -56,6 +56,7 @@ async def _credentials(request: Request) -> tuple[Principal, KeyRecord]:
     key_id, secret = parsed
     record: KeyRecord | None = state.key_cache.get(key_id)
     verified_from_database = record is None
+    annotate(key_cache="miss" if verified_from_database else "hit")
     if record is None:
         record = await state.key_repository.get_key(key_id)
     actual = hash_secret(state.pepper, secret)

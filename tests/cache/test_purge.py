@@ -50,7 +50,10 @@ async def test_purge_only_target_team_and_audit_with_scan(
             rows = list(
                 (
                     await session.scalars(
-                        select(AuditEvent).where(AuditEvent.action == "cache-purge")
+                        select(AuditEvent).where(
+                            AuditEvent.action == "cache-purge",
+                            AuditEvent.target_id == str(target.id),
+                        )
                     )
                 ).all()
             )

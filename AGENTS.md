@@ -22,6 +22,14 @@ GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
 ```
 
+## Sandboxed environments
+
+When `uv run` cannot write its cache, use `.venv/bin/ruff`,
+`.venv/bin/pytest -p no:cacheprovider`, and
+`.venv/bin/pyright --pythonpath .venv/bin/python`. If pytest cannot write its own
+cache, add `-p no:cacheprovider`. Report Docker, k6 or py-spy failures exactly;
+never substitute invented measurements.
+
 ## Definition of done (every task)
 
 All of these must hold before you report a task as finished:
@@ -77,6 +85,10 @@ Keep the code easy to navigate: someone new should find anything in under a minu
   But don't build an abstraction for a single use.
 
 **Tests**
+- Never assert tight wall-clock bounds. Assert ordering or behaviour, and keep only a
+  generous time limit as a safety net.
+- Run db and Redis pytest invocations sequentially on the same Postgres cluster:
+  migrations alter the shared `gateway_readonly` role even with separate test databases.
 - Test files mirror what they test: `tests/providers/test_groq.py` for
   `providers/groq.py`, `tests/api/...` for endpoints. Shared fixtures go in `conftest.py`.
 - Each test checks one behaviour and is named after it

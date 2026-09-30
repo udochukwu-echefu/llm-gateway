@@ -191,24 +191,42 @@ class AdminService:
             clear=clear,
         )
 
-    async def set_models(self, org: str, team: str | None, patterns: list[str] | None) -> None:
+    async def set_models(
+        self,
+        org: str,
+        team: str | None,
+        patterns: list[str] | None,
+        expected_version: str | None = None,
+    ) -> None:
         if self.role == "org":
             await self.authorize_org(org)
         await PolicyRepository(self.sessions, self.actor).set_models(
-            org, team, patterns, load_catalog()
+            org, team, patterns, load_catalog(), expected_version
         )
 
     async def policies(self, org: str, team: str | None) -> tuple[GuardrailPolicy, ModelPolicy]:
         await self.authorize_org(org)
         return await GuardrailRepository(self.sessions, self.actor).get_policy(org, team)
 
+    async def policy_snapshot(
+        self, org: str, team: str | None
+    ) -> tuple[GuardrailPolicy, ModelPolicy, dict[str, str]]:
+        await self.authorize_org(org)
+        return await GuardrailRepository(self.sessions, self.actor).snapshot(org, team)
+
     async def set_policy(
-        self, org: str, team: str | None, *, residency: bool, values: list[str] | None
+        self,
+        org: str,
+        team: str | None,
+        *,
+        residency: bool,
+        values: list[str] | None,
+        expected_version: str | None = None,
     ) -> None:
         if self.role == "org":
             await self.authorize_org(org)
         await GuardrailRepository(self.sessions, self.actor).set_policy(
-            org, team, residency=residency, values=values
+            org, team, residency=residency, values=values, expected_version=expected_version
         )
 
     async def usage(

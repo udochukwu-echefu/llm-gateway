@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Page, type BrowserContext } from "@playwright/test";
 import { readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { responseScanner } from "./no-leak";
@@ -19,6 +19,11 @@ interface LeakTotals {
 interface Fixtures {
   credentials: Credentials;
   coverage: void;
+  extraScans: {
+    scanners: Awaited<ReturnType<typeof responseScanner>>[];
+    contexts: BrowserContext[];
+  };
+  newScannedPage: () => Promise<Page>;
   recordKey: (key: string, permitCreation?: boolean) => void;
 }
 
@@ -52,8 +57,23 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
       if (permitCreation) leaks.permitted.set(info.testId, key);
     });
   },
+  extraScans: async ({}, provide) => {
+    await provide({ scanners: [], contexts: [] });
+  },
+  newScannedPage: async ({ browser, extraScans }, provide) => {
+    await provide(async () => {
+      const context = await browser.newContext({
+        baseURL: `http://[::1]:${process.env.CONSOLE_TEST_PORT ?? "3100"}`,
+        viewport: { width: 1440, height: 1050 },
+      });
+      const page = await context.newPage();
+      extraScans.contexts.push(context);
+      extraScans.scanners.push(await responseScanner(page));
+      return page;
+    });
+  },
   coverage: [
-    async ({ page, credentials, leaks }, provide, info) => {
+    async ({ page, credentials, leaks, extraScans }, provide, info) => {
       const scanner = await responseScanner(page);
       await provide();
       const result = await scanner.verify(
@@ -63,6 +83,14 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
       );
       leaks.responses += result.responses;
       leaks.permittedResponses += result.permitted;
+      for (const scanner of extraScans.scanners) {
+        const extra = await scanner.verify(
+          [credentials.platform, credentials.orgKey, credentials.revocable],
+          leaks.tenantKeys,
+        );
+        leaks.responses += extra.responses;
+      }
+      for (const context of extraScans.contexts) await context.close();
     },
     { auto: true },
   ],
@@ -75,6 +103,7 @@ export async function signIn(page: Page, key: string) {
   await page.getByLabel("Admin API key").fill(key);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
 }
 
 export async function screenshot(page: Page, name: string) {

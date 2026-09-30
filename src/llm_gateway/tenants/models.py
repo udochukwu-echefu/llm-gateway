@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     DateTime,
     ForeignKey,
     Integer,
@@ -31,6 +32,11 @@ class Organization(Base):
     model_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     guardrail_actions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     allowed_regions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    model_patterns_revision: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    guardrail_actions_revision: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0"
+    )
+    allowed_regions_revision: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     name: Mapped[str] = mapped_column(String, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -44,6 +50,11 @@ class Team(Base):
     model_patterns: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     guardrail_actions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     allowed_regions: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    model_patterns_revision: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    guardrail_actions_revision: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0"
+    )
+    allowed_regions_revision: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     name: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 

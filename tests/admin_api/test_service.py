@@ -36,6 +36,11 @@ async def test_shared_service_operations_and_audit_chain(admin_harness: AdminHar
     team_id, limits = await admin.team_limits(new_org, "team")
     usage = await admin.usage(new_org, None, None, None, "team")
     audit = await admin.list_audit(None, None, None, 500)
+    while len(audit) % 500 == 0:
+        page = await admin.list_audit(None, None, audit[-1].id if audit else None, 500)
+        if not page:
+            break
+        audit.extend(page)
     count, broken = await admin.verify_audit()
 
     assert created_org.id in {row.id for row in orgs}

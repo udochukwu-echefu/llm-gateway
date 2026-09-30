@@ -3,7 +3,8 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 14 providers implemented; live validation pending.** Chat routes to Groq,
+> **Status: steps 1–13 complete; step 14 providers implemented.** The admin console
+> includes policy editors, residency and cache purge. Chat routes to Groq,
 > DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted Kimi; embeddings to Gemini/OpenAI.
 > Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
@@ -18,8 +19,6 @@ Requires [uv](https://docs.astral.sh/uv/) and Docker Desktop. Examples below use
 
 ```bash
 uv sync
-# Compose checks this variable even when starting only database services.
-export ADMIN_CONSOLE_SESSION_SECRET="$(openssl rand -base64 48)"
 docker compose up -d
 cp .env.example .env        # set a unique 32+ byte pepper and at least one provider key
 set -a; . ./.env; set +a     # CLI reads environment variables; keep .env private
@@ -128,7 +127,7 @@ the migration and observability profile environments, then run
 It reads Postgres as `gateway_readonly`, which has no key-table access. The local
 Grafana profile allows anonymous viewing; restrict it in production.
 
-## Admin web console (step 13a)
+## Admin web console (steps 13a and 13b)
 
 The console runs Next.js 16.3.7 and Node 24.15.0. All admin API calls happen in its
 server-side BFF. `GET /admin/v1/me` returns verified `key_id`, `name`, `role` and
@@ -167,17 +166,40 @@ secret when enabled). Run `docker compose --profile console up -d --build`.
 This starts Postgres, Redis, the gateway with its private admin listener, and the console
 at localhost:3100. The admin API port is not published by this profile. The public
 model API is loopback port 8001. The console image is multi-stage and runs as UID 1001.
-Compose requires the session-secret variable during interpolation, including when
-only starting database services; export it before running any compose command.
+The session secret is required only by the console container. Starting Postgres/Redis
+without it works; starting the console with a missing or short secret exits with a clear
+configuration error before opening a listener. Export the secret before starting the console.
 The image build needs npm registry access for the exact lockfile and the pinned Node image;
 installed local node_modules are used for offline development and checks.
 
-13a includes organizations/teams, one-time tenant-key creation and confirmed revocation,
+The console includes organizations/teams, one-time tenant-key creation and confirmed revocation,
 limits with override/default/unlimited sources, budgets and alert thresholds, UTC-month
 usage with explicit unpriced calls, labelled request/token charts and a table alternative,
 and cursor-paginated audit filtering/verification. Unknown costs are JSON null; unknown
 token totals leave chart gaps instead of being plotted as zero.
-Model policy, guardrails, residency, cache purge, admin-key management and SSO are 13b/later.
+Sign-in lands on Overview: role-scoped summary cards, a requests chart, top five models,
+team budget/alert badges and five recent audit events. Every number uses existing admin
+API endpoints, with full pagination and exact decimal money. Known tokens are labelled
+partial when usage is missing. Empty screens include create forms and a copyable first
+request containing only YOUR_TEAM_API_KEY.
+
+Org and team Policies tabs edit model access, guardrails and residency, showing saved
+org/team overrides and API-effective models, aliases, regions and detector actions.
+Residency options and BFF validation use the catalogue's `regions` field when available;
+older APIs use model regions plus one shared five-region fallback. Additional API-advertised
+regions need no editor enum update. Inherit and deny-all are distinct. Changes appear
+before save; deny-all, weakening and removal need consequence confirmations. Every console policy write sends If-Match;
+412 preserves edits and offers explicit reload without automatic retry. Unsaved edits
+warn before leaving. Apply migration 0010 for policy revision counters before starting.
+GET /admin/v1/catalog contains reviewed routing metadata without secrets or provider URLs.
+Policy GETs return a version; API/CLI writes may omit If-Match for compatibility.
+Admin API and CLI money use exact fixed-point strings, including zero sums such as
+`0.000000000000`; unknown cost remains null/NULL.
+
+The Cache tab purges an org or team after typing its exact name. It reports the removed
+count and a plain 503 on Redis failure. Purge is best effort because live requests can
+refill entries; it does not remove receipts or change policy. Admin-key management and
+SSO remain outside the console.
 Closing/Escape, changing tabs or reloading discards a newly created tenant secret. If its
 first response is lost, revoke the resulting key and issue a replacement. Money stays
 as decimal strings and BigInt pico-dollars; no float accounting. Theme defaults to system
@@ -207,6 +229,7 @@ a distributed limit is needed. See [ADR 0024](docs/adr/0024-admin-console.md).
 Validation from `admin-console/`:
 
 ```bash
+npm run format:check
 npm run lint
 npm run typecheck
 npm test
@@ -215,6 +238,9 @@ npm run build
 npm run test:e2e
 CONSOLE_SCREENSHOTS=1 npm run test:e2e
 npm run test:break
+npm run test:break:policies
+# If a local console already uses 3100:
+CONSOLE_TEST_PORT=3110 npm run test:e2e
 ```
 
 Playwright uses a disposable `console_e2e_<uuid>` Postgres database and Redis DB 13.
@@ -228,9 +254,12 @@ removed on shutdown. No traces, videos or full-key screenshots are retained.
 Install Chromium beforehand with `./node_modules/.bin/playwright install chromium` on
 an online machine; an offline sandbox must use the installed browser and packages.
 
-Seven named e2e tests cover platform workflow, one-time keys, org isolation, CSP,
-cookies/CSRF, revocation and login throttling. An automatic shared fixture scans every
-observed browser response body and all headers in every test and reports the total. Exactly one
+The named e2e suite covers platform workflow, one-time keys, org isolation, CSP,
+cookies/CSRF, revocation, login throttling, policy inheritance, guardrail floors, residency,
+concurrent browser editors, typed purge, audit coverage, unsaved edits, empty states and
+Overview API totals/scope. An automatic shared fixture scans every
+observed browser response body and all headers in every test, including both conflict-test
+contexts, and reports the total. Exactly one
 successful tenant-key creation JSON response may contain its newly issued tenant secret;
 all other responses must omit it, and no response may contain an admin credential.
 Break checks deliberately inject an admin key into a client component, remove the Origin
@@ -238,9 +267,44 @@ check, add a reveal control and drop httpOnly, require the designated test to fa
 restore sources and the production build. Two gateway mutations additionally restore
 the early IP failure-limit check and the string-None serialization bug. Each must fail
 its designated HTTP regression test. This runner uses only fake, disposable test data.
-CI runs lint, typing, unit/component tests, build and the same real-stack Chromium suite.
+The policy break runner additionally ignores API If-Match, omits the console header,
+skips deny-all confirmation, enables untyped purge and accepts an unknown detector;
+each must fail its designated behavior test, then all sources are restored.
+Redis outage behavior is covered at the HTTP/component layers, avoiding stopping the
+shared Redis used by local tests and other development work.
+CI runs formatting, lint, typing, unit/component tests, build and the real-stack Chromium suite.
 
-Screenshots contain synthetic workspaces and public IDs only:
+### Synthetic local demo data
+
+With your **local** database migrated and GATEWAY_DATABASE_URL and a 32-byte
+GATEWAY_API_KEY_PEPPER exported, run:
+
+```bash
+GATEWAY_DEMO_SEED=1 uv run python scripts/seed_demo.py
+```
+
+The command refuses without that flag. It creates Demo Co with Search, Support and
+Engineering, two keys per team, limits/budgets and about 30 days of synthetic usage across
+reviewed models, including unpriced and cache-hit receipts. This illustrative history uses
+today's reviewed prices, not historical invoices. It never calls providers,
+needs no provider key, and prints only org/team IDs and names. Generated key secrets are
+discarded; create a new application key in the console if you need to send a request.
+Rerunning reuses orgs/teams/key names and deterministic receipt IDs, preserving edits and
+existing receipts. It refuses an existing Demo Co that was not created by this seeder.
+It appends a new day's synthetic rows on later days rather than deleting history.
+The Playwright screenshot harness runs this same seeder in its disposable database.
+
+Screenshots contain synthetic deployments and public IDs only:
+
+![Overview](docs/images/console-overview.png)
+![Organisation Overview](docs/images/console-overview-org.png)
+![Overview dark](docs/images/console-overview-dark.png)
+![Overview tablet](docs/images/console-overview-tablet.png)
+![Organisation policies](docs/images/console-policies-org.png)
+![Team policies](docs/images/console-policies-team.png)
+![Policies dark](docs/images/console-policies-dark.png)
+![Policies tablet](docs/images/console-policies-tablet.png)
+![Cache purge](docs/images/console-cache-purge.png)
 
 ![Sign-in](docs/images/console-login.png)
 ![Organizations](docs/images/console-organisations.png)
@@ -252,8 +316,8 @@ Screenshots contain synthetic workspaces and public IDs only:
 ![Dark theme](docs/images/console-usage-dark.png)
 ![Tablet](docs/images/console-tablet.png)
 
-See [ADR 0024](docs/adr/0024-admin-console.md) and the
-[validation report](docs/tasks/step-13a-review-corrections.md).
+See [ADR 0024](docs/adr/0024-admin-console.md), [ADR 0025](docs/adr/0025-safe-policy-editing.md)
+and the [step 13b validation report](docs/tasks/step-13b-report.md).
 
 ## Pricing and usage
 

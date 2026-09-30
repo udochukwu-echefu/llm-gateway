@@ -61,7 +61,10 @@ export function Organisations() {
               </tbody>
             </table>
           ) : (
-            <p className="empty">No organisations yet. Create one to get started.</p>
+            <p className="empty">
+              No organisations yet. Create your first organisation using the form above. Create one
+              to get started.
+            </p>
           ))}
         <div className="actions">
           {cursor && (

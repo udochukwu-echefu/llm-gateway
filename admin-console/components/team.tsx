@@ -7,8 +7,12 @@ import { DataState } from "./data-state";
 import { TeamKeys } from "./team-keys";
 import { TeamLimits } from "./team-limits";
 import { TeamBudget } from "./team-budget";
+import { Policies } from "./policies";
+import { CachePurge } from "./cache-purge";
+import { usePolicyNavigation } from "./unsaved-policy";
 export function Team({ org, team }: { org: string; team: string }) {
   const [tab, setTab] = useState("keys");
+  const leave = usePolicyNavigation();
   const orgBase = `/orgs/${encodeURIComponent(org)}`;
   const base = `${orgBase}/teams/${encodeURIComponent(team)}`;
   const exists = useResource<Limits>(`/api/admin${base}/limits`);
@@ -32,16 +36,22 @@ export function Team({ org, team }: { org: string; team: string }) {
               ["keys", "API keys"],
               ["limits", "Limits"],
               ["budget", "Budget"],
+              ["policies", "Policies"],
+              ["cache", "Cache"],
             ].map(([value, label]) => (
               <button
                 key={value}
                 aria-current={tab === value ? "page" : undefined}
-                onClick={() => setTab(value)}
+                onClick={() => {
+                  if (tab !== value && leave()) setTab(value);
+                }}
               >
                 {label}
               </button>
             ))}
           </nav>
+          {tab === "policies" && <Policies org={org} team={team} />}
+          {tab === "cache" && <CachePurge org={org} team={team} />}
           {tab === "keys" && <TeamKeys base={base} orgBase={orgBase} team={team} />}
           {tab === "limits" && <TeamLimits base={base} />}
           {tab === "budget" && <TeamBudget base={base} orgBase={orgBase} team={team} />}

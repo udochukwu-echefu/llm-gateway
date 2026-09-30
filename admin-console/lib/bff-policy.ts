@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelPolicySchema, guardrailsSchema, residencySchema } from "./policy-schemas";
 const name = z
   .string()
   .trim()
@@ -40,9 +41,24 @@ export const budgetSchema = z.object({ usd: moneySchema, alert_at: thresholdSche
 const segment = "[^/]+";
 const teamPath = `/orgs/${segment}/teams/${segment}`;
 const routes: { method: string; path: RegExp; schema: z.ZodType | null }[] = [
-  { method: "GET", path: /^\/(orgs|audit|audit\/verify)$/, schema: null },
+  { method: "GET", path: /^\/(orgs|catalog|audit|audit\/verify)$/, schema: null },
   { method: "GET", path: new RegExp(`^/orgs/${segment}/(teams|keys|usage)$`), schema: null },
   { method: "GET", path: new RegExp(`^${teamPath}/(limits|budget)$`), schema: null },
+  ...["model-policy", "guardrails", "residency"].flatMap((kind) => [
+    { method: "GET", path: new RegExp(`^/orgs/${segment}/${kind}$`), schema: null },
+    { method: "DELETE", path: new RegExp(`^/orgs/${segment}/${kind}$`), schema: null },
+    {
+      method: "PUT",
+      path: new RegExp(`^/orgs/${segment}/${kind}$`),
+      schema:
+        kind === "model-policy"
+          ? modelPolicySchema
+          : kind === "guardrails"
+            ? guardrailsSchema
+            : residencySchema,
+    },
+  ]),
+  { method: "POST", path: new RegExp(`^/orgs/${segment}/cache/purge$`), schema: null },
   { method: "POST", path: /^\/orgs$/, schema: nameSchema },
   { method: "POST", path: new RegExp(`^/orgs/${segment}/teams$`), schema: nameSchema },
   { method: "POST", path: new RegExp(`^${teamPath}/keys$`), schema: keySchema },
@@ -56,5 +72,5 @@ export function operationSchema(method: string, path: string): z.ZodType | null 
   return routes.find((route) => route.method === method && route.path.test(path))?.schema;
 }
 export function isCreation(method: string, path: string) {
-  return method === "POST" && !path.endsWith("/revoke");
+  return method === "POST" && (path === "/orgs" || /\/teams(?:\/[^/]+\/keys)?$/.test(path));
 }

@@ -35,6 +35,7 @@ vi.mock("@/lib/admin-client", async (original) => ({
 vi.mock("@/lib/identity", () => ({ fetchIdentity: mocks.identity }));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.request.mockReset();
   mocks.session.issuedAt = Date.now();
   mocks.session.lastSeen = Date.now();
   mocks.request.mockResolvedValue({ updated: true });
@@ -129,4 +130,81 @@ test("literal percent, query and fragment characters keep the resource scope", a
     "/orgs/Fake%25%3F%23%5C/teams",
     expect.anything(),
   );
+});
+
+for (const kind of ["model-policy", "guardrails", "residency"])
+  test(`BFF forwards If-Match only for ${kind} writes`, async () => {
+    const req = request("DELETE");
+    const version = '"' + "a".repeat(64) + '"';
+    req.headers.set("If-Match", version);
+    const response = await DELETE(req, {
+      params: Promise.resolve({ path: ["orgs", "Own", kind] }),
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.request).toHaveBeenCalledWith(
+      "http://fake.test",
+      "fake",
+      `/orgs/Own/${kind}`,
+      expect.objectContaining({ headers: { "If-Match": version } }),
+    );
+  });
+test("BFF rejects missing and malformed conditional headers before mutation", async () => {
+  for (const header of [null, "bad", "*"]) {
+    const req = request("DELETE");
+    if (header) req.headers.set("If-Match", header);
+    expect(
+      (await DELETE(req, { params: Promise.resolve({ path: ["orgs", "Own", "residency"] }) }))
+        .status,
+    ).toBe(400);
+  }
+  expect(mocks.request).not.toHaveBeenCalled();
+});
+test("BFF does not forward If-Match on nonpolicy mutations", async () => {
+  const req = request("DELETE");
+  req.headers.set("If-Match", '"' + "a".repeat(64) + '"');
+  expect((await DELETE(req, limits)).status).toBe(200);
+  expect(mocks.request.mock.calls[0][3].headers).toEqual({});
+});
+
+for (const source of ["regions field", "model regions"] as const)
+  test(`residency BFF validates against upstream catalogue ${source}`, async () => {
+    const catalog =
+      source === "regions field"
+        ? { models: [], aliases: {}, regions: ["test-region", "unknown"] }
+        : { models: [{ region: "test-region" }], aliases: {} };
+    mocks.request.mockResolvedValueOnce(catalog).mockResolvedValueOnce({ updated: true });
+    const req = request("PUT", "https://console.test", { regions: ["test-region", "test-region"] });
+    req.headers.set("If-Match", '"' + "a".repeat(64) + '"');
+    const response = await PUT(req, {
+      params: Promise.resolve({ path: ["orgs", "Own", "residency"] }),
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.request.mock.calls[0]).toEqual(["http://fake.test", "fake", "/catalog"]);
+    expect(mocks.request.mock.calls[1][2]).toBe("/orgs/Own/residency");
+    expect(JSON.parse(mocks.request.mock.calls[1][3].body)).toEqual({ regions: ["test-region"] });
+  });
+test("residency BFF rejects unadvertised regions before any policy mutation", async () => {
+  mocks.request.mockResolvedValueOnce({
+    models: [],
+    aliases: {},
+    regions: ["test-region", "unknown"],
+  });
+  const req = request("PUT", "https://console.test", { regions: ["eu"] });
+  req.headers.set("If-Match", '"' + "a".repeat(64) + '"');
+  const response = await PUT(req, {
+    params: Promise.resolve({ path: ["orgs", "Own", "residency"] }),
+  });
+  expect(response.status).toBe(400);
+  expect(mocks.request).toHaveBeenCalledOnce();
+  expect(mocks.request.mock.calls[0][2]).toBe("/catalog");
+});
+test("residency BFF does not mutate when the catalogue is unavailable", async () => {
+  mocks.request.mockRejectedValueOnce(new AdminApiError(503, "Gateway unavailable"));
+  const req = request("PUT", "https://console.test", { regions: ["eu"] });
+  req.headers.set("If-Match", '"' + "a".repeat(64) + '"');
+  const response = await PUT(req, {
+    params: Promise.resolve({ path: ["orgs", "Own", "residency"] }),
+  });
+  expect(response.status).toBe(503);
+  expect(mocks.request).toHaveBeenCalledOnce();
 });

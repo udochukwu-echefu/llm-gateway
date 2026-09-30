@@ -72,9 +72,12 @@ async def test_policy_reads_show_org_and_team_overrides_and_effective_values(
     }
     assert guardrails.json()["effective"]["email"] == "redact"
     assert guardrails.json()["effective"]["phone"] == "block"
-    assert residency.json() == {
-        "overrides": {"organization": ["us", "eu"], "team": ["us"]},
-        "effective": {"regions": ["us"]},
+    assert residency.json()["overrides"] == {"organization": ["us", "eu"], "team": ["us"]}
+    assert len(residency.json()["version"]) == 64
+    assert residency.json()["effective"] == {
+        "regions": ["us"],
+        "models": [],
+        "aliases": [],
     }
 
 

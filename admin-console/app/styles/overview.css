@@ -59,3 +59,17 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.request-example {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.empty-state p {
+  max-width: 70ch;
+}

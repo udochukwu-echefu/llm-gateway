@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { loadOverview } from "@/lib/overview-data";
 import { currentMonth } from "@/lib/usage-data";
 import { money } from "@/lib/money";
+import { UsageEmpty } from "./usage-empty";
 import { OverviewCards } from "./overview-cards";
 import { OverviewBudgets } from "./overview-budgets";
 import { UsageChart } from "./usage-chart";
@@ -94,9 +95,7 @@ export function Overview() {
                   </details>
                 </>
               ) : (
-                <p className="empty">
-                  No usage yet. Send a request with a team key to see activity here.
-                </p>
+                <UsageEmpty />
               )}
             </section>
             <section className="panel">

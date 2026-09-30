@@ -94,7 +94,10 @@ export function Organisation({ org }: { org: string }) {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="empty">No teams yet. Create a team to issue API keys.</p>
+                  <p className="empty">
+                    Create your first team using the form above. A team groups application keys,
+                    policies and budgets.
+                  </p>
                 )}
                 <div className="actions">
                   {cursor && (

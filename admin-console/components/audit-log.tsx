@@ -114,7 +114,10 @@ export function AuditLog({ platform }: { platform: boolean }) {
               </tbody>
             </table>
           ) : (
-            <p className="empty">No events match these filters.</p>
+            <p className="empty">
+              No audit results match this filter. Try another action or date, or clear the fields
+              and filter again.
+            </p>
           ))}
         <div className="actions">
           {cursor && (

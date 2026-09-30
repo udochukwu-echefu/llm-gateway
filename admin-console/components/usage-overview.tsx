@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { loadUsage, currentMonth } from "@/lib/usage-data";
 import { budgetPercent, pico, compareMoney, money } from "@/lib/money";
+import { UsageEmpty } from "./usage-empty";
 import { DailyUsage } from "./daily-usage";
 import { DataState } from "./data-state";
 export function UsageOverview({ org }: { org: string }) {
@@ -122,9 +123,7 @@ export function UsageOverview({ org }: { org: string }) {
                   <DailyUsage rows={data.byDay} />
                 </>
               ) : (
-                <p className="empty">
-                  No requests this month. Usage appears after receipts are written.
-                </p>
+                <UsageEmpty />
               )}
             </div>
           </div>

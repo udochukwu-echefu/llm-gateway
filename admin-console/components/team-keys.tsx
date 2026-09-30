@@ -90,7 +90,10 @@ export function TeamKeys({ base, orgBase, team }: { base: string; orgBase: strin
             </tbody>
           </table>
         ) : (
-          <p className="empty">No API keys for this team.</p>
+          <p className="empty">
+            No keys yet. An API key lets an application call the gateway as this team. Create your
+            first key using the form above; its full value is shown only once.
+          </p>
         ))}
       <div className="actions">
         {cursor && (

@@ -28,6 +28,8 @@ Use Node 24.15.0 (admin-console/.nvmrc). From admin-console/:
 
 ```bash
 npm ci                       # exact lockfile; no updates during implementation
+npm run format               # apply Prettier formatting
+npm run format:check         # verify formatting without changes
 npm run lint
 npm run typecheck
 npm test                     # unit and component tests

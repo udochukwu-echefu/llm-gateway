@@ -51,3 +51,7 @@ def memory_slope(samples: Sequence[tuple[float, float]]) -> float | None:
     if denominator == 0:
         return None
     return sum((x - x_mean) * (y - y_mean) for x, y in samples) / denominator
+
+
+def measurement_coverage(observed: float, expected: float | None) -> bool:
+    return expected is not None and expected > 0 and observed == expected

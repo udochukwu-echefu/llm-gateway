@@ -2,7 +2,13 @@ import math
 
 import pytest
 
-from loadtest.analysis import capacity_passes, histogram_quantile, median_run, memory_slope
+from loadtest.analysis import (
+    capacity_passes,
+    histogram_quantile,
+    measurement_coverage,
+    median_run,
+    memory_slope,
+)
 from loadtest.measurements import overhead
 
 
@@ -40,3 +46,10 @@ def test_memory_regression_preserves_positive_and_negative_trends() -> None:
     assert memory_slope([(0, 10), (1, 12), (2, 14)]) == 2
     assert memory_slope([(0, 10), (1, 8), (2, 6)]) == -2
     assert memory_slope([]) is None
+
+
+def test_scrape_coverage_must_match_client_request_count() -> None:
+    assert measurement_coverage(60, 60)
+    assert not measurement_coverage(59, 60)
+    assert not measurement_coverage(0, None)
+    assert not measurement_coverage(0, 0)

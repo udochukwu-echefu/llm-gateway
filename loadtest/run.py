@@ -9,7 +9,8 @@ from typing import Any
 
 import httpx
 
-from loadtest.analysis import capacity_passes, median_run
+from loadtest.analysis import capacity_passes, measurement_coverage, median_run
+from loadtest.environment import environment
 from loadtest.execution import client_metrics, execute_k6, read_summary
 from loadtest.measurements import (
     overhead,
@@ -99,6 +100,7 @@ def run_scenario(scenario: str, *, baseline_rate: int | None = None) -> dict[str
         ]
         chosen = median_run(runs, scores=[float(run["client_ms"]["p99"]) for run in runs])
         result = {"scenario": scenario, "runs": runs, "median": chosen}
+    result["environment"] = environment()
     serialized = json.dumps(result, indent=2)
     history = RESULTS / "history"
     history.mkdir(exist_ok=True)
@@ -145,7 +147,13 @@ def main() -> None:
     if args.scenario == "smoke":
         for run in result["runs"]:
             p99 = run["overhead_ms"]["p99"]
-            if p99 is None or p99 >= 50 or run["error_rate"] or run["dropped_iterations"]:
+            if (
+                p99 is None
+                or p99 >= 50
+                or run["error_rate"]
+                or run["dropped_iterations"]
+                or not run["measurement_complete"]
+            ):
                 raise SystemExit(
                     "Smoke failed: missing/excessive overhead, errors or dropped iterations"
                 )
@@ -157,7 +165,7 @@ def _ramp(scenario: str, replicas: int, repetition: int) -> dict[str, Any]:
     for rate in RATES:
         stage = run_once(scenario, rate, 60, replicas, repetition)
         stages.append(stage)
-        if not capacity_passes(
+        if not stage["measurement_complete"] or not capacity_passes(
             stage["overhead_ms"]["p99"], stage["error_rate"], stage["dropped_iterations"]
         ):
             break
@@ -169,7 +177,7 @@ def _dependent_rate(baseline_rate: int | None) -> int:
     if baseline_rate is None:
         path = RESULTS / "S1.json"
         if not path.exists():
-            raise ValueError("Run S1 first; S2/S4/S5/S7 require its measured capacity")
+            raise ValueError("Run S1 first; S2/S4/S7 require its measured capacity")
         baseline_rate = int(json.loads(path.read_text())["median"]["capacity"])
     if baseline_rate <= 0:
         raise ValueError("S1 found no SLO-compliant capacity; cannot invent a 70% load")
@@ -231,6 +239,11 @@ def _collect(
             for key, value in after.items()
             if key.startswith("bucket:")
         },
+        "measurement_complete": not org
+        or measurement_coverage(
+            after.get("bucket:+Inf", 0) - before.get("bucket:+Inf", 0),
+            metrics.get("http_reqs", {}).get("values", {}).get("count"),
+        ),
         "container_samples": samples,
         "queue": queue_series(start, end, replicas) if org else [],
         "rpm": rpm_observation(org) if scenario == "S6" else None,

@@ -44,6 +44,7 @@ def test_ramp_stops_on_first_missed_target_and_keeps_failed_stage(
             "overhead_ms": {"p99": 5 if rate == 5 else 12},
             "error_rate": 0,
             "dropped_iterations": 0,
+            "measurement_complete": True,
         }
 
     run = Mock(side_effect=stage)

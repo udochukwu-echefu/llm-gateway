@@ -8,7 +8,13 @@ def main() -> None:
     setup()
     run = run_once("smoke", 5, 30, 1, 1)
     p99 = run["overhead_ms"]["p99"]
-    if p99 is None or p99 >= 50 or run["error_rate"] or run["dropped_iterations"]:
+    if (
+        p99 is None
+        or p99 >= 50
+        or run["error_rate"]
+        or run["dropped_iterations"]
+        or not run["measurement_complete"]
+    ):
         raise SystemExit("Smoke failed: missing/excessive overhead, errors or dropped iterations")
 
 

@@ -274,6 +274,7 @@ is not parsed as reasoning. Access logs contain provider, model, usage and provi
 | `providers/transport.py` | Performs HTTP I/O and ADR 0002 error mapping. |
 | `providers/stream.py` | Decodes provider SSE into checked canonical chunks. |
 | `providers/{groq,deepseek,gemini,openai}.py` | Declares verified provider differences and documentation sources. |
+| `providers/{zai,nvidia}.py` | Step 14's international GLM and NVIDIA-hosted Kimi chat adapters. |
 | `api/streaming.py` | Encodes client SSE, records/hides usage and closes provider streams. |
 
 The old `upstream.py` is replaced. See [ADR 0004](adr/0004-provider-adapters.md) and
@@ -863,3 +864,72 @@ shown as unpriced. Request and token charts have labelled axes and a table alter
 unknown token totals leave gaps. Light/dark themes, keyboard dialogs and semantic
 tables support desktop and tablet use. Playwright scans every browser response in
 all seven named real-stack tests for credential leaks.
+
+## Step 14: two more cinemas, not necessarily two more studios
+
+A **model maker** builds a model; a **model host** runs it and accepts our requests.
+Think of a cinema showing films made by different studios. For Kimi-K3, NVIDIA is
+the cinema and Moonshot is the studio. Our routing prefix names the cinema:
+`nvidia/moonshotai/kimi-k3` selects NVIDIA, leaving the rest as its exact model ID.
+Z.ai both makes GLM and serves it on its international Model API. Its endpoint
+uses `/api/paas/v4`, unlike the more common `/v1`. The Coding Plan and China
+BigModel platforms are separate and are not part of this step.
+
+Both adapters reuse the gateway's checked OpenAI-shaped protocol. Each enabled
+provider gets its own connection pool (reusable telephone lines) and circuit
+breaker (a fuse that stops requests during repeated failure). NVIDIA being slow
+must not fill Z.ai's lines or blow its fuse. Existing model access, residency,
+guardrails, token limits, concurrency, retries and metadata-only usage apply.
+An absent provider key leaves that destination disabled.
+
+### Remembering a model's reasoning safely
+
+Some agent conversations call a tool, then return its result to the model. Kimi's
+docs require sending back the **complete previous assistant message**, including
+tool calls and `reasoning_content`. Dropping its reasoning, as we previously did
+for every provider, loses information needed for the next turn.
+
+Assistant history now accepts a typed optional reasoning string. Only Z.ai and
+NVIDIA receive it: Z.ai also supports preserved thinking through
+`provider_options.zai.thinking.clear_thinking=false`. Existing providers still
+drop it. It passes through input guardrails and cache fingerprinting like other
+text, and is never logged or placed on a receipt. Unknown top-level request fields
+still fail validation; this is one named field, not an arbitrary escape hatch.
+Canonical reasoning and cached-token output need no renaming on these providers.
+The gateway does not extract reasoning from quoted `<think>` tags.
+
+### A new residency destination
+
+The Z.ai API data-processing agreement says customer data is generally processed
+in Singapore. Singapore is neither the EU, the US nor China; labelling it `global`
+or `unknown` would erase useful reviewed information. We add `sg` to the existing
+`us`, `eu`, `cn`, `global`, `unknown` list. An EU-only team cannot call a Singapore
+model. These labels describe routing evidence, not complete legal certification
+or an exclusive processing-location guarantee.
+
+The database already stores region policies as lists of strings, so no migration
+is necessary. Admin API validation and CLI help share the same list.
+`GET /admin/v1/me` now returns `regions` for the console to discover valid choices
+during its existing identity request, rather than maintaining a second hard-coded
+list. This branch does not implement or change the console editor.
+
+### An unknown price is not a zero price
+
+The three GLM chat models have verified list input, cached-input and output prices.
+NVIDIA's hosted endpoint is a **trial**, not a production service contract. Its
+terms permit credit deductions and paid credits, so we cannot honestly conclude
+that every token costs zero. An explicit `unpriced=true` catalogue period records
+the checked terms instead of invented rates. The model remains directly callable
+and listable; it is not eligible for weighted aliases while unpriced.
+
+If NVIDIA returns usage, we save known tokens but NULL cost with status `unpriced`.
+No returned usage remains `usage_missing`, a different accounting gap. CLI reports
+count both separately. A cached reply still costs zero to serve; its hypothetical
+savings remain unknown. USD budget accounting cannot measure NVIDIA credit
+consumption; token/rate/concurrency controls still work. Production requires a paid
+NVIDIA NIM or partner deployment and a review of its prices, terms and location.
+The trial also prohibits confidential/sensitive input: use synthetic test prompts;
+our deterministic scanner is not a guarantee of contractual compliance.
+
+See [ADR 0026](adr/0026-zai-nvidia-providers.md) for official sources, parameter
+restrictions, undocumented-parameter forwarding and the limits of verification.

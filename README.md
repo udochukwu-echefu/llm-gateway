@@ -3,8 +3,9 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 12 complete; step 13a admin web console implemented.** Chat completions and embeddings route to Groq, DeepSeek,
-> Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
+> **Status: step 14 providers implemented; live validation pending.** Chat routes to Groq,
+> DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted Kimi; embeddings to Gemini/OpenAI.
+> Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
 > redact configured personal data and enforce tenant data residency. See the
@@ -131,7 +132,8 @@ Grafana profile allows anonymous viewing; restrict it in production.
 
 The console runs Next.js 16.3.7 and Node 24.15.0. All admin API calls happen in its
 server-side BFF. `GET /admin/v1/me` returns verified `key_id`, `name`, `role` and
-an optional organization `{id, name}`. The admin key is sealed in a Secure,
+an optional organization `{id, name}`, plus the valid residency `regions` list.
+The admin key is sealed in a Secure,
 httpOnly, SameSite=Strict session cookie, never in React props or browser API responses.
 The gateway still enforces all permissions. Sessions expire after 8 hours absolutely
 or 30 minutes idle; logout clears the cookie and a gateway 401 returns to sign-in.
@@ -263,6 +265,9 @@ and have unique dates; each request keeps the rate in force when it started.
 Invalid prices, duplicate
 models, or an unknown provider prevent startup. Uncatalogued models return
 `404 model_not_found` before any provider call. Do not guess missing prices;
+an explicitly reviewed `unpriced = true` period can enable a trial model without
+token rates. Its calls keep known usage with `unpriced`/NULL cost, not a fabricated
+zero. Unpriced models are directly callable/listable but excluded from alias draws.
 `gemini-embedding-001` is currently excluded because its official price is not listed.
 `gemini-embedding-2` is catalogued at Google's paid standard **text** input rate
 of $0.20 per million tokens (checked 2026-09-27); non-text media have different
@@ -285,7 +290,7 @@ uv run gateway-admin usage example-org --team example-team --since 2026-09-01 --
 ```
 
 The CLI aggregates in SQL and prints request count, token sums, total USD and
-counts of `usage_missing` and `stream_incomplete` so unpriced calls stay visible.
+counts of `unpriced`, `usage_missing` and `stream_incomplete` so unknown costs stay visible.
 
 ## Team limits and budgets
 
@@ -367,7 +372,8 @@ Redis tests skip locally without `GATEWAY_TEST_REDIS_URL` and fail in CI without
 
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
 (load `.env` explicitly with `uv run --env-file .env`), and optional matching `BASE_URL`
-overrides. They run one chat and one stream with priced records per configured provider;
+overrides. They run one chat and one stream with usage records per configured provider
+(NVIDIA is unpriced; the others are priced);
 OpenAI and Gemini embeddings run when configured. The guardrail live test spies on the
 outgoing transport body to prove email redaction and client restoration. The default suite deselects live tests and
 blocks real provider HTTP requests.
@@ -380,7 +386,7 @@ GATEWAY_LIVE_OPENAI_EMBEDDING_MODEL=text-embedding-3-small uv run --env-file .en
 ```
 
 Every provider accepts `GATEWAY_LIVE_<PROVIDER>_CHAT_MODEL` and
-`GATEWAY_LIVE_<PROVIDER>_EMBEDDING_MODEL` (`GROQ`, `DEEPSEEK`, `GEMINI`, `OPENAI`).
+`GATEWAY_LIVE_<PROVIDER>_EMBEDDING_MODEL` (`GROQ`, `DEEPSEEK`, `GEMINI`, `OPENAI`, `ZAI`, `NVIDIA`).
 Use provider-native model IDs, including any internal slashes; tests add the gateway
 provider prefix. Unset or empty overrides retain the defaults below.
 
@@ -390,6 +396,13 @@ provider prefix. Unset or empty overrides retain the defaults below.
 | DeepSeek | `deepseek-flash` | None (unsupported endpoint) |
 | Gemini | `gemini-3.8-flash` | `gemini-embedding-2` |
 | OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
+| Z.ai | `glm-5.3-flash` | None (no documented international endpoint) |
+| NVIDIA | `moonshotai/kimi-k3` | None (chat-only Kimi endpoint) |
+
+The two new providers use low reasoning effort and a 1024-token output limit in
+these smoke calls. Run just them with
+`uv run --env-file .env pytest -m live tests/live/test_providers.py -k 'zai or nvidia'`.
+Live calls require keys/network and may consume paid tokens or trial credits.
 
 Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
 and uses its reasoning-capable GPT-OSS adapter path. These variables configure tests only;
@@ -406,6 +419,8 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_PROVIDERS__DEEPSEEK__API_KEY` | unset | Enable DeepSeek |
 | `GATEWAY_PROVIDERS__GEMINI__API_KEY` | unset | Enable Gemini's OpenAI-compatible endpoint |
 | `GATEWAY_PROVIDERS__OPENAI__API_KEY` | unset | Enable OpenAI |
+| `GATEWAY_PROVIDERS__ZAI__API_KEY` | unset | Enable Z.ai international Model API (not Coding Plan) |
+| `GATEWAY_PROVIDERS__NVIDIA__API_KEY` | unset | Enable NVIDIA API catalogue hosted Kimi trial |
 | `GATEWAY_PROVIDERS__<PROVIDER>__BASE_URL` | provider default | Optional HTTP(S) endpoint override |
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
@@ -502,11 +517,13 @@ Disallowed fallback targets are skipped, retaining the primary error/503 when no
 usable. `/v1/models` filters both models and aliases by region. `global` and `unknown`
 are literal categories, not aliases for permitted US/EU processing.
 
-### Reviewed processing regions (verified 2026-09-27)
+### Reviewed processing regions (existing sources 2026-09-27; new providers 2026-09-30)
 
 | Model | Region | Official documentation |
 |---|---|---|
 | `groq/openai/gpt-oss-20b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
+| `zai/glm-5.3-flash`, `zai/glm-5.3-flashx`, `zai/glm-5.3` | `sg` | [Z.ai API DPA section 3](https://docs.z.ai/legal-agreement/privacy-policy): generally processed in Singapore |
+| `nvidia/moonshotai/kimi-k3` | `global` | [NVIDIA Kimi geography](https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3) |
 | `groq/openai/gpt-oss-120b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
 | `deepseek/deepseek-flash` | `cn` | [DeepSeek privacy policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html) |
 | `gemini/gemini-3.8-flash` | `global` | [Gemini API terms](https://ai.google.dev/gemini-api/terms) |
@@ -553,16 +570,53 @@ configured providers. Responses and stream chunks prefix the provider's returned
 Configured but uncatalogued models also return `404 model_not_found`.
 
 Unsupported parameters return `400 unsupported_parameter` before a provider call.
-Developer instructions become system instructions on DeepSeek and Gemini. DeepSeek's
+Developer instructions become system instructions on DeepSeek, Gemini, Z.ai and NVIDIA. DeepSeek's
 token limit is translated to `max_tokens` (supplying both limits is rejected).
 Groq's separate `reasoning` output becomes `reasoning_content`, as on DeepSeek.
 Capabilities are endpoint-level; models can have additional restrictions.
 
 Defaults: Groq `https://api.groq.com/openai/v1`, DeepSeek `https://api.deepseek.com/v1`,
 Gemini `https://generativelanguage.googleapis.com/v1beta/openai`, OpenAI `https://api.openai.com/v1`.
+Z.ai `https://api.z.ai/api/paas/v4`, NVIDIA `https://integrate.api.nvidia.com/v1`.
 Verified documentation and conservative restrictions are recorded in each adapter's docstring.
 Undocumented parameters, including Gemini's token limits, are forwarded unchanged;
 only explicit documented restrictions or nonexistent endpoints are rejected locally.
+
+### Z.ai GLM and NVIDIA-hosted Kimi (step 14)
+
+Use `zai/glm-5.3-flash`, `zai/glm-5.3-flashx`, `zai/glm-5.3` or
+`nvidia/moonshotai/kimi-k3` for streaming or nonstreaming chat. NVIDIA is the host;
+Moonshot makes Kimi. Only the first slash selects the provider. Key entitlements
+may differ by model. Neither provider serves embeddings through these adapters.
+Each keeps its own pool and breaker; optional BASE_URL overrides and existing
+global connect/read/write/pool timeout settings apply. Existing aliases stay unchanged.
+
+Z.ai uses verified USD/1M input/cache/output list rates of 0.15/0.03/0.50 (Flash),
+0.37/0.075/1.25 (FlashX), 1.4/0.26/4.4 (GLM-5.3), effective 2026-09-30.
+Sources and check dates are in the catalogue; cache storage is currently listed
+as limited-time free, not included in the token-cost formula.
+
+**NVIDIA trial-service warning:** the hosted endpoint is only for internal testing
+and evaluation, not production. Its [trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf)
+permit deducted/purchased credits, so its catalogue price is **unpriced, not $0**.
+Production needs a paid NVIDIA NIM or partner endpoint with newly reviewed prices
+and geography. USD budgets cannot quantify trial credit consumption. Confidential
+or sensitive input is prohibited by the trial terms; use synthetic nonsensitive
+prompts. The gateway's pattern-based guardrails cannot guarantee contractual compliance.
+
+When replaying Kimi tool/multi-turn history, return the complete assistant message,
+including typed `reasoning_content` and `tool_calls`. Z.ai supports the same preserved
+reasoning when `provider_options.zai.thinking.clear_thinking` is false. Other
+providers still drop reasoning history. This text remains guardrail-inspected.
+Both token-limit spellings pass unchanged; undocumented parameters are forwarded.
+NVIDIA rejects top_p, n and both penalties plus system/assistant content arrays;
+Z.ai rejects json_schema and disabled thinking on the reviewed GLM-5.3 models.
+See [ADR 0026](docs/adr/0026-zai-nvidia-providers.md) for exact evidence and limitations.
+
+Valid residency values are `us`, `eu`, `cn`, `sg`, `global`, `unknown`. Policies
+store strings, so `sg` requires no migration. `GET /admin/v1/me` adds a `regions`
+list sourced from the API's validation list; console editors should read that list,
+not hard-code regions. No console changes are included in this branch.
 
 ## Docs
 

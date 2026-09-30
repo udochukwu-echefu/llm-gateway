@@ -20,6 +20,7 @@ Each step ends with tests, docs and a working gateway.
 
 | 13a | Admin console: sign-in, organizations/teams, keys, limits/budgets, usage and audit | Implemented; validation results in docs/tasks/step-13a-report.md |
 | 13b | Model policy, guardrails, residency and cache purge console editors | Planned |
+| 14 | Z.ai GLM and NVIDIA-hosted Kimi chat providers; Singapore residency; API region discovery | Implemented; live account/billing checks pending. See docs/tasks/step-14-report.md |
 
 Steps 1–12 are complete. Completed measurement does not mean every SLO passed.
 See the [report](benchmarks/load-test-report.md) for measured capacity, saturation,

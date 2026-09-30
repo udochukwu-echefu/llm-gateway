@@ -1,4 +1,4 @@
-# Gateway threat model (through step 13a console)
+# Gateway threat model (through step 14 providers)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -24,6 +24,8 @@ ratings are qualitative for this early deployment.
 | Dashboard database credential stolen | Plausible / medium | Dedicated read-only role reads organization, team and usage tables plus a budget-only view; password supplied outside repo | It exposes spending patterns until rotated; protect Grafana config, connection and backups |
 | Malicious base-URL override | Unlikely / high | Strict HTTP(S) URL validation, no embedded credentials/query/fragment | An operator with config access can still send provider keys to a hostile endpoint; lock down deployment config |
 | Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
+| Trial costs mistaken for free usage | Plausible / high | NVIDIA has explicit unpriced catalogue periods, NULL-cost receipts and separate CLI counts; never fabricate zero prices | USD budgets cannot account for unknown trial credit consumption; review paid endpoint rates before production |
+| NVIDIA trial receives confidential data or production traffic | Plausible / high | Trial-only README/ADR warning; no automatic alias/fallback traffic; existing model/region policies | Trial terms prohibit production and confidential/sensitive inputs; default PII actions do not enforce the whole contract; use synthetic nonsensitive data |
 | Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
 | Usage records disclose business activity | Plausible / medium | Store only IDs, model, counts, cost and timings; never content or vectors | Model and spending patterns remain sensitive; restrict Postgres/report access and retention |
 | Retry storm amplifies a provider outage | Plausible / high | Bounded retries, full jitter, 20% per-provider rolling retry budget, one overall deadline and local breakers | Replicas learn independently; restarting loses history; even a retryable 5xx might already have been billed |
@@ -44,6 +46,7 @@ ratings are qualitative for this early deployment.
 | Cache timing reveals a hit | Expected / low | Team-only keys; only authenticated team keys can observe a team's entries | Team members can infer another request within their own team from speed; acceptable within that trust boundary; no cross-team timing probe |
 | PII reaches a provider | Plausible / high | Input patterns scan every message role, tool arguments and embedding strings before cache/admission; cards/IBANs redact by default, configurable stricter PII actions | Other PII defaults allow; names, addresses, files, images, audio, integer token inputs and contextual identification remain outside deterministic detection |
 | Secrets pasted into prompts | Plausible / high | Known API key prefixes (including lgw_) and full private-key blocks block by default; values never enter errors or telemetry | Unknown formats, incomplete blocks and obfuscated secrets may evade matching; rotate a leaked credential regardless |
+| Preserved reasoning bypasses inspection | Plausible / high | Typed assistant reasoning_content is scanned/redacted before Z.ai/NVIDIA forwarding and included in cache fingerprints | Encoded or obfuscated text and contextual identification remain outside deterministic detection; reasoning is sensitive content, not metadata |
 | Obfuscated PII bypasses patterns | Likely / high | Tool argument JSON escapes are decoded; adversarial regex tests bound known attack cases | Base64, lookalikes, split values and “at/dot” spellings are not reliably recognized; no claim of complete DLP |
 | User placeholder injection | Plausible / medium | Reserve input placeholder literals, request-only mapping, non-recursive restore, separate output-mask namespace | A model can guess or misuse an assigned code within the same request; pseudonymised context can still identify someone |
 | Residency bypass through routing | Plausible / high | Concrete model-policy check also enforces org intersection team regions for direct/alias/weighted/fallback routes and model listing | Cached identity delays changes by TTL; catalogue or base-URL administrators can misdeclare deployment location; policies are not legal certification |
@@ -82,3 +85,10 @@ and require the trusted chain to append real peers. Misconfigured trust lets cli
 claim identities, while no trust behind a balancer shares its quota across callers.
 Startup validation runs before Next starts for both local and Docker entry points;
 missing secrets fail compose interpolation and invalid settings stop the process.
+
+Step 14 residency values are `us`, `eu`, `cn`, `sg`, `global`, `unknown`.
+`sg` reflects Z.ai's API DPA statement that Customer Data is **generally** processed
+in Singapore; NVIDIA's Kimi page states Global. Neither label certifies physical
+processing location on each call. Changing a base URL requires source/region review.
+The admin identity endpoint exposes the authoritative region list to either admin
+role, but no tenant policies or credentials beyond its existing identity metadata.

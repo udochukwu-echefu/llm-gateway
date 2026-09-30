@@ -18,6 +18,8 @@ The branch is for reviewer inspection: nothing was pushed or merged.
   the copyable curl contains only YOUR_TEAM_API_KEY.
 - Opt-in Demo Co seeder: Search, Support and Engineering, six key records, budgets/limits
   and 855 synthetic receipts over 30 days, including unpriced/cache-hit rows. No providers.
+- Fixed-point Decimal money in admin usage/budget responses, CLI usage and new budget
+  audit details, with real PostgreSQL zero-cost and zero-savings regression assertions.
 - ADR 0025, plain-language architecture Step 13b, threat model, README/screenshots and
   roadmap marking step 13 complete.
 
@@ -52,6 +54,9 @@ Other open implementation choices:
   usage API's provider-attempt/cache-hit semantics. Latest audit IDs are selected after
   reading the ascending audit pages. Large histories may warrant a separately reviewed
   reverse-page API later; multiple endpoint reads are not one atomic snapshot.
+- Money uses format(value, "f") without floating-point conversion or rounding; a zero
+  PostgreSQL Numeric(20, 12) sum is "0.000000000000", never "0E-12". Unknown values
+  stay null/NULL. Existing hashed audit records are not rewritten.
 - Current reviewed catalogue entries have no verified EU processing region. EU-only
   correctly produces zero usable models; no regional guarantee was invented.
 - Demo secrets are discarded, not printed. Deterministic receipt IDs and a seed lock make
@@ -84,7 +89,7 @@ All checks passed!
 ### Gateway format (.venv/bin/ruff format --check .)
 
 ```text
-356 files already formatted
+358 files already formatted
 ```
 
 ### Gateway pyright (.venv/bin/pyright --pythonpath .venv/bin/python)
@@ -96,19 +101,19 @@ All checks passed!
 ### Gateway pytest (.venv/bin/pytest -q -p no:cacheprovider)
 
 ```text
-1013 passed, 188 skipped, 25 deselected in 19.42s
+1013 passed, 192 skipped, 25 deselected in 20.38s
 ```
 
 ### Database suite (-m db)
 
 ```text
-123 passed, 11 skipped, 1092 deselected in 35.56s
+127 passed, 11 skipped, 1092 deselected in 36.44s
 ```
 
 ### Redis suite (-m redis)
 
 ```text
-65 passed, 1161 deselected in 46.28s
+65 passed, 1165 deselected in 48.49s
 ```
 
 ### Console format:check
@@ -165,25 +170,25 @@ that process. Initial richer-fixture failures exposed two old small-fixture assu
 and multiple teams. The final production run below passed.
 
 ```text
-✓   1 tests/e2e/console.spec.ts:4:5 › platform workflow (5.0s)
+✓   1 tests/e2e/console.spec.ts:4:5 › platform workflow (5.2s)
 ✓   2 tests/e2e/console.spec.ts:85:5 › one-time key dialog (2.0s)
 ✓   3 tests/e2e/console.spec.ts:111:5 › org-admin isolation and URL tampering (1.8s)
-✓   4 tests/e2e/console.spec.ts:131:5 › security headers and CSP (1.8s)
+✓   4 tests/e2e/console.spec.ts:131:5 › security headers and CSP (1.9s)
 ✓   5 tests/e2e/console.spec.ts:171:5 › cookie flags and cross-origin POST (1.1s)
 ✓   6 tests/e2e/console.spec.ts:189:5 › revocation logs out (1.5s)
 ✓   7 tests/e2e/console.spec.ts:202:5 › login throttle and no shared-IP lockout (2.5s)
-✓   8 tests/e2e/empty-states.spec.ts:2:5 › empty workspace guides first team key request and unmatched audit filter (2.2s)
+✓   8 tests/e2e/empty-states.spec.ts:2:5 › empty workspace guides first team key request and unmatched audit filter (2.4s)
 ✓   9 tests/e2e/overview.spec.ts:5:5 › Overview landing numbers match the seeded org usage API and org scope (1.0s)
 ✓  10 tests/e2e/overview.spec.ts:69:5 › Overview platform landing includes all organisations and recent activity (1.3s)
-✓  11 tests/e2e/policies.spec.ts:23:5 › org policy and team intersection enforced by public API (2.2s)
+✓  11 tests/e2e/policies.spec.ts:23:5 › org policy and team intersection enforced by public API (2.3s)
 ✓  12 tests/e2e/policies.spec.ts:64:5 › guardrail tightening and weaker choice has no effect (2.1s)
 ✓  13 tests/e2e/policies.spec.ts:95:5 › EU residency shrinks usable models using the API view (1.8s)
-✓  14 tests/e2e/policies.spec.ts:119:5 › two browser contexts preserve the first policy and keep the conflicted draft (2.9s)
-✓  15 tests/e2e/policies.spec.ts:153:5 › cache purge requires a typed name and reports its count (1.9s)
+✓  14 tests/e2e/policies.spec.ts:119:5 › two browser contexts preserve the first policy and keep the conflicted draft (3.0s)
+✓  15 tests/e2e/policies.spec.ts:153:5 › cache purge requires a typed name and reports its count (2.0s)
 ✓  16 tests/e2e/policies.spec.ts:166:5 › org admin cannot view or edit another org policies by URL tampering (1.7s)
 ✓  17 tests/e2e/policies.spec.ts:194:5 › every policy write and cache purge appears in the audit log (3.3s)
 ✓  18 tests/e2e/policies.spec.ts:244:5 › unsaved policy changes warn before tab page and browser Back navigation (1.6s)
-18 passed (42.9s)
+18 passed (44.7s)
 ```
 
 ## No-leak scan and five break checks

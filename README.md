@@ -190,6 +190,8 @@ removal need consequence confirmations. Every console policy write sends If-Matc
 warn before leaving. Apply migration 0010 for policy revision counters before starting.
 GET /admin/v1/catalog contains reviewed routing metadata without secrets or provider URLs.
 Policy GETs return a version; API/CLI writes may omit If-Match for compatibility.
+Admin API and CLI money use exact fixed-point strings, including zero sums such as
+`0.000000000000`; unknown cost remains null/NULL.
 
 The Cache tab purges an org or team after typing its exact name. It reports the removed
 count and a plain 503 on Redis failure. Purge is best effort because live requests can

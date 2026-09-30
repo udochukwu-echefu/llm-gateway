@@ -27,32 +27,45 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
     const state = readFileSync(resolve("tests/e2e/.state.json"), "utf8");
     await provide(JSON.parse(state));
   },
-  leaks: [async ({}, provide) => {
-    const totals: LeakTotals = {
-      responses: 0, permittedResponses: 0, tenantKeys: [], permitted: new Map(),
-    };
-    await provide(totals);
-    expect(totals.permittedResponses, "Exactly one permitted key-creation response")
-      .toBe(totals.permitted.size ? 1 : 0);
-    console.log(`No-leak scan total: ${totals.responses} browser responses; `
-      + `${totals.permittedResponses} permitted key-creation response; zero leaks.`);
-  }, { scope: "worker" }],
+  leaks: [
+    async ({}, provide) => {
+      const totals: LeakTotals = {
+        responses: 0,
+        permittedResponses: 0,
+        tenantKeys: [],
+        permitted: new Map(),
+      };
+      await provide(totals);
+      expect(totals.permittedResponses, "Exactly one permitted key-creation response").toBe(
+        totals.permitted.size ? 1 : 0,
+      );
+      console.log(
+        `No-leak scan total: ${totals.responses} browser responses; ` +
+          `${totals.permittedResponses} permitted key-creation response; zero leaks.`,
+      );
+    },
+    { scope: "worker" },
+  ],
   recordKey: async ({ leaks }, provide, info) => {
     await provide((key, permitCreation = false) => {
       leaks.tenantKeys.push(key);
       if (permitCreation) leaks.permitted.set(info.testId, key);
     });
   },
-  coverage: [async ({ page, credentials, leaks }, provide, info) => {
-    const scanner = await responseScanner(page);
-    await provide();
-    const result = await scanner.verify(
-      [credentials.platform, credentials.orgKey, credentials.revocable],
-      leaks.tenantKeys, leaks.permitted.get(info.testId),
-    );
-    leaks.responses += result.responses;
-    leaks.permittedResponses += result.permitted;
-  }, { auto: true }],
+  coverage: [
+    async ({ page, credentials, leaks }, provide, info) => {
+      const scanner = await responseScanner(page);
+      await provide();
+      const result = await scanner.verify(
+        [credentials.platform, credentials.orgKey, credentials.revocable],
+        leaks.tenantKeys,
+        leaks.permitted.get(info.testId),
+      );
+      leaks.responses += result.responses;
+      leaks.permittedResponses += result.permitted;
+    },
+    { auto: true },
+  ],
 });
 
 export { expect };

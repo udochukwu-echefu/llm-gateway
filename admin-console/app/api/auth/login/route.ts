@@ -13,11 +13,18 @@ export async function POST(request: Request) {
   const client = request.headers.get("x-console-client-address") ?? "unknown";
   const retryAfter = loginThrottle.retryAfter(client);
   if (retryAfter) {
-    return NextResponse.json({ error: "Too many sign-in attempts. Please try again in a minute." }, {
-      status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" },
-    });
+    return NextResponse.json(
+      { error: "Too many sign-in attempts. Please try again in a minute." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" },
+      },
+    );
   }
-  const parsed = z.object({ key: z.string().regex(/^lgwa_[a-z2-7]{12}_[A-Za-z0-9_-]{43}$/) }).strict().safeParse(await request.json().catch(() => null));
+  const parsed = z
+    .object({ key: z.string().regex(/^lgwa_[a-z2-7]{12}_[A-Za-z0-9_-]{43}$/) })
+    .strict()
+    .safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     loginThrottle.failed(client);
     return NextResponse.json({ error: "Enter a valid admin API key." }, { status: 400 });
@@ -26,14 +33,21 @@ export async function POST(request: Request) {
     const identity = await fetchIdentity(config.ADMIN_API_URL, parsed.data.key);
     (await readSession()).destroy();
     const session = await readSession();
-    Object.assign(session, { adminKey: parsed.data.key, identity, issuedAt: Date.now(), lastSeen: Date.now() });
+    Object.assign(session, {
+      adminKey: parsed.data.key,
+      identity,
+      issuedAt: Date.now(),
+      lastSeen: Date.now(),
+    });
     await session.save();
     loginThrottle.succeeded(client);
     return NextResponse.json({ identity }, { headers: { "Cache-Control": "no-store" } });
-  }
-  catch (error) {
+  } catch (error) {
     if (error instanceof AdminApiError && [401, 429].includes(error.status))
       loginThrottle.failed(client);
-    return NextResponse.json({ error: error instanceof AdminApiError ? error.message : "Sign in failed." }, { status: error instanceof AdminApiError ? error.status : 503 });
+    return NextResponse.json(
+      { error: error instanceof AdminApiError ? error.message : "Sign in failed." },
+      { status: error instanceof AdminApiError ? error.status : 503 },
+    );
   }
 }

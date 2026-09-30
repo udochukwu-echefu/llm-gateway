@@ -5,8 +5,15 @@ import { DailyUsage } from "@/components/daily-usage";
 import { dailyTokens, trendSegments } from "@/lib/usage-trend";
 
 const known: Usage = {
-  group: "2026-09-01", requests: 3, prompt_tokens: 20, completion_tokens: 10,
-  cost_usd: "0.01", saved_usd: null, cache_hits: 0, usage_missing: 0, stream_incomplete: 0,
+  group: "2026-09-01",
+  requests: 3,
+  prompt_tokens: 20,
+  completion_tokens: 10,
+  cost_usd: "0.01",
+  saved_usd: null,
+  cache_hits: 0,
+  usage_missing: 0,
+  stream_incomplete: 0,
 };
 
 test("unknown token totals make chart gaps and remain explicit in the text alternative", () => {

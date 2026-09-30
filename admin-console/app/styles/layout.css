@@ -40,7 +40,7 @@ aside {
   border-radius: 8px;
   padding: 4px;
   text-align: center;
-  font-family: Georgia,serif;
+  font-family: Georgia, serif;
 }
 
 .brand-sub {
@@ -200,7 +200,7 @@ footer {
   top: 10px;
 }
 
-@media (max-width:1100px) {
+@media (max-width: 1100px) {
   aside {
     width: 185px;
   }
@@ -228,10 +228,9 @@ footer {
   .section-heading {
     flex-wrap: wrap;
   }
-
 }
 
-@media (max-width:760px) {
+@media (max-width: 760px) {
   .console {
     display: block;
   }
@@ -256,7 +255,8 @@ footer {
     gap: 8px;
   }
 
-  .nav-label,.sidebar-footer {
+  .nav-label,
+  .sidebar-footer {
     display: none;
   }
 
@@ -289,6 +289,4 @@ footer {
   .theme-label {
     font-size: 11px;
   }
-
 }
-

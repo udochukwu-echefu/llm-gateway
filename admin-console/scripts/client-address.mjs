@@ -12,7 +12,10 @@ export function normalizeAddress(address) {
 export function clientAddress(peer, forwarded, trustedHops = 0) {
   const fallback = normalizeAddress(peer) ?? "unknown";
   if (!trustedHops || typeof forwarded !== "string") return fallback;
-  const chain = forwarded.split(",").map((part) => part.trim()).filter(Boolean);
+  const chain = forwarded
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (chain.length < trustedHops) return fallback;
   return normalizeAddress(chain[chain.length - trustedHops]) ?? fallback;
 }

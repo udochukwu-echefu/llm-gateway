@@ -12,7 +12,7 @@
   --warning: #855100;
 }
 
-@media (prefers-color-scheme:dark) {
+@media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #10191d;
@@ -26,7 +26,6 @@
     --danger: #ffaaaa;
     --warning: #ffcf89;
   }
-
 }
 
 :root[data-theme="dark"] {
@@ -42,4 +41,3 @@
   --danger: #ffaaaa;
   --warning: #ffcf89;
 }
-

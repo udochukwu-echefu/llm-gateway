@@ -10,7 +10,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: "http://[::1]:3100",
-    viewport: { width: 1440,height: 1050 },
+    viewport: { width: 1440, height: 1050 },
     trace: "off",
     screenshot: "off",
     video: "off",
@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: [
     {
       command: "../.venv/bin/python tests/e2e/stack.py",
-      gracefulShutdown: { signal: "SIGTERM",timeout: 10000 },
+      gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
       url: "http://127.0.0.1:18090/healthz",
       timeout: 120000,
       reuseExistingServer: false,

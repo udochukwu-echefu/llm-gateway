@@ -18,7 +18,9 @@ for (const script of ["scripts/start.mjs", "scripts/docker-start.mjs"]) {
       { ADMIN_CONSOLE_TRUSTED_PROXY_HOPS: "1.5" },
     ]) {
       const result = spawnSync(process.execPath, [script], {
-        env: { ...process.env, ...valid, ...invalid }, encoding: "utf8", timeout: 10000,
+        env: { ...process.env, ...valid, ...invalid },
+        encoding: "utf8",
+        timeout: 10000,
       });
       expect(result.status).toBe(1);
       expect(result.stderr).toMatch(/^Invalid console configuration:/);

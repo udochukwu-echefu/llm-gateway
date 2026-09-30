@@ -9,7 +9,7 @@ table {
 th {
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: .7px;
+  letter-spacing: 0.7px;
   color: var(--muted);
   font-weight: 600;
   padding: 12px;
@@ -43,7 +43,8 @@ tbody tr:hover {
   font-weight: 600;
 }
 
-.empty,.notice {
+.empty,
+.notice {
   padding: 28px 8px;
   color: var(--muted);
 }
@@ -62,7 +63,7 @@ progress {
   gap: 28px;
 }
 
-.usage-grid>div {
+.usage-grid > div {
   min-width: 0;
   overflow: auto;
 }
@@ -71,20 +72,44 @@ progress {
   min-width: 380px;
 }
 
-.usage-chart { margin: 24px 0; }
-.usage-chart figcaption { font-weight: 600; }
-.usage-chart svg { width: 100%; height: auto; }
-.chart-label { fill: var(--text); font-size: 11px; }
-.chart-axis { stroke: var(--muted); }
-.chart-grid { stroke: var(--line); }
-.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; }
-.chart-point { fill: var(--accent); }
-caption { color: var(--muted); text-align: left; font-size: 12px; }
+.usage-chart {
+  margin: 24px 0;
+}
+.usage-chart figcaption {
+  font-weight: 600;
+}
+.usage-chart svg {
+  width: 100%;
+  height: auto;
+}
+.chart-label {
+  fill: var(--text);
+  font-size: 11px;
+}
+.chart-axis {
+  stroke: var(--muted);
+}
+.chart-grid {
+  stroke: var(--line);
+}
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.chart-point {
+  fill: var(--accent);
+}
+caption {
+  color: var(--muted);
+  text-align: left;
+  font-size: 12px;
+}
 
 .spend {
   font-size: 28px;
   font-weight: 600;
-  letter-spacing: -.6px;
+  letter-spacing: -0.6px;
 }
 
 .spend span {
@@ -96,9 +121,12 @@ caption { color: var(--muted); text-align: left; font-size: 12px; }
   padding: 24px 0;
 }
 
-
-.daily-usage-table td:first-child { white-space: nowrap; }
+.daily-usage-table td:first-child {
+  white-space: nowrap;
+}
 
 @media (max-width: 1100px) {
-  .usage-grid { grid-template-columns: 1fr; }
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
 }

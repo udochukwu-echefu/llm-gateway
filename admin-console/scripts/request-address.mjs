@@ -7,6 +7,8 @@ const { ADMIN_CONSOLE_TRUSTED_PROXY_HOPS: hops } = readConfig();
 // overwrite incoming values, so only the socket or configured proxy chain counts.
 channel("http.server.request.start").subscribe(({ request, socket }) => {
   request.headers[CLIENT_ADDRESS_HEADER] = clientAddress(
-    socket.remoteAddress, request.headers["x-forwarded-for"], hops,
+    socket.remoteAddress,
+    request.headers["x-forwarded-for"],
+    hops,
   );
 });

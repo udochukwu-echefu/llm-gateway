@@ -1,8 +1,13 @@
 import type { Usage } from "./contracts";
 
 export function dailyTokens(row: Usage): number | null {
-  if (row.prompt_tokens === null || row.completion_tokens === null
-    || row.usage_missing > 0 || row.stream_incomplete > 0) return null;
+  if (
+    row.prompt_tokens === null ||
+    row.completion_tokens === null ||
+    row.usage_missing > 0 ||
+    row.stream_incomplete > 0
+  )
+    return null;
   return row.prompt_tokens + row.completion_tokens;
 }
 
@@ -23,5 +28,5 @@ export function trendSegments(values: (number | null)[]): string[] {
 }
 
 export function trendPoint(index: number, value: number, count: number, maximum: number) {
-  return [60 + index * 470 / Math.max(1, count - 1), 140 - value * 105 / maximum];
+  return [60 + (index * 470) / Math.max(1, count - 1), 140 - (value * 105) / maximum];
 }

@@ -1,4 +1,6 @@
-button,input,select {
+button,
+input,
+select {
   font: inherit;
 }
 
@@ -14,15 +16,15 @@ button {
 }
 
 button:hover {
-  filter: brightness(.94);
+  filter: brightness(0.94);
 }
 
 button:active {
-  transform: scale(.98);
+  transform: scale(0.98);
 }
 
 button:disabled {
-  opacity: .55;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -37,7 +39,8 @@ button.danger {
   color: var(--panel);
 }
 
-input,select {
+input,
+select {
   display: block;
   background: var(--panel);
   color: var(--text);
@@ -48,7 +51,8 @@ input,select {
   width: 100%;
 }
 
-input:focus,select:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
 }
 
@@ -62,7 +66,8 @@ label input {
   margin-top: 7px;
 }
 
-.eyebrow,.nav-label {
+.eyebrow,
+.nav-label {
   font-size: 10px;
   letter-spacing: 1.5px;
   font-weight: 700;
@@ -157,10 +162,8 @@ dialog::backdrop {
   margin-top: 12px;
 }
 
-@media (prefers-reduced-motion:reduce) {
+@media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
   }
-
 }
-

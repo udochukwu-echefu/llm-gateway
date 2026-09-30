@@ -17,8 +17,10 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   // Prepare a revocation fixture privately. Browser key creation is its own test below.
   const prepared = await context.request.post(
     `http://127.0.0.1:18091/admin/v1/orgs/${encodeURIComponent(org)}/teams/${team}/keys`,
-    { headers: { Authorization: `Bearer ${credentials.platform}` },
-      data: { name: "Fake revocation fixture" } },
+    {
+      headers: { Authorization: `Bearer ${credentials.platform}` },
+      data: { name: "Fake revocation fixture" },
+    },
   );
   expect(prepared.status()).toBe(200);
   const key = await prepared.json();
@@ -55,8 +57,15 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await page.getByRole("button", { name: "Next events" }).click();
   await expect(page.getByRole("cell", { name: "revoke-key", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "First page" }).click();
-  for (const action of ["create-org", "create-team", "create-key", "set-limits",
-    "clear-limits", "set-budget", "revoke-key"]) {
+  for (const action of [
+    "create-org",
+    "create-team",
+    "create-key",
+    "set-limits",
+    "clear-limits",
+    "set-budget",
+    "revoke-key",
+  ]) {
     await page.getByLabel("Action", { exact: true }).fill(action);
     await page.getByRole("button", { name: "Filter events" }).click();
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
@@ -77,7 +86,9 @@ test("one-time key dialog", async ({ page, credentials, recordKey }) => {
   await expect(page.getByRole("dialog")).toContainText("You won’t see this again");
   for (const key of ["Shift+Tab", "Tab"]) {
     await page.keyboard.press(key);
-    expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(
+      true,
+    );
   }
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -143,8 +154,9 @@ test("security headers and CSP", async ({ page, credentials }) => {
   await screenshot(page, "usage-dark");
   await page.setViewportSize({ width: 820, height: 1100 });
   await screenshot(page, "tablet");
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-    .toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
   expect(cspErrors.length, "Production browser must have no CSP violations").toBe(0);
 });
 
@@ -202,6 +214,7 @@ test("login throttle and no shared-IP lockout", async ({ page, context, credenti
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await signIn(page, credentials.platform);
-  await expect(page.getByRole("heading", { name: "Organisations", exact: true }).first())
-    .toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Organisations", exact: true }).first(),
+  ).toBeVisible();
 });

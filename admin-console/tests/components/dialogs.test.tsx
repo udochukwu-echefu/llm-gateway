@@ -5,8 +5,17 @@ import { KeyCreatedDialog } from "@/components/key-created-dialog";
 import { RevokeDialog } from "@/components/revoke-dialog";
 import { MutationForm } from "@/components/mutation-form";
 import { TeamKeys } from "@/components/team-keys";
-vi.mock("@/components/use-resource", () => ({ useResource: () => ({ data: { data: [], next_cursor: null }, loading: false, refresh: vi.fn() }) }));
-beforeAll(() => { HTMLDialogElement.prototype.showModal = function() { this.setAttribute("open", ""); }; HTMLDialogElement.prototype.close = function() { this.removeAttribute("open"); }; });
+vi.mock("@/components/use-resource", () => ({
+  useResource: () => ({ data: { data: [], next_cursor: null }, loading: false, refresh: vi.fn() }),
+}));
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
+});
 test("created key warning and close callback on Escape", () => {
   const close = vi.fn();
   render(<KeyCreatedDialog secret="obviously-fake-key" onClose={close} />);
@@ -44,7 +53,19 @@ test("invalid form never calls the BFF", async () => {
   const user = userEvent.setup();
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
-  render(<MutationForm path="/orgs/fake/teams/test/limits" method="PUT" label="Save" fields={[{ name: "rpm", label: "RPM", type: "integer" }, { name: "tpm", label: "TPM", type: "integer" }, { name: "max_concurrency", label: "Concurrency", type: "integer" }]} onSuccess={vi.fn()} />);
+  render(
+    <MutationForm
+      path="/orgs/fake/teams/test/limits"
+      method="PUT"
+      label="Save"
+      fields={[
+        { name: "rpm", label: "RPM", type: "integer" },
+        { name: "tpm", label: "TPM", type: "integer" },
+        { name: "max_concurrency", label: "Concurrency", type: "integer" },
+      ]}
+      onSuccess={vi.fn()}
+    />,
+  );
   await user.type(screen.getByLabelText("RPM"), "-1");
   await user.click(screen.getByText("Save"));
   expect(screen.getByRole("alert")).toBeDefined();
@@ -53,9 +74,19 @@ test("invalid form never calls the BFF", async () => {
 });
 test("creation retry retains its submission ID and editing starts a new submission", async () => {
   const user = userEvent.setup();
-  const fetch = vi.fn().mockRejectedValueOnce(new Error("Fake offline failure")).mockResolvedValue(new Response(JSON.stringify({ id: "fake-resource" })));
+  const fetch = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Fake offline failure"))
+    .mockResolvedValue(new Response(JSON.stringify({ id: "fake-resource" })));
   vi.stubGlobal("fetch", fetch);
-  render(<MutationForm path="/orgs" label="Create" fields={[{ name: "name", label: "Name" }]} onSuccess={vi.fn()} />);
+  render(
+    <MutationForm
+      path="/orgs"
+      label="Create"
+      fields={[{ name: "name", label: "Name" }]}
+      onSuccess={vi.fn()}
+    />,
+  );
   await user.type(screen.getByLabelText("Name"), "Fake org");
   await user.click(screen.getByText("Create"));
   await screen.findByText("Fake offline failure");

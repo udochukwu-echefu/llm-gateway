@@ -42,7 +42,8 @@ any of that.
   load balancer can send any request to any copy.
 - **Redis** is an in-memory store: very fast, fine to lose a little. Good for "how many
   requests did team X send this minute?"
-- **Postgres** is the durable database: slower, never loses data. Good for "who are our
+- **Postgres** is the durable store; its durability depends on backups and replication.
+  Good for "who are our
   tenants?" and "what did team X spend in March?"
 - **Secrets manager** is a locked box for the provider keys, so they never sit in code.
 

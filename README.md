@@ -3,7 +3,7 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 12b tooling and partial benchmark report.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 12 complete; step 13a admin web console implemented.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
@@ -453,7 +453,8 @@ uv run gateway-admin clear-residency example-org
 Inspection runs after model/residency authorization and before RPM/cache. Typed codes
 such as `[EMAIL_1]` preserve repeated references; originals are restored on the response,
 including codes split across streaming chunks. Only a request-local in-memory mapping
-knows the originals. Cache keys use redacted input; cached output is never restored.
+knows the originals. Cache keys use redacted input. Cached output is restored only in memory for the
+current caller using that request's mapping; stored cache values remain redacted.
 New nonstreaming output is scanned and masked (`[OUTPUT_EMAIL_1]`) or blocked before
 restore; stream output scanning is **detect-only**, reported at the end. Delivery holds
 back only possible unfinished placeholders; detection also retains generated text in

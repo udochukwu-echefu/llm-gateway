@@ -1,5 +1,121 @@
 # Step 14 implementation report — 2026-09-30
 
+## Review follow-up and NVIDIA additions (current)
+
+The sections below this follow-up preserve the **initial, pre-review report**.
+This follow-up supersedes its no-console/no-merge scope and Kimi-only NVIDIA scope.
+The owner authorized integration of main's step 13b (81ac5bf), console validation,
+the four review changes and additions 5–6. Main was clean when first checked.
+Only README, architecture, roadmap and threat-model conflicted; both steps were
+kept in order, without renumbering ADR 0025/0026. No guide branch/worktree was touched.
+The worktree's `.env` was never read, printed or modified. No packages were installed:
+Python used the existing `.venv`; Node 24.15.0 reused a local copy of main's installed
+console dependencies after checking the package/lockfiles were identical.
+
+### Error evidence and choices
+
+- https://docs.z.ai/api-reference/api-code quotes `1113` as
+  **"Insufficient balance or no resource package. Please recharge."**
+  `1302` is **"Rate limit reached for requests"**; `1305` is
+  **"The service may be temporarily overloaded, please try again later"**.
+  Account/billing/allowance codes **1113, 1308, 1309, 1310, 1311, 1313–1321**
+  return generic `502 upstream_account_error`, one attempt, no Retry-After and no
+  private provider account message. A metadata-only operator log says to check
+  billing/quota/entitlements. Authentication codes retain sanitized 401/403 mapping;
+  real rate limits, temporary overload and unknown codes retain the shared path.
+  The complete classification and official quotations are in the Z.ai docstring.
+- NVIDIA's Kimi reference, FAQ and quickstart did not establish analogous 429
+  business codes. The later GLM references **do** document HTTP **402 Payment
+  Required**, with **"You have reached your limit of credits."** in their
+  PaymentRequiredError example. NVIDIA 402 now uses the same generic non-retryable
+  account error; no speculative 429 code/message matching was added.
+- `/admin/v1/catalog` now returns the same authoritative `regions` as `/me`, for
+  either admin role, and correctly marks explicit unpriced periods as not priced.
+  The real browser test offers `sg`, saves it, verifies three Singapore GLM models
+  and reloads the saved choice. No duplicated console region enum was needed.
+- README, ADR 0026 and the threat model state plainly: **budgets cannot limit an
+  unpriced model because its cost is unknown**. Budget-limited teams must restrict
+  such models with model policy, e.g. allow only priced destinations, not `nvidia/*`.
+
+### Official NVIDIA GLM and queued-request evidence
+
+- https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3-infer and
+  https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3-flash-infer have official
+  request examples using exact IDs **z-ai/glm-5.3** and **z-ai/glm-5.3-flash**.
+  https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3 and
+  https://build.nvidia.com/z-ai/glm-5-3-flash say **Global** and link the existing
+  NVIDIA Trial Terms. Both NVIDIA-hosted GLMs are catalogued as Global/unpriced;
+  Z.ai's direct Singapore/pricing evidence does not transfer between hosts.
+- Both GLM infer references document top_p and both penalties, unlike Kimi.
+  Kimi's fixed sampling and non-user content-array restrictions now apply only
+  to `moonshotai/kimi-k3`. Other absent fields remain forwarded; arbitrary string
+  roles in the GLM reference preserve developer rather than importing Kimi's enum.
+  Models remain directly callable/listable and excluded from weighted aliases.
+  No alias or fallback entries changed.
+- https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-infer explicitly
+  lists integrate 202: **"Result is pending. Client should poll using the requestId."**
+  NVCF-REQID is **"requestId required for pooling"** [sic].
+  https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-statuspolling documents
+  authenticated **GET https://integrate.api.nvidia.com/v1/status/{requestId}**,
+  UUID request IDs, 202 pending and **200 application/json**.
+  Therefore the integrate endpoint cannot truthfully be called universally synchronous.
+- Implemented paced **nonstreaming Kimi** polling under the existing single total
+  deadline. Request IDs cannot alter the host/path; no untrusted Location is followed.
+  HTTP disconnect cancels pre-response work, including a pending poll. Every poll
+  shares the original receipt and cannot resubmit inference after a poll or result-body
+  failure, even with read-timeout retries enabled. Accepted jobs without usage stay
+  `usage_missing`, not rejected/zero-cost. No remote cancellation API is documented.
+- The status reference documents JSON only, and GLM references supply no queued
+  polling protocol. Do not invent SSE polling or claim an undocumented synchronous
+  guarantee: GLM/streaming 202 returns clear retryable
+  `502 upstream_pending_unsupported`, never an empty client 202. Bounded retries of
+  these unsupported queued modes may create extra accepted jobs; this residual risk
+  and the lack of remote cancellation are documented in the threat model.
+- The merged demo seeder originally attempted to compute numeric costs for unpriced
+  periods. The first DB gate caught this (`1 failed, 130 passed, 11 skipped`). Fixed
+  the seeder and strengthened its DB assertions: known NVIDIA tokens retain unpriced
+  NULL cost; missing usage stays distinct; cache hits cost zero with unknown savings.
+
+### Final validation after all code changes
+
+| Command | Final output |
+|---|---|
+| `.venv/bin/ruff check .` | `All checks passed!` |
+| `.venv/bin/ruff format --check .` | `375 files already formatted` |
+| `.venv/bin/pyright --pythonpath .venv/bin/python` | `0 errors, 0 warnings, 0 informations` |
+| `env -u GATEWAY_TEST_DATABASE_URL -u GATEWAY_TEST_REDIS_URL .venv/bin/pytest -p no:cacheprovider -q` | `1299 passed, 196 skipped, 37 deselected in 28.67s` |
+| DB pytest `-m db`, Redis URL unset | `131 passed, 11 skipped, 1390 deselected in 36.08s` |
+| Redis pytest `-m redis`, Redis database **14** | `65 passed, 1467 deselected in 59.92s` |
+| Console `npm run format:check` | `All matched files use Prettier code style!` |
+| Console `npm run lint` | `eslint .`, exit 0 |
+| Console `npm run typecheck` | `tsc --noEmit`, exit 0 |
+| Console `npm test` | `Test Files 14 passed (14)`; `Tests 64 passed (64)` |
+| Console `npm run build` | `Compiled successfully in 3.5s`; TypeScript/static generation completed; dynamic routes built, exit 0 |
+| Console full `npm run test:e2e`, port **3300** | `19 passed (49.5s)` |
+| Shared e2e no-leak scanner | `No-leak scan total: 1358 browser responses; 1 permitted key-creation response; zero leaks.` |
+| `git diff --check` | Exit 0, no output |
+
+Database/Redis/e2e ran sequentially in that order, after normal Python checks.
+Started/reused infrastructure with
+`docker compose --env-file /dev/null -p llm-gateway up -d --no-recreate postgres redis`:
+both containers reported Running; no secret interpolation was needed after 13b.
+The pytest maintenance connection was
+`postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/postgres`, never a
+migration of the main `gateway` database. The 11 DB skips ran in the Redis suite.
+E2e used the same maintenance connection, `CONSOLE_TEST_REDIS_URL=redis://127.0.0.1:6379/14`
+and `CONSOLE_TEST_PORT=3300`, creating/dropping its own disposable database.
+The production console build supplied only the documented synthetic e2e admin URL,
+origin and session secret. No provider live calls, screenshots, browser downloads,
+remote CI or push were performed. The reviewer reported successful live Z.ai calls;
+the agent does not claim new live NVIDIA entitlements, free-credit allowance,
+billing, response emission, polling occurrence or latency validation.
+
+All requested changes are implemented; paid production endpoints and verified
+NVIDIA account billing remain outside this task. The final handoff records the
+authorized main merge result and actual `git log --oneline -3 main` after merging.
+
+## Initial report (historical; superseded where noted above)
+
 ## Outcome and scope
 
 Implemented only in `/Users/udo/claude sessions/llm-gateway-providers`, branch

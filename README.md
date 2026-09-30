@@ -205,13 +205,11 @@ logs a bounded error; `closed` returns `503 limits_unavailable`.
 Amended local campaign on Apple M2 Pro / Docker Desktop with a synthetic 200 ms
 provider, 30-second warmups and exact per-request overhead:
 
-- One-replica SLO capacity: **100 offered requests/s**; saturation
-  throughput: **199.332 successes/s**.
-- Two-replica saturation throughput: **532.693 successes/s**;
-  measured scaling factor: **2.672×**.
-- At fully generated eligible stages, throughput was **199.332 / 398.661 successes/s**
-  for one / two replicas (**2.000×**). The error-only definition above
-  retains generator-dropped stages; consult the report before interpreting it as capacity.
+- Fully generated scaling: **199 → 399 successful responses/s** from one to two
+  replicas (**2.0×**), at eligible offered stages of 200/s and 400/s.
+- One-replica SLO capacity: **100 offered requests/s**.
+- At low traffic (10–25 req/s), exact overhead p99 is about **10–15 ms**
+  (the cold-path "idle penalty"); **50–100 req/s meets the 10 ms target**.
 - RPM=600, B=30: maximum rolling-60s atomic admissions **629**, bound **630**.
 - Streaming, guardrail and ten-minute soak scenarios all ran at their declared
   amended rates. Idle-path tails are reported separately by key-cache hit/miss.

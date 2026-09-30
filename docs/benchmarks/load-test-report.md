@@ -5,6 +5,16 @@ provider. Targets are evaluated from measurements below; completion is not a cla
 that every target passed. No real provider was called and no performance optimization
 was introduced.
 
+The headline scaling result uses fully generated eligible stages: **199 → 399
+successful responses/s** from one to two replicas (**2.0×**), at offered rates of
+200/s and 400/s. One-replica SLO capacity is **100 offered requests/s**. At low
+traffic (10–25 req/s), exact overhead p99 is about **10–15 ms** (the cold-path
+"idle penalty"); **50–100 req/s meets the 10 ms target**.
+
+The amendment's error-only scaling ratio, **2.672×**, is retained below for
+completeness. Its selected 800/s stage dropped **14,985 k6 iterations**; it does
+not establish fully generated capacity at that offered rate.
+
 ## Environment
 
 | Item | Observed configuration |
@@ -124,7 +134,7 @@ SLO capacity: **200 offered requests/s**. Saturation throughput: **532.693 succe
 Full generation at that stage: **False**. The highest eligible stage with all iterations generated was **400/s**, with **398.661 successes/s**.
 The final offered ceiling was reached; higher throughput is unmeasured.
 
-S3 scaling factor under the amendment's error-only definition: **2.672×**. Using only fully generated stages: **2.000×**. Different stage eligibility and dropped iterations limit the interpretation of the first ratio.
+S3 scaling with fully generated eligible stages: **2.000×** (**199.332 → 398.661 successes/s**). The amendment's error-only definition gives **2.672×**, but its selected 800/s stage dropped **14,985 k6 iterations**. That ratio does not establish fully generated capacity at 800/s.
 
 ## Other scenarios
 

@@ -5,8 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { Identity } from "@/lib/contracts";
+import { UnsavedPolicies, usePolicyNavigation } from "./unsaved-policy";
 import { browserApi } from "@/lib/browser-api";
-export function Shell({ identity, children }: { identity: Identity; children: ReactNode }) {
+export function Shell(props: { identity: Identity; children: ReactNode }) {
+  return (
+    <UnsavedPolicies>
+      <ShellContent {...props} />
+    </UnsavedPolicies>
+  );
+}
+function ShellContent({ identity, children }: { identity: Identity; children: ReactNode }) {
+  const leave = usePolicyNavigation();
   const path = usePathname();
   const [error, setError] = useState("");
   return (
@@ -71,6 +80,7 @@ export function Shell({ identity, children }: { identity: Identity; children: Re
             <button
               className="secondary"
               onClick={async () => {
+                if (!leave()) return;
                 try {
                   await browserApi("/api/auth/logout", { method: "POST" });
                   window.location.assign("/login");

@@ -7,12 +7,12 @@ export function abusiveLogin(index: number): Promise<{ status: number; error: st
     const call = request(
       {
         hostname: "127.0.0.1",
-        port: 3100,
+        port: Number(process.env.CONSOLE_TEST_PORT ?? "3100"),
         localAddress: "127.0.0.1",
         path: "/api/auth/login",
         method: "POST",
         headers: {
-          Origin: "http://[::1]:3100",
+          Origin: `http://[::1]:${process.env.CONSOLE_TEST_PORT ?? "3100"}`,
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body),
           "X-Forwarded-For": `198.51.100.${index + 1}`,

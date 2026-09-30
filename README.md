@@ -17,6 +17,8 @@ Requires [uv](https://docs.astral.sh/uv/) and Docker Desktop. Examples below use
 
 ```bash
 uv sync
+# Compose checks this variable even when starting only database services.
+export ADMIN_CONSOLE_SESSION_SECRET="$(openssl rand -base64 48)"
 docker compose up -d
 cp .env.example .env        # set a unique 32+ byte pepper and at least one provider key
 set -a; . ./.env; set +a     # CLI reads environment variables; keep .env private
@@ -152,7 +154,8 @@ npm run dev -- --hostname localhost --port 3100
 Use [the console](http://localhost:3100/login) and paste the issued admin key.
 Local Chromium allows Secure cookies on localhost; deployments must use HTTPS.
 `ADMIN_CONSOLE_ORIGIN` must exactly match the browser's origin (scheme, host, port).
-Invalid URLs or a missing/short secret fail server startup. Keep `.env*` untracked;
+The local and Docker entry points validate before starting Next. Invalid URLs or a
+missing/short secret stop the process before it can print Ready or serve requests. Keep `.env*` untracked;
 do not use any `NEXT_PUBLIC_` setting for these values. Changing the session secret
 invalidates existing sessions. The secret must be at least 32 characters and bytes.
 
@@ -162,17 +165,42 @@ secret when enabled). Run `docker compose --profile console up -d --build`.
 This starts Postgres, Redis, the gateway with its private admin listener, and the console
 at localhost:3100. The admin API port is not published by this profile. The public
 model API is loopback port 8001. The console image is multi-stage and runs as UID 1001.
+Compose requires the session-secret variable during interpolation, including when
+only starting database services; export it before running any compose command.
 The image build needs npm registry access for the exact lockfile and the pinned Node image;
 installed local node_modules are used for offline development and checks.
 
 13a includes organizations/teams, one-time tenant-key creation and confirmed revocation,
 limits with override/default/unlimited sources, budgets and alert thresholds, UTC-month
-usage with explicit unpriced calls, and cursor-paginated audit filtering/verification.
+usage with explicit unpriced calls, labelled request/token charts and a table alternative,
+and cursor-paginated audit filtering/verification. Unknown costs are JSON null; unknown
+token totals leave chart gaps instead of being plotted as zero.
 Model policy, guardrails, residency, cache purge, admin-key management and SSO are 13b/later.
 Closing/Escape, changing tabs or reloading discards a newly created tenant secret. If its
 first response is lost, revoke the resulting key and issue a replacement. Money stays
 as decimal strings and BigInt pico-dollars; no float accounting. Theme defaults to system
 and can be changed to light/dark for the current document.
+
+Login failures are throttled per browser-client IP: ten failures within a fixed minute
+trigger 429 and Retry-After. Successful login resets that client's count. This is a
+bounded in-memory throttle on **each replica**, reset by restart; counts are not shared.
+Existing sessions bypass it. Clients sharing a NAT IP share the sign-in quota. Valid
+gateway keys bypass the admin API's failure counter, so one abusive browser cannot
+lock every administrator out through the BFF's shared IP.
+
+Next Route Handlers do not expose the socket IP and preserve supplied X-Forwarded-For.
+The Node entry points therefore overwrite an internal header from the socket using
+Node 24's request-start channel before Next receives the request. Forging that header
+or X-Forwarded-For has no effect by default. `ADMIN_CONSOLE_TRUSTED_PROXY_HOPS` is
+validated as an integer 0–32, default **0**. With N trusted proxy hops, use the Nth
+address from the right of X-Forwarded-For; invalid/missing selections fall back to the
+socket. IPv4-mapped addresses are normalized.
+
+Behind a load balancer, restrict direct console access to trusted proxies, make them
+append the real peer or replace an untrusted chain, and set the exact hop count. Do not
+set it on a publicly reachable origin. With default zero behind a balancer, all callers
+share its socket-IP quota. Replicas should also have load-balancer abuse controls if
+a distributed limit is needed. See [ADR 0024](docs/adr/0024-admin-console.md).
 
 Validation from `admin-console/`:
 
@@ -189,7 +217,7 @@ npm run test:break
 
 Playwright uses a disposable `console_e2e_<uuid>` Postgres database and Redis DB 13.
 It starts the real gateway/public/admin listeners (ports 18090/18091) and the production
-standalone console (3100). It deliberately ignores `.env` and inherited gateway config,
+standalone console (3100, IPv6 loopback browser origin). It deliberately ignores `.env` and inherited gateway config,
 uses a fake pepper/provider key and a provider URL at closed port 1, and never invokes a
 provider. The database account must be able to create/drop its test database. Optional
 `CONSOLE_TEST_DATABASE_URL` and `CONSOLE_TEST_REDIS_URL` select test services; defaults
@@ -198,12 +226,16 @@ removed on shutdown. No traces, videos or full-key screenshots are retained.
 Install Chromium beforehand with `./node_modules/.bin/playwright install chromium` on
 an online machine; an offline sandbox must use the installed browser and packages.
 
-The no-leak test scans every observed browser response body and all headers. Exactly one
+Seven named e2e tests cover platform workflow, one-time keys, org isolation, CSP,
+cookies/CSRF, revocation and login throttling. An automatic shared fixture scans every
+observed browser response body and all headers in every test and reports the total. Exactly one
 successful tenant-key creation JSON response may contain its newly issued tenant secret;
 all other responses must omit it, and no response may contain an admin credential.
 Break checks deliberately inject an admin key into a client component, remove the Origin
 check, add a reveal control and drop httpOnly, require the designated test to fail, then
-restore sources and the production build. This runner uses only fake, disposable test data.
+restore sources and the production build. Two gateway mutations additionally restore
+the early IP failure-limit check and the string-None serialization bug. Each must fail
+its designated HTTP regression test. This runner uses only fake, disposable test data.
 CI runs lint, typing, unit/component tests, build and the same real-stack Chromium suite.
 
 Screenshots contain synthetic workspaces and public IDs only:

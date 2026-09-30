@@ -39,6 +39,7 @@ npm run test:e2e             # requires local Postgres/Redis; creates a disposab
 If npm's cache is inaccessible, set npm_config_cache to a writable temporary directory.
 Never sudo or force npm. Existing installed dependencies suffice in offline sandboxes.
 Playwright uses the installed Chromium; do not download browsers in an offline sandbox.
+Compose requires ADMIN_CONSOLE_SESSION_SECRET during interpolation for all profiles.
 See README for fake-only e2e settings and screenshots. Run e2e after Python db/Redis
 suites, since migrations share the gateway_readonly role on the same Postgres cluster.
 
@@ -98,6 +99,7 @@ Keep the code easy to navigate: someone new should find anything in under a minu
   exact decimal money. Never pass admin credentials to client props or NEXT_PUBLIC settings.
 - components/: one UI task per module; native dialogs, labelled forms and semantic tables.
 - tests/lib and tests/components mirror the source; tests/e2e uses a disposable real stack.
+  A shared fixture scans every browser response in every test; keep its count and one-time exception.
   No .env, admin keys, tenant secrets, browser traces or key-dialog screenshots in git.
 
 **Functions and classes**

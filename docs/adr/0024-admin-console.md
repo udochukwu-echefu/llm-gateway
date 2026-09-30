@@ -117,8 +117,8 @@ standard generated standalone Next server is retained; no custom Next server or
 new dependency is required. Development propagates the preload to its worker.
 
 `ADMIN_CONSOLE_TRUSTED_PROXY_HOPS` is an integer 0–32, default 0. Zero ignores every
-forwarded address. With N trusted hops, select the Nth valid IP from the right of
-X-Forwarded-For; missing/invalid selected values fall back to the socket. Deployments
+forwarded address. With N trusted hops, select the Nth address from the right of
+X-Forwarded-For and validate it; missing/invalid selected values fall back to the socket. Deployments
 behind a load balancer must restrict direct access to the console, ensure the trusted
 proxy appends the actual peer (or replaces an untrusted chain), and set the exact hop
 count, mirroring the gateway. Setting hops on a publicly reachable origin would let

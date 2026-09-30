@@ -68,3 +68,17 @@ ratings are qualitative for this early deployment.
 | UI-only authorization / org tampering | Gateway verifies key role and organization on each API operation; BFF preserves scope, allowed routes and credential; other-org 404 tests | Future endpoint/BFF changes require matrix and browser isolation tests |
 | Tenant secret revealed again | Only first creation response contains secret; dialog state discarded on close/unmount; no reveal control/storage; no-store responses | User must secure their clipboard/secret store; lost first response requires revoke/reissue |
 | Cached authenticated pages | Dynamic rendering, no-store pages/BFF responses, full navigation on authentication changes | Browser/device compromise or screenshots can expose public administrative metadata |
+
+The console's login-failure throttle is per socket-derived client IP, in memory on
+each replica: ten failures in a fixed minute, bounded to 10,000 entries. NAT clients
+share a quota; replicas/restarts do not share or preserve counters. Authenticated
+requests bypass it. The admin API verifies valid keys before its separate failure
+counter to prevent the BFF's shared IP from becoming an administrator-wide lockout.
+
+The Node entry points overwrite the internal client-address header before Next
+handles requests. Forwarded addresses are ignored unless validated trusted proxy
+hops are configured (default zero). Behind a balancer, restrict direct origin access
+and require the trusted chain to append real peers. Misconfigured trust lets clients
+claim identities, while no trust behind a balancer shares its quota across callers.
+Startup validation runs before Next starts for both local and Docker entry points;
+missing secrets fail compose interpolation and invalid settings stop the process.

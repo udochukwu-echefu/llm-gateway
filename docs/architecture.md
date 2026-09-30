@@ -794,40 +794,72 @@ eligible stage where every scheduled request was sent. The latter gives stronger
 capacity evidence. Generation coverage is also reported beside SLO capacity.
 
 
-## Step 13a: a browser desk in front of the private management door
+## Step 13a: the admin web console
 
-The web console lives in admin-console/. A **backend for frontend (BFF)** is a small
-server built for one user interface: the browser asks Next.js to do an operation, and
-Next.js talks privately to the gateway. Think of a bank teller handling the vault key;
-the customer never touches it. The admin key stays inside an encrypted, httpOnly,
-Secure cookie and server-only code. HTML, JavaScript and public identity props contain
-only the name, role, public key ID and optional organization. /admin/v1/me returns that
-identity after authentication. The gateway remains the authority for every operation:
-hiding a button does not authorize anything, and another organization's data is 404.
+### BFF
 
-A session lasts at most eight hours, or thirty minutes without authenticated activity.
-Logout removes the browser's cookie; a revoked gateway key causes a fresh sign-in.
-Because this is a stateless encrypted cookie, revoking the admin key is how to stop a
-stolen copy of the session. The runtime settings are validated before serving requests.
+A **backend for frontend (BFF)** is a server that handles requests for one user
+interface. The browser asks Next.js to make a change; Next.js calls the gateway's
+private admin API. Think of a bank teller holding the vault key while helping a
+customer. The teller handles the vault key; the customer never needs to touch it.
 
-**CSRF** is another site tricking a signed-in browser into making a change. SameSite=Strict
-limits when cookies travel; each write also requires the exact configured Origin,
-including login and logout. These are HTTP route handlers, so their explicit check is
-required; Next's Server Action Origin/Host check is not invoked by this implementation.
-**XSS** is injected JavaScript running as part of our page. React escapes text, the
-credential never reaches browser JavaScript, and a **Content Security Policy (CSP)**
-limits executable scripts. A new random **nonce** (one-request permission token) allows
-Next's own scripts. Pages render dynamically so nonces are never reused from a static
-page cache. No inline script exemption or third-party script is needed. frame-ancestors
-'none' prevents clickjacking: another site cannot frame our buttons to disguise a change.
+After sign-in, the admin key stays in server-only code and an encrypted cookie.
+Responses contain public identity from `/admin/v1/me`, not the credential. The
+gateway decides permissions on every operation. Hiding a button cannot authorize a
+request, and another organization's resources return "not found".
 
-Operators can create organizations and teams, issue/revoke application keys, adjust
-limits and budgets, inspect this month's UTC usage and filter/page the audit log.
-Platform admins can verify the audit chain. The key dialog is the only display of a
-new tenant secret: closing it, changing tabs or reloading discards it. Creation retries
-retain one submission UUID, reusing the gateway's idempotency contract.
-Money uses decimal strings and BigInt pico-dollars, never binary floating-point arithmetic.
-Partial or wholly unknown usage is labelled unpriced instead of being treated as free.
-Tables, focus rings, native dialogs and system/light/dark themes support keyboard and
-tablet use. See [ADR 0024](adr/0024-admin-console.md), the README screenshots and the
-real-stack Playwright test with a scan of every observed browser response.
+### Session
+
+A session remembers a successful sign-in for at most eight hours, with a thirty-minute
+idle limit. Its cookie is Secure, httpOnly and SameSite=Strict: HTTPS protects it in
+transit, JavaScript cannot read it, and other sites normally cannot send it. Logout
+clears this browser's cookie. Revoking the admin key also invalidates a stolen copy.
+
+Both local and Docker entry points validate the same settings before starting Next
+or opening a listener. Invalid URLs or a missing/short session secret stop the
+process with a plain error. Compose also refuses a missing secret.
+
+### CSRF
+
+**Cross-site request forgery (CSRF)** means another site tricks a signed-in browser
+into making a change. SameSite=Strict is one defence. Every write, including login
+and logout, also requires the exact configured browser Origin. This console uses
+HTTP Route Handlers, so it performs that check explicitly.
+
+### XSS and CSP
+
+**Cross-site scripting (XSS)** is injected JavaScript running in our page. React
+escapes text, and the admin credential is absent from browser responses. A **Content
+Security Policy (CSP)** further limits scripts. Each response gives Next's scripts a
+fresh **nonce**, a one-request permission token. Dynamic pages prevent nonce reuse.
+
+No inline-script exemption is allowed in production. The policy also prevents
+**clickjacking**, where another site frames our interface to disguise its buttons.
+CSP reduces risk; injected code could still act through a signed-in browser.
+
+### Login throttling
+
+Ten failed sign-ins from one client within a minute trigger a plain 429 message.
+This throttle is in memory on each console replica, so restarts reset it and replicas
+have separate counts. It applies only to sign-in, not an existing session. The gateway
+verifies valid keys before its failure counter, preventing a shared BFF IP lockout.
+
+Next's Route Handler has no socket address and preserves supplied forwarded headers.
+Our Node entry point overwrites an internal header from the actual socket first.
+`ADMIN_CONSOLE_TRUSTED_PROXY_HOPS` defaults to zero, ignoring X-Forwarded-For. Behind a
+load balancer, restrict access to trusted proxies, ensure they append the actual peer
+and set the exact hop count. Otherwise every user may share the balancer's login quota.
+[ADR 0024](adr/0024-admin-console.md) explains the trust boundary and its limits.
+
+### What the console can do
+
+Operators create organizations and teams, issue or revoke application keys, adjust
+limits and budgets, inspect monthly UTC usage and filter/page the audit log. Platform
+admins can verify the audit chain. A new application key is displayed once; closing
+its dialog or reloading discards it. Retried creations reuse one submission ID.
+
+Money is calculated exactly from decimal strings. Unknown costs are JSON null and
+shown as unpriced. Request and token charts have labelled axes and a table alternative;
+unknown token totals leave gaps. Light/dark themes, keyboard dialogs and semantic
+tables support desktop and tablet use. Playwright scans every browser response in
+all seven named real-stack tests for credential leaks.

@@ -1,5 +1,7 @@
 """In-process synthetic provider tests: no real network or wall-clock assertions."""
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -111,3 +113,18 @@ def test_invalid_fake_configuration_fails_startup(monkeypatch: pytest.MonkeyPatc
 
     with pytest.raises(ValueError, match="latency_ms"):
         create_app()
+
+
+async def test_cancelled_provider_wait_is_counted_as_interrupted() -> None:
+    async def cancelled(delay: float) -> None:
+        raise asyncio.CancelledError
+
+    app = create_app(FakeSettings(), sleep=cancelled)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app), base_url="http://fake"
+    ) as client:
+        with pytest.raises(asyncio.CancelledError):
+            await client.post("/v1/chat/completions", json={"model": "test"})
+        stats = await client.get("/stats")
+
+    assert stats.json() == {"started": 1, "completed": 0, "interrupted": 1}

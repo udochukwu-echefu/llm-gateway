@@ -50,3 +50,16 @@ def test_private_write_has_private_permissions_and_cannot_replace_files(tmp_path
     with pytest.raises(FileExistsError):
         private_write(path, "replacement")
     assert path.read_text() == "synthetic"
+
+
+def test_only_k6_threshold_exit_can_be_preserved_as_measurement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner = Mock(return_value=subprocess.CompletedProcess([], 99, stdout="thresholds", stderr=""))
+    monkeypatch.setattr("loadtest.runtime.subprocess.run", runner)
+    monkeypatch.setattr("loadtest.runtime.shutil.which", Mock(return_value="/usr/bin/docker"))
+
+    assert compose("run", "k6", allow_failure=True) == "thresholds"
+    runner.return_value = subprocess.CompletedProcess([], 1, stdout="", stderr="")
+    with pytest.raises(RuntimeError, match="exit 1"):
+        compose("run", "k6", allow_failure=True)

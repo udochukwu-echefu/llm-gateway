@@ -47,7 +47,11 @@ def create_app(settings: FakeSettings | None = None, *, sleep: Sleep = asyncio.s
     @app.post("/v1/chat/completions", response_model=None)
     async def chat(body: ChatBody) -> dict[str, object] | StreamingResponse:
         counts.started += 1
-        await sleep(config.latency_ms / 1000)
+        try:
+            await sleep(config.latency_ms / 1000)
+        except BaseException:
+            counts.interrupted += 1
+            raise
         if body.stream:
             return StreamingResponse(
                 _counted_stream(body, config, counts, sleep), media_type="text/event-stream"
@@ -58,7 +62,11 @@ def create_app(settings: FakeSettings | None = None, *, sleep: Sleep = asyncio.s
     @app.post("/v1/embeddings")
     async def embed(body: EmbeddingBody) -> dict[str, object]:
         counts.started += 1
-        await sleep(config.latency_ms / 1000)
+        try:
+            await sleep(config.latency_ms / 1000)
+        except BaseException:
+            counts.interrupted += 1
+            raise
         value = body.input
         count = len(value) if isinstance(value, list) and not isinstance(value[0], int) else 1
         counts.completed += 1

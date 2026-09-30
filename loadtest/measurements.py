@@ -63,10 +63,6 @@ def container_sample() -> dict[str, Any]:
         "--no-stream",
         "--format",
         "{{json .}}",
-        "fake-provider",
-        *REPLICAS,
-        "loadtest-nginx",
-        "prometheus",
     )
     return {"time": time.time(), "containers": [json.loads(line) for line in output.splitlines()]}
 

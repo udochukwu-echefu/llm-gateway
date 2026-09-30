@@ -34,7 +34,8 @@ def compose(*arguments: str, latency_ms: int = 200, allow_failure: bool = False)
         text=True,
         check=False,
     )
-    if result.returncode and not allow_failure:
+    # k6's 99 means threshold failure, whose measurements must remain available.
+    if result.returncode and (not allow_failure or result.returncode != 99):
         raise RuntimeError(
             f"load-test Docker command failed (exit {result.returncode}); output suppressed"
         )

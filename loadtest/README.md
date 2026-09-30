@@ -22,9 +22,10 @@ Each scenario runs three times. S1/S3 increase offered arrivals through 1, 5, 10
 40, 80, 160, 320, 640 and 1280 requests/s, holding each plateau for 60 seconds, stopping
 at the first SLO failure. Capacity is the highest passing plateau, not an interpolated
 claim. S3 uses exactly the same shape against two replicas. S2/S4/S7 use floor(70% of
-S1's median capacity); S5 uses that rate for repeat embeddings. S6 drives 50/s for
+S1's median capacity); S5 uses 5/s for repeat embeddings. S6 drives 50/s for
 180 seconds with a fresh team's RPM=600. S7 runs 600 seconds per repetition.
-If S1 finds no passing rate, dependent scenarios stop rather than invent a baseline.
+If S1 finds no passing rate, S2/S4/S7 stop rather than invent a baseline. `all` records
+them as BLOCKED, continues independent scenarios, and exits nonzero for incompleteness.
 
 `loadtest/.state/` (0700) contains generated runtime credentials and one CLI-issued
 key per run (0600). It is ignored by git. Credentials are never printed, passed in
@@ -53,7 +54,8 @@ HTTP duration; streaming TTFB is reported separately. SSE validation checks 20 c
 chunks, usage, DONE and no error event. Expected RPM 429s are not availability errors.
 
 Container CPU and memory are sampled about every five seconds using `docker compose
-stats`. Sampling failure is explicit, not a zero. Queue depth is sampled from Prometheus
+stats` (all services; some Compose versions accept only one service argument).
+Sampling failure is explicit, not a zero. Queue depth is sampled from Prometheus
 at two-second resolution. After a final scrape/writer wait, fresh-team usage counts are
 compared with client successes and completed fake-provider requests. The report must
 not claim zero lost receipts merely because the queue is empty.

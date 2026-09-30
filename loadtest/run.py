@@ -18,6 +18,7 @@ from loadtest.measurements import (
     snapshot,
     usage_counts,
 )
+from loadtest.rpm import rpm_observation
 from loadtest.runtime import RESULTS, prepare_directories
 from loadtest.setup import create_team, setup
 
@@ -82,7 +83,7 @@ def run_scenario(scenario: str, *, baseline_rate: int | None = None) -> dict[str
         rate = (
             50
             if scenario == "S6"
-            else (5 if scenario in {"smoke", "provider"} else _dependent_rate(baseline_rate))
+            else (5 if scenario in {"smoke", "provider", "S5"} else _dependent_rate(baseline_rate))
         )
         seconds = (
             600
@@ -98,7 +99,11 @@ def run_scenario(scenario: str, *, baseline_rate: int | None = None) -> dict[str
         ]
         chosen = median_run(runs, scores=[float(run["client_ms"]["p99"]) for run in runs])
         result = {"scenario": scenario, "runs": runs, "median": chosen}
-    (RESULTS / f"{scenario}.json").write_text(json.dumps(result, indent=2))
+    serialized = json.dumps(result, indent=2)
+    history = RESULTS / "history"
+    history.mkdir(exist_ok=True)
+    (history / f"{scenario}-{uuid.uuid4().hex}.json").write_text(serialized)
+    (RESULTS / f"{scenario}.json").write_text(serialized)
     return result
 
 
@@ -115,8 +120,26 @@ def main() -> None:
     if args.scenario == "setup":
         return
     if args.scenario == "all":
+        blocked: list[str] = []
         for scenario in ("provider", *[f"S{i}" for i in range(1, 8)]):
-            run_scenario(scenario)
+            try:
+                run_scenario(scenario)
+            except ValueError as error:
+                blocked.append(scenario)
+                (RESULTS / f"{scenario}.json").write_text(
+                    json.dumps(
+                        {
+                            "scenario": scenario,
+                            "status": "BLOCKED",
+                            "reason": str(error),
+                            "runs": [],
+                        },
+                        indent=2,
+                    )
+                )
+                print(f"{scenario} BLOCKED: {error}", flush=True)
+        if blocked:
+            raise SystemExit(f"Incomplete benchmarks; blocked scenarios: {', '.join(blocked)}")
         return
     result = run_scenario(args.scenario)
     if args.scenario == "smoke":
@@ -203,8 +226,14 @@ def _collect(
             for key, value in after.items()
             if not key.startswith("bucket:")
         },
+        "histogram_delta": {
+            key[7:]: value - before.get(key, 0)
+            for key, value in after.items()
+            if key.startswith("bucket:")
+        },
         "container_samples": samples,
         "queue": queue_series(start, end, replicas) if org else [],
+        "rpm": rpm_observation(org) if scenario == "S6" else None,
     }
 
 

@@ -94,6 +94,7 @@ def create_app(
     )
     if not settings.providers.enabled():
         raise ValueError("Configure at least one provider API key in the secret store")
+    settings.validate_provider_timeouts()
     catalog = catalog if catalog is not None else load_catalog()
 
     metrics = Metrics(metrics_registry if metrics_registry is not None else CollectorRegistry())

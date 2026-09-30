@@ -211,14 +211,18 @@ async def test_total_deadline_cancels_pending_poll_without_resubmission(
     assert poll.call_count == 0  # respx records completed calls, not a cancelled handler.
 
 
-async def test_client_disconnect_cancels_pending_poll_before_response_headers(
+@pytest.mark.parametrize("stage", ["initial", "poll"])
+async def test_client_disconnect_cancels_upstream_work_before_response_headers(
     hosted_gateway: HostedGateway,
     upstream: respx.MockRouter,
     issued_test_key: str,
+    stage: str,
 ) -> None:
     poll_started, cancelled = asyncio.Event(), asyncio.Event()
     poll_attempts = 0
-    post = upstream.post("/chat/completions").respond(202, headers={"NVCF-REQID": REQUEST_ID})
+    post = upstream.post("/chat/completions")
+    if stage == "poll":
+        post.respond(202, headers={"NVCF-REQID": REQUEST_ID})
 
     async def blocked(request: httpx.Request) -> httpx.Response:
         nonlocal poll_attempts
@@ -230,7 +234,11 @@ async def test_client_disconnect_cancels_pending_poll_before_response_headers(
             cancelled.set()
         return httpx.Response(200)
 
-    poll = upstream.get(f"/status/{REQUEST_ID}").mock(side_effect=blocked)
+    poll = upstream.get(f"/status/{REQUEST_ID}")
+    if stage == "poll":
+        poll.mock(side_effect=blocked)
+    else:
+        post.mock(side_effect=blocked)
     received = False
     sent: list[Message] = []
 
@@ -268,7 +276,8 @@ async def test_client_disconnect_cancels_pending_poll_before_response_headers(
     await asyncio.wait_for(hosted_gateway.recorded.wait(), 5)
 
     assert cancelled.is_set()
-    assert post.call_count == poll_attempts == 1
+    assert poll_attempts == 1
+    assert post.call_count == (1 if stage == "poll" else 0)
     assert poll.call_count == 0
     assert not sent
     assert hosted_gateway.records[0].outcome == "client_disconnected"

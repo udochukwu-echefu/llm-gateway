@@ -15,3 +15,7 @@ DEFAULT_BASE_URLS: dict[ProviderName, str] = {
     "zai": "https://api.z.ai/api/paas/v4",
     "nvidia": "https://integrate.api.nvidia.com/v1",
 }
+
+# Reviewer live evidence (2026-09-30): queued Kimi answered in 180.7 s.
+# Trial queueing can take minutes; keep other providers on global timeouts.
+DEFAULT_READ_TIMEOUTS: dict[ProviderName, float] = {"nvidia": 300.0}

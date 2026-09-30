@@ -21,6 +21,19 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
   `nvidia/moonshotai/kimi-k3` sends `moonshotai/kimi-k3` to NVIDIA. Each provider
   has its own lifespan HTTP pool, retry budget and circuit breaker, using the
   existing global timeout/pool settings. No dependencies are added.
+  Review amendment: connection limits stay global, but connect/read/write/pool
+  timeouts may be overridden per provider. Unset inherits global values except
+  NVIDIA's reviewed default read timeout of 300 seconds. Resolve once through the
+  same typed timeout values for client construction and startup lease validation.
+  Reject non-positive/non-finite overrides; lease TTL must exceed the largest
+  combined effective timeout **among enabled providers**, not independent maxima
+  from different providers. Recheck after secret-store keys reveal enabled providers.
+  The default lease TTL remains 900 seconds; NVIDIA's default combined stall is 320.
+  Keep the explicit global overall deadline unchanged (60 seconds); NVIDIA
+  development must set it to e.g. 330 seconds. Do not silently relax all requests.
+  Keep read-timeout retries disabled: existing policy also disallows automatic
+  fallback for a transport read timeout. Retryable upstream timeout fallback still
+  shares the original deadline. Queued calls can already have been charged.
 - Z.ai defaults to `https://api.z.ai/api/paas/v4`, not `/v1`, the Coding Plan
   endpoint, or BigModel China. NVIDIA defaults to
   `https://integrate.api.nvidia.com/v1`. Keys use SecretStr and the usual secret
@@ -128,6 +141,20 @@ canonical field when returned, without claiming a live observation. No alternate
 NVIDIA cached-token shape or numeric trial rate limit was verified.
 
 ## Consequences
+
+**Free-tier queueing can take minutes; not suitable for interactive production
+traffic.** Reviewer live evidence (owner's NVIDIA key, 2026-09-30): Kimi returned
+HTTP 200 after 180.7 seconds for three words, 21 completion tokens including 7
+reasoning tokens. GLM Flash returned 200 in 16 seconds with reasoning_content,
+reasoning-token usage details and NVCF-REQID/NVCF-STATUS fulfilled. These are
+reviewer-reported queue-inclusive observations, not agent measurements or a latency
+guarantee. Z.ai returned 429/1113 with no credit; that account error is already handled.
+The 300-second NVIDIA read default accommodates this evidence without making fast
+providers wait minutes per read. The independent request deadline must also cover
+the queue explicitly. Heartbeats begin at admission, before headers/first chunk;
+SSE hold-back is bounded by characters, not a short first-byte timer. Disconnect
+cancels local work and renewals/releases the lease, but cannot guarantee deletion of
+NVIDIA's remote job; its checked status documentation has no remote cancel endpoint.
 
 Production NVIDIA use needs a paid NIM or partner endpoint and newly reviewed
 prices/regions. The terms prohibit trial production and confidential/sensitive

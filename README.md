@@ -487,6 +487,10 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_PROVIDERS__NVIDIA__API_KEY` | unset | Enable NVIDIA API catalogue hosted Kimi/GLM trials |
 | `GATEWAY_PROVIDERS__<PROVIDER>__BASE_URL` | provider default | Optional HTTP(S) endpoint override |
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
+| `GATEWAY_PROVIDERS__<PROVIDER>__CONNECT_TIMEOUT_S` | unset | Override that provider's connect timeout; otherwise inherit global |
+| `GATEWAY_PROVIDERS__<PROVIDER>__READ_TIMEOUT_S` | unset; NVIDIA effective default 300 | Override read silence/first-byte wait; otherwise inherit global, except NVIDIA's reviewed 300-second default |
+| `GATEWAY_PROVIDERS__<PROVIDER>__WRITE_TIMEOUT_S` | unset | Override that provider's write timeout; otherwise inherit global |
+| `GATEWAY_PROVIDERS__<PROVIDER>__POOL_TIMEOUT_S` | unset | Override that provider's pool wait; otherwise inherit global |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
 | `GATEWAY_LOG_FORMAT` | `json` | `json` or `console` |
 | `GATEWAY_DATABASE_URL` | required | Postgres asyncpg URL (contains a password) |
@@ -706,6 +710,38 @@ Polling failures never resubmit an already accepted inference job. The status
 reference documents JSON, not SSE; queued streaming and GLM 202 responses return
 `502 upstream_pending_unsupported` on the bounded retry path, not an empty 202.
 These trials remain unpriced even when an account provides free development credits.
+
+**Free-tier queueing can take minutes; not suitable for interactive production traffic.**
+Reviewer live evidence on 2026-09-30 (not a new agent measurement): NVIDIA Kimi
+returned HTTP 200 after **180.7 seconds** for a three-word reply, with 21 completion
+tokens including 7 reasoning tokens. This is queue-inclusive latency, not generation
+speed. NVIDIA GLM Flash answered in **16 seconds**, with `reasoning_content`, usage
+reasoning-token details and `nvcf-reqid`/`nvcf-status: fulfilled`. Z.ai direct returned
+429/1113 with no account credit; the gateway's account-error fix is already merged.
+
+NVIDIA alone now defaults to a **300-second read timeout**, covering silence before
+headers or the first SSE chunk and between subsequent reads. Per-provider
+connect/read/write/pool overrides take precedence; other providers inherit global
+values. All overrides must be positive and finite. Lease TTL must exceed the largest
+effective combined timeout of an enabled provider (NVIDIA defaults total 320 seconds;
+the default lease TTL is 900). This check also runs after file-backed keys are resolved.
+
+The **overall request deadline still defaults to 60 seconds**, independently of pool
+timeouts. To permit NVIDIA development queue waits, explicitly configure, for example:
+
+```bash
+export GATEWAY_RESILIENCE__DEADLINE_S=330
+# Optional; NVIDIA's default already supplies this read timeout:
+export GATEWAY_PROVIDERS__NVIDIA__READ_TIMEOUT_S=300
+```
+
+Keep `GATEWAY_RESILIENCE__RETRY_READ_TIMEOUTS=false`: a timed-out queued call may
+already have consumed credits and is not automatically retried **or failed over**
+under the existing policy. Approved fallback after a retryable upstream timeout
+(e.g. HTTP 504) gets only the remaining overall deadline, never a fresh one. Do not
+add automatic NVIDIA fallbacks for budget-limited teams. Client disconnect cancels
+the local HTTP wait and releases admission/lease resources; it cannot guarantee that
+NVIDIA removes the remote queued job without a documented cancellation API.
 
 ## Docs
 

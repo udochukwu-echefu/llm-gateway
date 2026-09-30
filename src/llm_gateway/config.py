@@ -14,16 +14,23 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llm_gateway.observability.configuration import MetricsSettings, TracingSettings
-from llm_gateway.providers.defaults import DEFAULT_BASE_URLS
+from llm_gateway.providers.defaults import DEFAULT_BASE_URLS, DEFAULT_READ_TIMEOUTS
+from llm_gateway.providers.timeouts import ProviderTimeouts
 from llm_gateway.resilience.configuration import ResilienceSettings
 from llm_gateway.schemas.common import ProviderName
 
 
 class ProviderSettings(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    """Optional phase overrides are resolved alongside the global timeouts."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     api_key: SecretStr | None = None
     base_url: HttpUrl | None = None
+    connect_timeout_s: float | None = Field(default=None, gt=0)
+    read_timeout_s: float | None = Field(default=None, gt=0)
+    write_timeout_s: float | None = Field(default=None, gt=0)
+    pool_timeout_s: float | None = Field(default=None, gt=0)
 
     @field_validator("api_key")
     @classmethod
@@ -154,14 +161,30 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _lease_outlasts_provider_stall(self) -> Self:
-        if self.limits.lease_ttl_s <= (
-            self.connect_timeout_s
-            + self.write_timeout_s
-            + self.read_timeout_s
-            + self.pool_timeout_s
-        ):
-            raise ValueError("Lease TTL must exceed combined provider timeouts")
+        self.validate_provider_timeouts()
         return self
+
+    def provider_timeouts(self, name: ProviderName, block: ProviderSettings) -> ProviderTimeouts:
+        """Explicit overrides win; NVIDIA alone has a reviewed longer read default."""
+        return ProviderTimeouts(
+            connect=block.connect_timeout_s or self.connect_timeout_s,
+            read=block.read_timeout_s or DEFAULT_READ_TIMEOUTS.get(name, self.read_timeout_s),
+            write=block.write_timeout_s or self.write_timeout_s,
+            pool=block.pool_timeout_s or self.pool_timeout_s,
+        )
+
+    def validate_provider_timeouts(self) -> None:
+        """Recheck after secret-store resolution reveals which providers are enabled."""
+        enabled = self.providers.enabled()
+        if not enabled:
+            return  # File-backed keys are checked after resolution in create_app.
+        name, block = max(enabled, key=lambda pair: self.provider_timeouts(*pair).combined)
+        combined = self.provider_timeouts(name, block).combined
+        if self.limits.lease_ttl_s <= combined:
+            raise ValueError(
+                f"Lease TTL must exceed combined provider timeouts for enabled provider '{name}' "
+                f"({combined:g} s); GATEWAY_LIMITS__LEASE_TTL_S={self.limits.lease_ttl_s}"
+            )
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "json"

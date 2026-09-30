@@ -1,4 +1,5 @@
 import http from 'k6/http';
+import { validStream } from './stream-validation.js';
 import { check } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
@@ -44,8 +45,7 @@ export default function () {
   const response = http.post(`${base}/v1/${embedding ? 'embeddings' : 'chat/completions'}`, body, {headers: {...headers, 'x-request-id': `${__ENV.OUTPUT}-request-${__VU}-${__ITER}`}, timeout: '90s'});
   let valid = response.status === 200;
   if (valid && stream) {
-    const text = String(response.body);
-    valid = text.includes('data: [DONE]') && !text.includes('"error"') && (text.match(/"content":"word "/g) || []).length === 20 && text.includes('"usage"');
+    valid = validStream(String(response.body), model);
   } else if (valid) {
     try {
       const value = JSON.parse(String(response.body));

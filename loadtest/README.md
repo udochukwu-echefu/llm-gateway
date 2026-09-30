@@ -22,13 +22,18 @@ Every run starts with 30 seconds of traffic excluded from measurement. S1/S3
 ramp through 10, 25, 50, 100, 200, 400 and 800 requests/s. Each plateau lasts
 max(60 seconds, 3000 / rate), ensuring at least 3000 scheduled measured requests.
 Overhead misses do not stop the ramp. Stop when errors exceed 1%, client p99
-exceeds five times the measured direct-provider p99, or generation/telemetry is
-incomplete. Keep the stopping stage and all repetitions.
+exceeds five times the measured direct-provider p99, or telemetry is incomplete. Dropped iterations are retained but do not
+alone stop the ramp. Keep the stopping stage and all repetitions.
 
 SLO capacity is the highest offered stage with exact overhead p99 <10 ms and
 errors <0.1%. Saturation throughput is the successful throughput of the highest
 stage with errors <0.1%. The two-replica/one-replica saturation throughput ratio
-is the scaling factor. If the 800/s ceiling is reached, capacity beyond it is
+is the scaling factor. This literal error-only definition can include generator-dropped
+stages: dropped iterations never reached HTTP and are not HTTP errors. Report the
+actual successful responses/s, generator coverage, and the highest eligible stage
+with zero dropped iterations separately. SLO capacity likewise uses the amendment's
+latency/error criteria, with generation coverage reported alongside.
+If the 800/s ceiling is reached, capacity beyond it is
 unmeasured. Median ramps are selected by saturation throughput, ties by repetition.
 
 S2/S4/S7 always run at floor(50% of S1 SLO capacity), minimum 1/s, or fallback
@@ -106,3 +111,12 @@ namespace with `SYS_PTRACE` and `seccomp=unconfined`, and disables its network. 
 debugging permissions are **not** applied to the production image or regular replicas.
 Never use `--locals` or profile an app holding real keys. The report records the exact
 successful command or platform failure. See [report](../docs/benchmarks/load-test-report.md).
+
+Validate the SSE checker independently, with no HTTP calls:
+
+```bash
+uv run python - <<'PY'
+from loadtest.runtime import compose
+print(compose("run", "--rm", "--no-deps", "k6", "run", "--quiet", "/scripts/stream-validation.test.js"))
+PY
+```

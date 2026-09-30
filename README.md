@@ -165,8 +165,9 @@ secret when enabled). Run `docker compose --profile console up -d --build`.
 This starts Postgres, Redis, the gateway with its private admin listener, and the console
 at localhost:3100. The admin API port is not published by this profile. The public
 model API is loopback port 8001. The console image is multi-stage and runs as UID 1001.
-Compose requires the session-secret variable during interpolation, including when
-only starting database services; export it before running any compose command.
+The session secret is required only by the console container. Starting Postgres/Redis
+without it works; starting the console with a missing or short secret exits with a clear
+configuration error before opening a listener. Export the secret before starting the console.
 The image build needs npm registry access for the exact lockfile and the pinned Node image;
 installed local node_modules are used for offline development and checks.
 

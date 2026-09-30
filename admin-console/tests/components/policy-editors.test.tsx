@@ -181,3 +181,34 @@ test("unsaved policy edits warn before page navigation and retain edits when can
   expect(confirm).toHaveBeenCalledOnce();
   expect((screen.getByLabelText("Allow nothing") as HTMLInputElement).checked).toBe(true);
 });
+
+test("a saved policy with a failed refresh requires reload without claiming a conflict", async () => {
+  const user = userEvent.setup();
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(new Response('{"updated":true}'))
+    .mockResolvedValueOnce(new Response('{"error":"Read unavailable"}', { status: 503 }))
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ...initial,
+          version: "b".repeat(64),
+          overrides: { organization: ["groq/*"], team: null },
+        }),
+      ),
+    );
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+  render(list());
+  await user.click(screen.getByLabelText("Allow only these", { exact: true }));
+  await user.click(screen.getByLabelText("Whole provider · groq/*"));
+  await user.click(screen.getByText("Save model policy"));
+  await screen.findByText(/Policy saved, but its updated view could not be loaded/);
+  expect(screen.queryByText(/Someone else changed/)).toBeNull();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect((screen.getByText("Save model policy") as HTMLButtonElement).disabled).toBe(true);
+  await user.click(screen.getByText("Reload model policy"));
+  await waitFor(() => expect(screen.queryByText(/Policy saved, but its updated view/)).toBeNull());
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(screen.queryByRole("button", { name: "Save model policy" })).toBeNull();
+});

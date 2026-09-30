@@ -241,7 +241,7 @@ test("every policy write and cache purge appears in the audit log", async ({
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
 });
-test("unsaved policy changes warn before tab and page navigation", async ({
+test("unsaved policy changes warn before tab page and browser Back navigation", async ({
   page,
   credentials,
 }) => {
@@ -255,6 +255,10 @@ test("unsaved policy changes warn before tab and page navigation", async ({
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("link", { name: "Audit log", exact: true }).click();
   await expect(panel).toBeVisible();
+  const leaving = page.waitForEvent("dialog");
+  await page.evaluate(() => history.back());
+  await (await leaving).dismiss();
+  await expect(panel.getByLabel("Allow nothing")).toBeChecked();
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Cache", exact: true }).click();
   await expect(page.getByText("Purge cache", { exact: true })).toBeVisible();

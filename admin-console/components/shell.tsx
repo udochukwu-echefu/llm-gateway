@@ -25,7 +25,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
       </a>
       <aside>
         <div className="sidebar-content">
-          <Link prefetch={false} className="brand" href="/orgs">
+          <Link prefetch={false} className="brand" href="/overview">
             <span className="brand-mark">g</span>gateway
             <span className="brand-sub">ADMIN CONSOLE</span>
           </Link>

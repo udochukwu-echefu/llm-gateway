@@ -8,6 +8,7 @@ export function PolicyEditorFrame({
   changes,
   error,
   conflict,
+  needsReload,
   busy,
   notice,
   reload,
@@ -22,6 +23,7 @@ export function PolicyEditorFrame({
   changes: string[];
   error: string;
   conflict: boolean;
+  needsReload: boolean;
   busy: boolean;
   notice: string;
   reload: () => Promise<void>;
@@ -53,6 +55,11 @@ export function PolicyEditorFrame({
           </button>
         </div>
       )}
+      {needsReload && (
+        <p role="alert">
+          Policy saved, but its updated view could not be loaded. Reload before editing again.
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
       <fieldset disabled={busy}>
@@ -71,11 +78,18 @@ export function PolicyEditorFrame({
       )}
       <div className="actions">
         {changes.length > 0 && (
-          <button disabled={busy || conflict || !valid} onClick={() => submit(false)}>
+          <button
+            disabled={busy || conflict || needsReload || !valid}
+            onClick={() => submit(false)}
+          >
             Save {title.toLowerCase()}
           </button>
         )}
-        <button className="secondary" disabled={busy || conflict} onClick={() => submit(true)}>
+        <button
+          className="secondary"
+          disabled={busy || conflict || needsReload}
+          onClick={() => submit(true)}
+        >
           Remove override
         </button>
         <button className="secondary" disabled={busy} onClick={() => void reload()}>

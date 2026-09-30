@@ -49,8 +49,8 @@ export function OverviewBudgets({
                   </td>
                   <td>
                     <span className={reached ? "badge warning" : "badge"}>
-                      {reached ? "Above" : "Below"} alert threshold ·{" "}
-                      {Number((threshold * 100n) / 10n ** 12n)}%
+                      {spend === null ? "Unknown spend" : reached ? "Above" : "Below"} alert
+                      threshold · {Number((threshold * 100n) / 10n ** 12n)}%
                     </span>
                   </td>
                 </tr>

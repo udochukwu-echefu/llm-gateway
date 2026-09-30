@@ -16,13 +16,11 @@ Each step ends with tests, docs and a working gateway.
 | 10 | Caching, isolated per team | ✅ Done |
 | 11 | Guardrails: deterministic PII/secret detection, redaction and restore, data residency | ✅ Done |
 | 12a | Private admin API and Postgres usage dashboard | ✅ Done |
-| 12b | Load test report against our targets (SLOs) | Tooling/report implemented; overhead target missed; S2/S4/S7 measurements blocked |
+| 12b | Load test report against our targets (SLOs) | ✅ Done: full amended campaign, exact timings, GCRA rolling bound and ten-minute soak |
 
-Steps 1–12a are complete. Step 12b's measured campaign is **partial**, not silently
-marked done: no passing S1 baseline was found at the first tested rate, so its prescribed
-70%-load streaming, guardrail and soak scenarios cannot be claimed. See the
-[report](benchmarks/load-test-report.md) for actual results, the exact-window limitation,
-charts and profiling. No maximum sustainable capacity or scaling factor is established.
+Steps 1–12 are complete. Completed measurement does not mean every SLO passed.
+See the [report](benchmarks/load-test-report.md) for measured capacity, saturation,
+scaling, guardrails, streaming, accounting, memory and idle-path distributions.
 
 ## Targets (SLOs) we'll load-test against in step 12
 
@@ -30,6 +28,9 @@ charts and profiling. No maximum sustainable capacity or scaling factor is estab
   guardrails.
 - Availability, excluding provider errors: 99.9%.
 
-Step 12b amendment: RPM now uses GCRA with a bounded burst; TPM remains approximate.
-The redesigned campaign will establish capacity independently of idle-path tails.
-Exact overhead access logs and finer histogram buckets now support the revised campaign.
+RPM uses GCRA with a bounded burst; TPM remains approximate. Exact overhead logs
+and finer histogram buckets support the amended campaign.
+
+The amended campaign evaluates total recorded overhead, including ordinary
+guardrail scans. A separately guardrail-excluded timing distribution remains
+unverified; completed benchmarking does not certify every target above.

@@ -202,22 +202,25 @@ logs a bounded error; `closed` returns `503 limits_unavailable`.
 
 ## Performance
 
-Local Apple M2 Pro / Docker Desktop measurements against a synthetic 200 ms provider:
+Amended local campaign on Apple M2 Pro / Docker Desktop with a synthetic 200 ms
+provider, 30-second warmups and exact per-request overhead:
 
-- Uncached chat missed the target: selected one-replica overhead p99 **34.75 ms** at
-  1 request/s; two replicas **23.48 ms** at the same offered rate. Maximum compliant
-  throughput and scaling factor were not established.
-- Repeated embeddings: overhead p99 **9.57 ms**, client p99 **9.56 ms**, **99.67% cache
-  hits** at 5 requests/s. No unexpected errors or dropped accounting records in measured runs.
-- RPM=600 held fixed-minute buckets at or below 600 across two replicas, but the
-  selected run reached **624 requests in a rolling 60 seconds**. The weighted-window
-  estimate is not exact rolling-window enforcement.
-- Prescribed streaming/guardrail/soak loads remain **blocked** by the absent passing
-  S1 baseline. This is not a production capacity or memory-stability certification.
+- One-replica SLO capacity: **100 offered requests/s**; saturation
+  throughput: **199.332 successes/s**.
+- Two-replica saturation throughput: **532.693 successes/s**;
+  measured scaling factor: **2.672×**.
+- At fully generated eligible stages, throughput was **199.332 / 398.661 successes/s**
+  for one / two replicas (**2.000×**). The error-only definition above
+  retains generator-dropped stages; consult the report before interpreting it as capacity.
+- RPM=600, B=30: maximum rolling-60s atomic admissions **629**, bound **630**.
+- Streaming, guardrail and ten-minute soak scenarios all ran at their declared
+  amended rates. Idle-path tails are reported separately by key-cache hit/miss.
 
+These are laptop measurements at discrete stages, including Docker virtualization;
+capacity beyond the tested ceiling and production performance are unmeasured.
 See the [full report and charts](docs/benchmarks/load-test-report.md),
 [reproduction commands](loadtest/README.md), and [deployment checklist](docs/deployment.md).
-The benchmark ignores `.env`, uses only a fake provider and has a 30-second CI smoke.
+The benchmark ignores .env and uses only a fake provider.
 
 ## Development
 

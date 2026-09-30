@@ -1,8 +1,11 @@
 {
-  "rate": 1,
+  "rate": 100,
   "scenario": "S1 diagnostic (not one of capacity repetitions)",
-  "measurement": "profile-S1-1-1-a831e9f7",
+  "measurement": "profile-S1-1-100-0102fbda",
   "py_spy": "0.4.2",
   "duration_s": 65,
-  "command": "uvx --offline py-spy record --pid 1 --duration 65 --rate 100 --output /profiles/S1-flamegraph.svg"
+  "command": "uvx --offline py-spy record --pid 1 --duration 65 --rate 100 --output /profiles/S1-flamegraph.svg",
+  "sampler_image_id": "sha256:2fc5e7cbcfa3edd10467ec8a4a02bb8076a57a686f681164d533f5e996c4b446",
+  "sampler_version_verified": "py-spy 0.4.2",
+  "build_fallback": "Docker image rebuild failed: lookup ghcr.io: no such host. Cached sampler verified offline; it sampled the current benchmark gateway PID."
 }

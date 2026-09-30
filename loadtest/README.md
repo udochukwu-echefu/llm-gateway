@@ -120,3 +120,10 @@ from loadtest.runtime import compose
 print(compose("run", "--rm", "--no-deps", "k6", "run", "--quiet", "/scripts/stream-validation.test.js"))
 PY
 ```
+
+Setup waits for healthy Postgres and Redis before issuing database commands. If a
+Docker image rebuild fails because a registry hostname cannot resolve, retain the
+failure and use only an already verified image; never substitute a different
+application build for a measured campaign. This campaign reused its exact gateway
+image ID and verified the cached py-spy 0.4.2 sampler offline before profiling the
+current process. The final-source smoke image was subsequently rebuilt successfully.

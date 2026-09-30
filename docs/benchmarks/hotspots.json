@@ -2,16 +2,16 @@
   "top_exclusive_samples": [
     [
       "run (asyncio/runners.py:119)",
-      169
+      527
     ],
     [
-      "main_loop (uvicorn/server.py:248)",
-      7
+      "connect_tcp (anyio/_backends/_asyncio.py:2848)",
+      44
     ],
     [
-      "sleep (asyncio/tasks.py:718)",
-      6
+      "<genexpr> (llm_gateway/resilience/breaker.py:59)",
+      36
     ]
   ],
-  "total_samples": 292
+  "total_samples": 2048
 }

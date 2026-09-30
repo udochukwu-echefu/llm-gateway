@@ -15,9 +15,16 @@ def test_reviewed_catalog_loads() -> None:
     catalog = load_catalog()
 
     assert catalog.version
-    assert {entry.provider for entry in catalog.models} == {"groq", "deepseek", "gemini", "openai"}
+    assert {entry.provider for entry in catalog.models} == {
+        "groq",
+        "deepseek",
+        "gemini",
+        "openai",
+        "zai",
+        "nvidia",
+    }
     assert all(
-        isinstance(period.input_price, Decimal)
+        period.unpriced or isinstance(period.input_price, Decimal)
         for entry in catalog.models
         for period in entry.periods
     )

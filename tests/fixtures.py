@@ -14,6 +14,8 @@ DOCUMENTED_CHAT_REJECTIONS = {
     "deepseek": frozenset({"frequency_penalty", "presence_penalty"}),
     "gemini": frozenset[str](),
     "openai": frozenset[str](),
+    "zai": frozenset[str](),
+    "nvidia": frozenset[str](),  # Kimi exclusions are model-specific, tested with its exact ID.
 }
 CANONICAL_CHAT_VALUES: dict[str, Any] = {
     "model": "model",

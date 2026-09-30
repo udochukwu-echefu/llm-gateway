@@ -46,7 +46,7 @@ async def test_cli_policies_are_audited_and_loaded_with_key(
     cleared = await repository.get_key(issued.key_id)
     assert cleared is not None
     assert cleared.guardrails.action("email") == "allow"
-    assert len(cleared.policy.regions) == 5
+    assert len(cleared.policy.regions) == 6
     async with repository.sessions() as session:
         events = list((await session.scalars(select(AuditEvent).order_by(AuditEvent.id))).all())
     assert first_broken(events) is None
@@ -78,7 +78,7 @@ async def test_policy_and_audit_roll_back_together(
 
     guardrails, policy = await policies.get_policy(org.name, None)
     assert guardrails.action("email") == "allow"
-    assert len(policy.regions) == 5
+    assert len(policy.regions) == 6
 
 
 @pytest.mark.parametrize(

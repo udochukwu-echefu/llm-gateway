@@ -5,7 +5,7 @@ import httpx
 from llm_gateway.errors import GatewayError
 from llm_gateway.providers.base import Capabilities, ChatStream
 from llm_gateway.providers.stream import CompatibleChatStream
-from llm_gateway.providers.transport import UpstreamClient, read_model
+from llm_gateway.providers.transport import UpstreamClient, read_model, status_error
 from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionRequest
 from llm_gateway.schemas.common import ProviderName
 from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
@@ -19,12 +19,12 @@ class OpenAICompatibleAdapter:
     request_id_header: str | None = "x-request-id"
 
     def __init__(self, http: httpx.AsyncClient) -> None:
-        self._transport = UpstreamClient(http, self.request_id_header)
+        self._transport = UpstreamClient(http, self.request_id_header, self._status_error)
 
     async def chat(self, request: ChatCompletionRequest, model: str) -> ChatCompletion:
         payload = self._chat_payload(request, model)
         payload["stream"] = False
-        response = await self._transport.open("chat/completions", payload)
+        response = await self._open_chat_response(payload)
         result = await read_model(response, ChatCompletion)
         self.normalize_chat(result)
         return result
@@ -34,7 +34,7 @@ class OpenAICompatibleAdapter:
         payload["stream"] = True
         if self.capabilities.supports_stream_usage:
             payload["stream_options"] = {"include_usage": True}
-        response = await self._transport.open("chat/completions", payload)
+        response = await self._open_chat_response(payload)
         return CompatibleChatStream(response, self.normalize_chat)
 
     async def embed(self, request: EmbeddingRequest, model: str) -> EmbeddingResponse:
@@ -60,6 +60,12 @@ class OpenAICompatibleAdapter:
             type="invalid_request_error",
             code="unsupported_parameter",
         )
+
+    def _status_error(self, response: httpx.Response) -> GatewayError:
+        return status_error(response)
+
+    async def _open_chat_response(self, payload: dict[str, Any]) -> httpx.Response:
+        return await self._transport.open("chat/completions", payload)
 
     def _chat_payload(self, request: ChatCompletionRequest, model: str) -> dict[str, Any]:
         payload = request.to_upstream(self.name)

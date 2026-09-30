@@ -8,6 +8,8 @@ from llm_gateway.catalog import PricePeriod
 def compute_cost(
     price: PricePeriod, prompt_tokens: int, completion_tokens: int = 0, cached_tokens: int = 0
 ) -> Decimal:
+    if price.unpriced or price.input_price is None:
+        raise ValueError("model price is unknown")
     if min(prompt_tokens, completion_tokens, cached_tokens) < 0 or cached_tokens > prompt_tokens:
         raise ValueError("invalid token counts")
     return (

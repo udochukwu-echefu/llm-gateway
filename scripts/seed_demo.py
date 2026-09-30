@@ -122,14 +122,14 @@ def _sample(
     entry = catalog.models[(day + team_index + sample) % len(catalog.models)]
     created = start - timedelta(days=day) + timedelta(hours=min(now.hour, sample))
     label = f"demo-v1:{team.name}:{created.date()}:{sample}"
-    unpriced = (day + sample + team_index) % 19 == 0
-    cached = not unpriced and (day + sample) % 5 == 0
+    usage_missing = (day + sample + team_index) % 19 == 0
+    cached = not usage_missing and (day + sample) % 5 == 0
     prompt = 1800 + (29 - day) * 100 + sample * 90
     completion = 450 + sample * 40 if entry.kind == "chat" else 0
     # This is illustrative synthetic history priced at today's reviewed rates.
     price = entry.at(now)
-    cost = compute_cost(price, prompt, completion, 0) if price else None
-    unknown = unpriced or cost is None
+    cost = compute_cost(price, prompt, completion, 0) if price and not price.unpriced else None
+    unknown = usage_missing or price is None
     return UsageRecord(
         id=uuid.uuid5(org.id, label),
         request_id=label,
@@ -143,7 +143,15 @@ def _sample(
         stream=False,
         status_code=200,
         outcome="cache_hit" if cached else "success",
-        cost_status="usage_missing" if unknown else "cached" if cached else "priced",
+        cost_status=(
+            "usage_missing"
+            if unknown
+            else "cached"
+            if cached
+            else "unpriced"
+            if cost is None
+            else "priced"
+        ),
         prompt_tokens=None if unknown else prompt,
         completion_tokens=None if unknown else completion,
         cached_tokens=None if unknown else 0,

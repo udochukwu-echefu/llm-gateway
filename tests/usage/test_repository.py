@@ -238,6 +238,36 @@ async def test_sql_report_aggregates_by_each_group_and_counts_missing_costs(
         await engine.dispose()
 
 
+async def test_unpriced_receipt_round_trips_and_is_counted_separately(
+    migrated_database: str,
+) -> None:
+    from llm_gateway.tenants.models import Organization
+
+    linked = await _linked_record(migrated_database)
+    receipt = replace(
+        linked, provider="nvidia", model="moonshotai/kimi-k3", cost_status="unpriced", cost_usd=None
+    )
+    engine = create_async_engine(migrated_database)
+    repository = PostgresUsageRepository(async_sessionmaker(engine, expire_on_commit=False))
+    try:
+        await repository.insert([receipt])
+        async with repository.sessions() as session:
+            stored = await session.scalar(select(UsageRow).where(UsageRow.id == receipt.id))
+            org = await session.scalar(
+                select(Organization.name).where(Organization.id == receipt.organization_id)
+            )
+        assert stored is not None
+        assert stored.cost_usd is None
+        assert stored.prompt_tokens == 2
+        assert org is not None
+        rows = await repository.report(org, None, None, None, "model")
+        assert rows[0]["unpriced"] == 1
+        assert rows[0]["usage_missing"] == 0
+        assert rows[0]["cost_usd"] is None
+    finally:
+        await engine.dispose()
+
+
 async def _linked_record(database_url: str):
     from llm_gateway.tenants.repository import PostgresKeyRepository
 

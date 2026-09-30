@@ -12,4 +12,6 @@ DEFAULT_BASE_URLS: dict[ProviderName, str] = {
     "deepseek": "https://api.deepseek.com/v1",
     "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
     "openai": "https://api.openai.com/v1",
+    "zai": "https://api.z.ai/api/paas/v4",
+    "nvidia": "https://integrate.api.nvidia.com/v1",
 }

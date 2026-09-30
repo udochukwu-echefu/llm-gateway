@@ -5,6 +5,7 @@ from typing import cast
 from fastapi import APIRouter, Request
 
 from llm_gateway.admin.api.auth import AdminPrincipal, context
+from llm_gateway.guardrails.policy import REGIONS
 from llm_gateway.tenants.models import Organization
 
 router = APIRouter()
@@ -24,4 +25,5 @@ async def me(request: Request) -> dict[str, object]:
         "name": principal.name,
         "role": principal.role,
         "organization": organization,
+        "regions": list(REGIONS),
     }

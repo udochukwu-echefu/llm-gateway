@@ -102,6 +102,7 @@ class PostgresUsageRepository:
             func.count().filter(UsageRow.outcome == "cache_hit").label("cache_hits"),
             func.sum(UsageRow.saved_usd).label("saved_usd"),
             func.count().filter(UsageRow.cost_status == "usage_missing").label("usage_missing"),
+            func.count().filter(UsageRow.cost_status == "unpriced").label("unpriced"),
             func.count()
             .filter(UsageRow.cost_status == "stream_incomplete")
             .label("stream_incomplete"),

@@ -69,6 +69,16 @@ async def test_demo_seed_is_idempotent_and_has_priced_unpriced_and_cache_rows(
                 ).all()
             )
             assert any(row.cost_usd is None for row in rows)
+            unpriced = [row for row in rows if row.cost_status == "unpriced"]
+            assert {row.model for row in unpriced} == {
+                "moonshotai/kimi-k3",
+                "z-ai/glm-5.3",
+                "z-ai/glm-5.3-flash",
+            }
+            assert all(row.cost_usd is None and row.prompt_tokens is not None for row in unpriced)
+            assert any(
+                row.cost_status == "usage_missing" and row.prompt_tokens is None for row in rows
+            )
             assert any(row.cost_usd is not None and row.cost_usd > 0 for row in rows)
             assert any(row.outcome == "cache_hit" for row in rows)
             assert len({row.created_at.date() for row in rows}) == 30

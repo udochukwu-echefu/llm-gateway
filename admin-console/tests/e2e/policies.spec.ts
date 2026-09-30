@@ -101,7 +101,11 @@ test("EU residency shrinks usable models using the API view", async ({
   await signIn(page, credentials.orgKey);
   await policies(page, credentials.org);
   const panel = page.getByRole("region", { name: "Residency", exact: true });
-  await expect(panel.getByText("Effective models · 7", { exact: true })).toBeVisible();
+  const catalog = await context.request.get("http://127.0.0.1:18091/admin/v1/catalog", {
+    headers: { Authorization: `Bearer ${credentials.orgKey}` },
+  });
+  const count = (await catalog.json()).models.length;
+  await expect(panel.getByText(`Effective models · ${count}`, { exact: true })).toBeVisible();
   await panel.getByLabel("Allow only these regions").check();
   await panel.getByRole("checkbox", { name: "eu European Union" }).check();
   await save(page, "Residency");
@@ -115,6 +119,28 @@ test("EU residency shrinks usable models using the API view", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+test("Singapore residency is offered from the authoritative catalog and can be saved", async ({
+  page,
+  context,
+  credentials,
+}) => {
+  await reset(context.request, credentials.org, credentials.platform);
+  await signIn(page, credentials.orgKey);
+  await policies(page, credentials.org);
+  const panel = page.getByRole("region", { name: "Residency", exact: true });
+  await panel.getByLabel("Allow only these regions").check();
+  await panel.getByRole("checkbox", { name: /^sg(?:\s|$)/ }).check();
+  await save(page, "Residency");
+  await expect(panel.getByText("Effective models · 3", { exact: true })).toBeVisible();
+  await expect(panel.locator(".effective-models")).toContainText("zai/glm-5.3-flash");
+  const saved = await context.request.get(
+    `http://127.0.0.1:18091/admin/v1/orgs/${encodeURIComponent(credentials.org)}/residency`,
+    { headers: { Authorization: `Bearer ${credentials.orgKey}` } },
+  );
+  expect((await saved.json()).overrides.organization).toEqual(["sg"]);
+  await policies(page, credentials.org);
+  await expect(panel.getByRole("checkbox", { name: /^sg(?:\s|$)/ })).toBeChecked();
 });
 test("two browser contexts preserve the first policy and keep the conflicted draft", async ({
   page,

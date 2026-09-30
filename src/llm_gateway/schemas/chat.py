@@ -115,7 +115,7 @@ class AssistantMessage(RequestModel):
     """A previous model reply, sent back as conversation history.
 
     Clients usually append the provider's response message as-is, and that carries
-    output-only fields (`annotations`, DeepSeek's `reasoning_content`, ...). Rejecting
+    output-only fields (`annotations`, ...). Rejecting
     those would break the most common agent loop, so unknown fields are dropped here,
     and only here.
     """
@@ -127,6 +127,7 @@ class AssistantMessage(RequestModel):
     refusal: str | None = None
     name: str | None = None
     tool_calls: list[ToolCall] | None = None
+    reasoning_content: str | None = None
 
     @model_validator(mode="after")
     def _has_content_or_tool_calls(self) -> Self:
@@ -253,6 +254,11 @@ class ChatCompletionRequest(ProxiedRequest):
 
     def to_upstream(self, provider: ProviderName) -> dict[str, Any]:
         payload = super().to_upstream(provider)
+        # Only documented preserved-thinking endpoints receive reasoning history.
+        # Keep it typed and guardrail-visible before this provider-specific filtering.
+        if provider not in ("zai", "nvidia"):
+            for message in payload["messages"]:
+                message.pop("reasoning_content", None)
         if self.stream:
             # Always ask for token usage: the gateway needs it for cost tracking even when
             # the client didn't ask. The relay removes it again if the client didn't want it.

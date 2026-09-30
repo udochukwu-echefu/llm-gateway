@@ -7,7 +7,7 @@ Detector = Literal[
     "secret_api_key", "secret_private_key", "email", "phone", "card_number", "iban", "ip_address"
 ]
 Action = Literal["allow", "redact", "block"]
-Region = Literal["us", "eu", "cn", "global", "unknown"]
+Region = Literal["us", "eu", "cn", "sg", "global", "unknown"]
 DETECTORS: tuple[Detector, ...] = get_args(Detector)
 REGIONS: tuple[Region, ...] = get_args(Region)
 ACTIONS: tuple[Action, ...] = get_args(Action)
@@ -51,7 +51,7 @@ def parse_regions(values: list[str] | None) -> tuple[Region, ...] | None:
     result: list[Region] = []
     for value in values:
         if value not in REGIONS:
-            raise ValueError("Regions must be us, eu, cn, global or unknown")
+            raise ValueError("Regions must be " + ", ".join(REGIONS))
         if value not in result:
             result.append(value)
     return tuple(result)

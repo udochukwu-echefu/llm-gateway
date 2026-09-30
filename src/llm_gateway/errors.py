@@ -22,6 +22,7 @@ class GatewayError(Exception):
         headers: Mapping[str, str] | None = None,
         upstream_status: int | None = None,
         transport_kind: str | None = None,
+        retry_allowed: bool = True,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
@@ -31,6 +32,7 @@ class GatewayError(Exception):
         self.headers = dict(headers or {})
         self.upstream_status = upstream_status
         self.transport_kind = transport_kind
+        self.retry_allowed = retry_allowed
 
 
 def error_body(message: str, *, type: str, code: str) -> dict[str, dict[str, str | None]]:

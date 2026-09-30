@@ -20,11 +20,12 @@ async def test_request_id_contract(
     client: httpx.AsyncClient,
     upstream: respx.MockRouter,
     provider_name: ProviderName,
+    adapter: OpenAICompatibleAdapter,
     status: int,
     request_id: str | None,
     stream: bool,
 ) -> None:
-    headers = {"x-request-id": request_id} if request_id else {}
+    headers = {adapter.request_id_header or "x-request-id": request_id} if request_id else {}
     wire = b"".join(sse(*STREAM, "[DONE]")) if stream else json.dumps(COMPLETION).encode()
     upstream.post("/chat/completions").respond(status, content=wire, headers=headers)
 

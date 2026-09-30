@@ -16,7 +16,8 @@ async def test_me_returns_verified_identity(admin_harness: AdminHarness, role: s
     body = response.json()
 
     assert response.status_code == 200
-    assert set(body) == {"key_id", "name", "role", "organization"}
+    assert set(body) == {"key_id", "name", "role", "organization", "regions"}
+    assert body["regions"] == ["us", "eu", "cn", "sg", "global", "unknown"]
     assert body["key_id"] == key.split("_")[1]
     assert body["name"] == "fake-" + role
     assert body["role"] == role

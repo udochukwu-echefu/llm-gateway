@@ -274,6 +274,7 @@ is not parsed as reasoning. Access logs contain provider, model, usage and provi
 | `providers/transport.py` | Performs HTTP I/O and ADR 0002 error mapping. |
 | `providers/stream.py` | Decodes provider SSE into checked canonical chunks. |
 | `providers/{groq,deepseek,gemini,openai}.py` | Declares verified provider differences and documentation sources. |
+| `providers/{zai,nvidia}.py` | Step 14's international GLM and NVIDIA-hosted Kimi chat adapters. |
 | `api/streaming.py` | Encodes client SSE, records/hides usage and closes provider streams. |
 
 The old `upstream.py` is replaced. See [ADR 0004](adr/0004-provider-adapters.md) and
@@ -922,3 +923,113 @@ GATEWAY_DEMO_SEED=1 and never contacts a provider or prints key secrets. Determi
 receipt IDs and a serialized seed operation make reruns repeatable. The screenshot harness
 uses this same seeder in a disposable database. All eighteen real-stack tests share the
 response no-leak scan, including both contexts of the concurrent-edit test. See [ADR 0025](adr/0025-safe-policy-editing.md).
+
+## Step 14: two more cinemas, not necessarily two more studios
+
+A **model maker** builds a model; a **model host** runs it and accepts our requests.
+Think of a cinema showing films made by different studios. For Kimi-K3, NVIDIA is
+the cinema and Moonshot is the studio. Our routing prefix names the cinema:
+`nvidia/moonshotai/kimi-k3` selects NVIDIA, leaving the rest as its exact model ID.
+Z.ai both makes GLM and serves it on its international Model API. Its endpoint
+uses `/api/paas/v4`, unlike the more common `/v1`. The Coding Plan and China
+BigModel platforms are separate and are not part of this step.
+NVIDIA also hosts GLM-5.3 and GLM-5.3-Flash. The routing IDs are
+`nvidia/z-ai/glm-5.3` and `nvidia/z-ai/glm-5.3-flash`: the host remains NVIDIA,
+with Global geography and unpriced trial terms, not Z.ai's Singapore/rate evidence.
+Each model's restrictions stay separate. For example, NVIDIA's Kimi fixes top_p
+and penalties, but its GLM endpoints allow those controls. Kimi translates
+developer messages to system; the GLM reference permits arbitrary role strings.
+
+Both adapters reuse the gateway's checked OpenAI-shaped protocol. Each enabled
+provider gets its own connection pool (reusable telephone lines) and circuit
+breaker (a fuse that stops requests during repeated failure). NVIDIA being slow
+must not fill Z.ai's lines or blow its fuse. Existing model access, residency,
+guardrails, token limits, concurrency, retries and metadata-only usage apply.
+An absent provider key leaves that destination disabled.
+
+### Remembering a model's reasoning safely
+
+Some agent conversations call a tool, then return its result to the model. Kimi's
+docs require sending back the **complete previous assistant message**, including
+tool calls and `reasoning_content`. Dropping its reasoning, as we previously did
+for every provider, loses information needed for the next turn.
+
+Assistant history now accepts a typed optional reasoning string. Only Z.ai and
+NVIDIA receive it: Z.ai also supports preserved thinking through
+`provider_options.zai.thinking.clear_thinking=false`. Existing providers still
+drop it. It passes through input guardrails and cache fingerprinting like other
+text, and is never logged or placed on a receipt. Unknown top-level request fields
+still fail validation; this is one named field, not an arbitrary escape hatch.
+Canonical reasoning and cached-token output need no renaming on these providers.
+The gateway does not extract reasoning from quoted `<think>` tags.
+
+### A new residency destination
+
+The Z.ai API data-processing agreement says customer data is generally processed
+in Singapore. Singapore is neither the EU, the US nor China; labelling it `global`
+or `unknown` would erase useful reviewed information. We add `sg` to the existing
+`us`, `eu`, `cn`, `global`, `unknown` list. An EU-only team cannot call a Singapore
+model. These labels describe routing evidence, not complete legal certification
+or an exclusive processing-location guarantee.
+
+The database already stores region policies as lists of strings, so no migration
+is necessary. Admin API validation and CLI help share the same list.
+`GET /admin/v1/me` and `GET /admin/v1/catalog` return the same authoritative
+`regions` list. Step 13b's console editor and its server-side validator read the
+catalogue list, so Singapore is selectable without a second hard-coded list.
+
+### An unknown price is not a zero price
+
+The three GLM chat models have verified list input, cached-input and output prices.
+NVIDIA's hosted endpoint is a **trial**, not a production service contract. Its
+terms permit credit deductions and paid credits, so we cannot honestly conclude
+that every token costs zero. An explicit `unpriced=true` catalogue period records
+the checked terms instead of invented rates. The model remains directly callable
+and listable; it is not eligible for weighted aliases while unpriced.
+
+If NVIDIA returns usage, we save known tokens but NULL cost with status `unpriced`.
+No returned usage remains `usage_missing`, a different accounting gap. CLI reports
+count both separately. A cached reply still costs zero to serve; its hypothetical
+savings remain unknown. USD budget accounting cannot measure NVIDIA credit
+consumption. Budgets cannot limit an unpriced model because its cost is unknown.
+Operators must use model policy to exclude unpriced destinations such as `nvidia/*`
+for budget-limited teams. Token/rate/concurrency controls still work. Production requires a paid
+NVIDIA NIM or partner deployment and a review of its prices, terms and location.
+The trial also prohibits confidential/sensitive input: use synthetic test prompts;
+our deterministic scanner is not a guarantee of contractual compliance.
+
+See [ADR 0026](adr/0026-zai-nvidia-providers.md) for official sources, parameter
+restrictions, undocumented-parameter forwarding and the limits of verification.
+
+### A billing problem is not a request rate limit
+
+Z.ai sometimes uses HTTP 429 for account problems. Its business code `1113`
+means insufficient balance, not too many requests. Retrying spends time without
+repairing the account; returning 429 misleadingly tells a client to slow down.
+The adapter therefore checks documented billing, quota and account codes before
+the retry decision and returns a generic `502 upstream_account_error` after one
+attempt. A metadata-only log tells the operator to check billing, quota and
+entitlements; clients never receive the private provider account message.
+Actual request rate limits (`1302`) and temporary overload (`1305`) still use
+bounded retries and the existing 429 response. The original upstream status stays
+available to telemetry and the circuit breaker. NVIDIA's GLM references document
+credit exhaustion as HTTP 402, which uses the same sanitized non-retryable account
+error. No NVIDIA-specific billing code on HTTP 429 was documented.
+
+### Waiting for a queued NVIDIA request
+
+HTTP 202 means **accepted but not finished**. Kimi's integrate API documents a
+request ID and a status endpoint: we submit inference once, then ask that same
+authenticated host for the result. Every poll and its short pacing delay are inside
+the existing total deadline, so waiting cannot continue forever. The HTTP endpoint
+watches for client disconnect before response headers and cancels the ongoing wait.
+This stops local work, not NVIDIA's job: no remote cancellation API is documented.
+The accepted job produces one receipt; polling errors cannot trigger a fresh billed
+submission. Missing usage after timeout/failure remains unknown, never zero cost.
+The merged demo seeder follows the same distinction: known trial tokens have
+`unpriced`/NULL cost, missing token counts remain `usage_missing`, and cached
+responses cost zero with unknown hypothetical savings for unpriced models.
+
+The status reference returns JSON only. We do not invent streaming polling, nor
+GLM polling where its references do not document it. Such 202 responses return a
+clear retryable `502 upstream_pending_unsupported`, never an empty success response.

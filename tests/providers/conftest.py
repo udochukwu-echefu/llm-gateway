@@ -1,14 +1,19 @@
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass
 from typing import cast
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from llm_gateway.config import ProvidersSettings, Settings
+from llm_gateway.main import create_app
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
 from llm_gateway.providers.registry import ADAPTER_TYPES
 from llm_gateway.schemas.common import ProviderName
-from tests.conftest import UPSTREAM_KEY, UPSTREAM_URL
+from llm_gateway.usage.record import UsageRecord
+from tests.conftest import UPSTREAM_KEY, UPSTREAM_URL, MemoryKeyRepository, OfflineLimitService
 
 
 @pytest.fixture(params=tuple(ADAPTER_TYPES))
@@ -33,3 +38,49 @@ def settings(provider_name: ProviderName) -> Settings:
 async def adapter(provider_name: ProviderName) -> AsyncIterator[OpenAICompatibleAdapter]:
     async with httpx.AsyncClient(base_url=UPSTREAM_URL) as http:
         yield ADAPTER_TYPES[provider_name](http)
+
+
+@dataclass
+class HostedGateway:
+    client: httpx.AsyncClient
+    records: list[UsageRecord]
+    recorded: asyncio.Event
+    app: FastAPI
+
+
+@pytest.fixture
+def hosted_max_retries() -> int:
+    return 0
+
+
+@pytest.fixture
+async def hosted_gateway(
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+    issued_test_key: str,
+    hosted_max_retries: int,
+) -> AsyncIterator[HostedGateway]:
+    records: list[UsageRecord] = []
+    recorded = asyncio.Event()
+
+    async def sink(batch: Sequence[UsageRecord]) -> None:
+        records.extend(batch)
+        recorded.set()
+
+    settings.usage_batch_size = 1
+    settings.resilience.max_retries = hosted_max_retries
+    app = create_app(
+        settings,
+        key_repository=memory_repository,
+        usage_sink=sink,
+        limit_service=OfflineLimitService(),
+    )
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://gateway.test",
+            headers={"authorization": f"Bearer {issued_test_key}"},
+        ) as client,
+    ):
+        yield HostedGateway(client, records, recorded, app)

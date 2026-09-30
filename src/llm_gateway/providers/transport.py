@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -17,9 +18,15 @@ log = structlog.get_logger("llm_gateway.upstream")
 class UpstreamClient:
     """HTTP transport and ADR 0002 error mapping shared by compatible adapters."""
 
-    def __init__(self, http: httpx.AsyncClient, request_id_header: str | None) -> None:
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        request_id_header: str | None,
+        map_status: Callable[[httpx.Response], GatewayError] | None = None,
+    ) -> None:
         self._http = http
         self._request_id_header = request_id_header
+        self._map_status = map_status or status_error
 
     async def open(self, path: str, payload: dict[str, Any]) -> httpx.Response:
         """POST `payload` and return the response with its body still unread.
@@ -28,36 +35,48 @@ class UpstreamClient:
         read, closed and raised as GatewayError here, so the caller only sees successes.
         """
         request = self._http.build_request("POST", path, json=payload)
+        mark_sent()
+        return await self._send(request, is_submission=True)
+
+    async def get(self, path: str) -> httpx.Response:
+        """Poll an accepted invocation without treating it as another billable submission."""
+        return await self._send(self._http.build_request("GET", path), is_submission=False)
+
+    async def _send(self, request: httpx.Request, *, is_submission: bool) -> httpx.Response:
         telemetry = current.get()
         if telemetry is not None and telemetry.propagate:
             carrier: dict[str, str] = {}
             TraceContextTextMapPropagator().inject(carrier)
             request.headers.update(carrier)
-        mark_sent()
         try:
             response = await self._http.send(request, stream=True)
         except httpx.HTTPError as exc:
-            if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+            if is_submission and isinstance(
+                exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+            ):
                 mark_connect_failed()
             raise transport_error(exc) from exc
 
         log.debug("upstream_response", status=response.status_code)
-        annotate(
-            upstream_request_id=(
-                response.headers.get(self._request_id_header) if self._request_id_header else None
-            )
+        request_id = (
+            response.headers.get(self._request_id_header) if self._request_id_header else None
         )
+        if is_submission or request_id is not None:
+            annotate(upstream_request_id=request_id)
         if response.is_error:
-            mark_rejected()
+            if is_submission:
+                mark_rejected()
             try:
                 await response.aread()
             except httpx.HTTPError as exc:
                 raise transport_error(exc) from exc
             finally:
                 await response.aclose()
-            error = status_error(response)
+            error = self._map_status(response)
             error.upstream_status = response.status_code
-            if retry_after := response.headers.get("retry-after"):
+            if error.code != "upstream_account_error" and (
+                retry_after := response.headers.get("retry-after")
+            ):
                 error.headers["retry-after"] = retry_after
             raise error
         return response
@@ -68,7 +87,10 @@ async def read_model[M: ResponseModel](response: httpx.Response, model: type[M])
     try:
         content = await response.aread()
     except httpx.HTTPError as exc:
-        raise transport_error(exc) from exc
+        error = transport_error(exc)
+        # An accepted queued job must not be resubmitted if reading its result fails.
+        error.retry_allowed = bool(response.extensions.get("gateway_retry_allowed", True))
+        raise error from exc
     finally:
         await response.aclose()
     try:
@@ -173,8 +195,24 @@ class _ProviderError(ResponseModel):
     error: Detail
 
 
+class _ProviderProblem(ResponseModel):
+    """NVIDIA also documents RFC 7807 problem details for rejected requests."""
+
+    type: str
+    status: int
+    detail: str
+
+
 def _upstream_message(response: httpx.Response) -> str | None:
-    try:
-        return _ProviderError.model_validate_json(response.content).error.message
-    except ValidationError:
-        return None
+    for shape in (_ProviderError, _ProviderError.Detail, _ProviderProblem):
+        try:
+            parsed = shape.model_validate_json(response.content)
+        except ValidationError:
+            continue
+        if isinstance(parsed, _ProviderError):
+            return parsed.error.message
+        if isinstance(parsed, _ProviderError.Detail):
+            return parsed.message
+        if parsed.status == response.status_code:
+            return parsed.detail
+    return None

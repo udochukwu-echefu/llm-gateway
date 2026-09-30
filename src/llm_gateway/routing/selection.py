@@ -10,11 +10,15 @@ from llm_gateway.routing.aliases import WeightedTarget
 from llm_gateway.routing.policy import ModelPolicy, denied
 
 
-def available_models(catalog: Catalog, configured: Collection[str], now: datetime) -> set[str]:
+def available_models(
+    catalog: Catalog, configured: Collection[str], now: datetime, *, include_unpriced: bool = False
+) -> set[str]:
     return {
         f"{entry.provider}/{entry.model}"
         for entry in catalog.models
-        if entry.provider in configured and entry.at(now) is not None
+        if entry.provider in configured
+        and (period := entry.at(now)) is not None
+        and (include_unpriced or not period.unpriced)
     }
 
 

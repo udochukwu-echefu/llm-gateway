@@ -21,12 +21,13 @@ async def list_models(request: Request) -> dict[str, object]:
     now = datetime.now(UTC)
     available = available_models(state.catalog, configured, now)
     aliases = visible_aliases(state.catalog, principal.policy, available)
+    listed = available_models(state.catalog, configured, now, include_unpriced=True)
     return {
         "object": "list",
         "data": [
             {"id": f"{entry.provider}/{entry.model}", "object": "model", "owned_by": entry.provider}
             for entry in state.catalog.models
-            if f"{entry.provider}/{entry.model}" in available
+            if f"{entry.provider}/{entry.model}" in listed
             and principal.policy.allows(f"{entry.provider}/{entry.model}", entry.region)
         ]
         + [{"id": name, "object": "model", "owned_by": "gateway"} for name in aliases],

@@ -17,7 +17,8 @@ class PricePeriod(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     effective_from: date
-    input_price: Decimal = Field(ge=0)
+    unpriced: bool = False
+    input_price: Decimal | None = Field(default=None, ge=0)
     cached_input_price: Decimal | None = Field(default=None, ge=0)
     output_price: Decimal | None = Field(default=None, ge=0)
     currency: Literal["USD"] = "USD"
@@ -33,6 +34,15 @@ class PricePeriod(BaseModel):
 
     @model_validator(mode="after")
     def _valid_cache_price(self) -> Self:
+        if self.unpriced:
+            if any(
+                value is not None
+                for value in (self.input_price, self.cached_input_price, self.output_price)
+            ):
+                raise ValueError("unpriced periods must not contain token prices")
+            return self
+        if self.input_price is None:
+            raise ValueError("priced periods need an input price")
         if self.cached_input_price is not None and self.cached_input_price > self.input_price:
             raise ValueError("cached price cannot exceed input price")
         return self
@@ -56,7 +66,8 @@ class ModelPrice(BaseModel):
         if dates != sorted(set(dates)):
             raise ValueError("price periods must have strictly increasing unique dates")
         if any(
-            (period.output_price is None) != (self.kind == "embedding") for period in self.periods
+            not period.unpriced and (period.output_price is None) != (self.kind == "embedding")
+            for period in self.periods
         ):
             raise ValueError("chat needs an output price; embeddings must not have one")
         return self

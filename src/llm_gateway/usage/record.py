@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 Outcome = Literal[
     "success", "upstream_error", "client_disconnected", "stream_error", "gateway_error", "cache_hit"
 ]
-CostStatus = Literal["priced", "usage_missing", "stream_incomplete", "not_billed", "cached"]
+CostStatus = Literal[
+    "priced", "unpriced", "usage_missing", "stream_incomplete", "not_billed", "cached"
+]
 
 
 @dataclass(frozen=True)
@@ -108,7 +110,9 @@ class UsageEvent:
         )
         cost_status: CostStatus = "priced" if usage is not None else "usage_missing"
         cost: Decimal | None = None
-        if usage is not None:
+        if usage is not None and self.period.unpriced:
+            cost_status = "unpriced"
+        elif usage is not None:
             try:
                 cost = compute_cost(self.period, prompt or 0, completion or 0, cached or 0)
             except ValueError:

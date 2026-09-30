@@ -133,10 +133,7 @@ async def execute(
             raise ValueError("usage repository unavailable")
         rows = await service.usage(args.org, args.team, args.since, args.until, args.group_by)
         return "\n".join(
-            "  ".join(
-                f"{key}={value if value is not None else 'NULL'}" for key, value in row.items()
-            )
-            for row in rows
+            "  ".join(f"{key}={_usage_value(value)}" for key, value in row.items()) for row in rows
         )
     if args.command == "create-org":
         org = await service.create_org(args.name)
@@ -167,6 +164,12 @@ async def execute(
             raise ValueError("Key not found")
         return "Key revoked"
     raise ValueError("Unknown command")
+
+
+def _usage_value(value: object) -> str:
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    return str(value) if value is not None else "NULL"
 
 
 def admin_store() -> SecretStore:

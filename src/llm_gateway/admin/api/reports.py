@@ -1,6 +1,7 @@
 """Usage, cache invalidation and audit HTTP endpoints."""
 
 from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request
@@ -29,9 +30,10 @@ async def usage(
     return {
         "data": [
             {
-                key: str(value)
-                if value is not None
-                and (key == "cost_usd" or key == "saved_usd" or isinstance(value, date))
+                key: format(value, "f")
+                if isinstance(value, Decimal)
+                else value.isoformat()
+                if isinstance(value, date)
                 else value
                 for key, value in row.items()
             }

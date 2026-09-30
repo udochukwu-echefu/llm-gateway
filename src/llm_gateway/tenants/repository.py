@@ -275,6 +275,6 @@ class PostgresKeyRepository:
                 ("alert_threshold", alert),
             ):
                 if value is not None:
-                    details[name] = str(value) if isinstance(value, Decimal) else value
+                    details[name] = format(value, "f") if isinstance(value, Decimal) else value
             action = "set-budget" if budget is not None else "set-limits"
             await append_event(session, self.actor, action, "team", str(team_id), details)

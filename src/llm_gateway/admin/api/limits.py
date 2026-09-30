@@ -48,7 +48,7 @@ async def clear_limits(request: Request, org: str, team: str) -> dict[str, objec
 @router.put("/orgs/{org}/teams/{team}/budget")
 async def set_budget(request: Request, org: str, team: str, body: BudgetBody) -> dict[str, object]:
     await service(request).set_limits(org, team, budget=body.usd, alert=body.alert_at)
-    return {"updated": True, "usd": str(body.usd), "alert_at": str(body.alert_at)}
+    return {"updated": True, "usd": format(body.usd, "f"), "alert_at": format(body.alert_at, "f")}
 
 
 @router.get("/orgs/{org}/teams/{team}/budget")
@@ -57,15 +57,15 @@ async def get_budget(request: Request, org: str, team: str) -> dict[str, object]
     effective = resolve(overrides, admin_defaults())
     return {
         "overrides": {
-            "usd": str(overrides.monthly_budget_usd)
+            "usd": format(overrides.monthly_budget_usd, "f")
             if overrides.monthly_budget_usd is not None
             else None,
-            "alert_at": str(overrides.alert_threshold)
+            "alert_at": format(overrides.alert_threshold, "f")
             if overrides.alert_threshold is not None
             else None,
         },
         "effective": {
-            "usd": str(effective.monthly_budget_usd),
-            "alert_at": str(effective.alert_threshold),
+            "usd": format(effective.monthly_budget_usd, "f"),
+            "alert_at": format(effective.alert_threshold, "f"),
         },
     }

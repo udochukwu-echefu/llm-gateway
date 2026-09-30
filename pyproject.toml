@@ -60,7 +60,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["error"]
-markers = ["live: opt-in real-provider smoke tests (requires environment keys)", "db: requires Postgres", "redis: requires Redis"]
+markers = ["live: opt-in real-provider smoke tests (requires environment keys)", "slow: may wait minutes for queued development inference", "db: requires Postgres", "redis: requires Redis"]
 addopts = "-m 'not live'"
 
 [dependency-groups]

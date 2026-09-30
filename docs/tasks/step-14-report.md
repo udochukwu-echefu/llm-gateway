@@ -1,5 +1,118 @@
 # Step 14 implementation report — 2026-09-30
 
+## Timeout and live-history follow-up: items 7–8 (latest)
+
+Step 14's first merge already completed as `12cf60a`. The owner then authorized
+these additions on the retained `feat/step-14-zai-nvidia-providers` worktree.
+The checks in this section supersede earlier gate counts below. Separate commits:
+
+- `283a07b feat(providers): support per-provider timeout overrides`
+- `c6a61f8 test(live): cover NVIDIA GLM and slow Kimi history replay`
+
+### Built and chosen
+
+- Optional positive, finite connect/read/write/pool overrides in ProviderSettings,
+  exposed as `GATEWAY_PROVIDERS__<PROVIDER>__<PHASE>_TIMEOUT_S`. Unset uses globals,
+  with one reviewed exception: NVIDIA's effective default read timeout is **300 s**.
+  Explicit provider settings win. Other providers keep their global timeout values.
+  A small typed timeout object is shared by pool construction and lease validation
+  so the guard cannot accidentally validate different values from those used by HTTPX.
+- Lease TTL must exceed the **largest combined effective timeout of an enabled
+  provider**. Disabled providers do not raise the floor; independently largest phases
+  from different providers are not added together. NVIDIA defaults total **320 s**
+  (connect 5 + read 300 + write 10 + pool 5), below the existing **900 s** lease TTL.
+  Validation runs again after secret-store resolution exposes enabled file-backed
+  providers, before any provider pool is created. Tests cover all four overrides,
+  startup failures, disabled providers, split maxima and secret-store enablement.
+- The spec left the independent 60-second request deadline open. **It remains
+  unchanged**, rather than silently relaxing every request when NVIDIA is enabled.
+  README explicitly requires e.g. `GATEWAY_RESILIENCE__DEADLINE_S=330` for queued
+  NVIDIA development. A 300-second read timeout alone cannot bypass a 60-second
+  overall deadline. No `.env` change was made for the owner.
+- `retry_read_timeouts=false` stays the default. The existing policy also forbids
+  automatic fallback for a transport ReadTimeout: a potentially charged three-minute
+  wait gets one attempt only. Approved fallback for a retryable upstream timeout,
+  such as HTTP 504, gets only the remaining request deadline. Tests cover fallback
+  with remaining time, no fallback after exhaustion, and cancellation of a stalled
+  fallback rather than resetting the deadline.
+- Respx tests cover delayed first chunks with NVIDIA's 300-second read metadata and
+  a simulated **180.7 s** queue-inclusive TTFB under the longer explicit deadline.
+  The test does not pretend to sleep/measure three minutes. A Redis test holds the
+  first chunk, waits for an actual lease-renewal event using an accelerated test
+  TTL, confirms admission remains held, then releases the stream and checks cleanup.
+  Admission heartbeats begin before headers/first byte; SSE hold-back is text-length
+  bounded and adds no separate short first-byte timer.
+- The disconnect test now covers both the initial pending POST and a pending poll:
+  the local upstream coroutine is cancelled, no response headers are sent, and the
+  request receives a client-disconnected receipt. **Remote NVIDIA job deletion cannot
+  be guaranteed**: the checked official status API has no documented cancel operation.
+  The requested “no queued work left running” is verified locally, not promised for
+  NVIDIA's remote queue. This is the sole unverifiable portion of that requirement.
+- Added NVIDIA **z-ai/glm-5.3-flash** immediately after Kimi in the live model list,
+  with distinct provider/model test IDs. NVIDIA live profiles use **330 s** gateway
+  deadlines and **360 s** client/per-call asyncio bounds. Other live profiles keep
+  60 s gateway deadlines. No timeout library or other dependency was added.
+- Added a dedicated `live`/`slow` Kimi multi-turn test: require actual nonempty
+  reasoning_content, replay the complete first assistant message in turn two and
+  check both unpriced receipts. Without a key it skips; a non-Kimi explicit model
+  override also skips rather than claiming Kimi coverage. The same test flow runs
+  offline with respx and checks the exact second upstream history. Existing provider
+  model overrides keep their semantics; the NVIDIA override applies to both smoke
+  rows, so it should be unset when exercising both default models.
+- README, ADR 0026 and architecture explain: **free-tier queueing can take minutes;
+  not suitable for interactive production traffic**. Roadmap includes per-provider
+  timeouts. No alias, migration, dependency, production endpoint or budget-policy
+  change was made. New modules remain below 300 lines; no 400-line exception is needed.
+
+### Reviewer-provided live evidence, not new agent measurements
+
+Owner's NVIDIA key, 2026-09-30:
+
+| Target | Reviewer observation |
+|---|---|
+| NVIDIA moonshotai/kimi-k3 | HTTP 200 after **180.7 s** for three words; **21 completion tokens, 7 reasoning tokens**. Queue-inclusive latency, not generation speed. |
+| NVIDIA z-ai/glm-5.3-flash | HTTP 200 in **16 s**, reasoning_content and completion_tokens_details.reasoning_tokens; NVCF-REQID and NVCF-STATUS fulfilled. |
+| Z.ai direct | HTTP 429, business code **1113**, insufficient balance/no account credit. The sanitized non-retryable account mapping is already merged. |
+
+The agent did not read/use the key, call a live provider, verify free-credit allowance,
+measure live Kimi multi-turn behaviour, or prove removal of remote queued jobs. NVIDIA
+prices remain unpriced: successful development access is not evidence of a universal
+zero token price. Existing official trial/region/parameter evidence remains in ADR 0026.
+
+### All final gates after items 7–8
+
+| Command | Final output |
+|---|---|
+| `.venv/bin/ruff check .` | `All checks passed!` |
+| `.venv/bin/ruff format --check .` | `382 files already formatted` |
+| `.venv/bin/pyright --pythonpath .venv/bin/python` | `0 errors, 0 warnings, 0 informations` |
+| Normal pytest, DB/Redis test URLs unset | `1348 passed, 197 skipped, 44 deselected in 27.95s` |
+| DB pytest `-m db`, Redis URL unset | `131 passed, 11 skipped, 1447 deselected in 32.97s` |
+| Redis pytest `-m redis`, database **14** | `66 passed, 1523 deselected in 58.47s` |
+| NVIDIA key-unset live selection | `7 skipped, 15 deselected in 0.06s` |
+| Key-unset `live and slow` Kimi history selection | `1 skipped, 21 deselected in 0.01s` |
+| Console `npm run format:check` | `All matched files use Prettier code style!` |
+| Console `npm run lint` | `eslint .`, exit 0 |
+| Console `npm run typecheck` | `tsc --noEmit`, exit 0 |
+| Console `npm test` | `Test Files 14 passed (14)`; `Tests 64 passed (64)` |
+| Console `npm run build` | `Compiled successfully in 1100ms`; TypeScript/static generation finished; exit 0 |
+| Full console `npm run test:e2e`, port **3300** | `19 passed (44.9s)` |
+| Shared browser-response scanner | `No-leak scan total: 1358 browser responses; 1 permitted key-creation response; zero leaks.` |
+
+All non-live provider requests were mocked with respx. The live skip checks unset
+the relevant process keys explicitly; they prove skipping, **not live success**.
+No test downloaded a browser or used an installed timeout plugin. Normal Python
+and console gates preceded infrastructure suites. DB, Redis, then e2e ran sequentially
+with no failures or interference retries. Reused containers with
+`docker compose --env-file /dev/null -p llm-gateway up -d --no-recreate postgres redis`;
+both reported Running. The PostgreSQL maintenance URL ended in `/postgres`; fixtures
+created/migrated/dropped disposable databases, never the main `gateway` database.
+Redis/e2e used database 14. The 11 Redis-dependent DB skips ran in the Redis suite.
+
+No installs, push, guide-branch/worktree changes, screenshots, real provider calls,
+or reads/prints/modifications of the worktree's ignored `.env` were made. The final
+handoff records the subsequent authorized follow-up merge and actual main log.
+
 ## Review follow-up and NVIDIA additions (current)
 
 The sections below this follow-up preserve the **initial, pre-review report**.
@@ -106,7 +219,7 @@ E2e used the same maintenance connection, `CONSOLE_TEST_REDIS_URL=redis://127.0.
 and `CONSOLE_TEST_PORT=3300`, creating/dropping its own disposable database.
 The production console build supplied only the documented synthetic e2e admin URL,
 origin and session secret. No provider live calls, screenshots, browser downloads,
-remote CI or push were performed. The reviewer reported successful live Z.ai calls;
+remote CI or push were performed. The reviewer reported live Z.ai calls and the 1113 account error;
 the agent does not claim new live NVIDIA entitlements, free-credit allowance,
 billing, response emission, polling occurrence or latency validation.
 

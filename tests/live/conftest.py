@@ -11,7 +11,6 @@ from redis.asyncio import Redis
 
 from llm_gateway.cache.crypto import CacheCipher
 from llm_gateway.cache.service import ResponseCache
-from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.gateway_state import get_app_state
 from llm_gateway.guardrails.policy import GuardrailPolicy
 from llm_gateway.main import create_app
@@ -20,10 +19,11 @@ from llm_gateway.tenants.keys import issue_key
 from llm_gateway.tenants.repository import KeyRecord
 from llm_gateway.usage.record import UsageRecord
 from tests.conftest import MemoryKeyRepository, OfflineLimitService
+from tests.live.configuration import smoke_settings
 from tests.live.models import PROVIDERS, LiveProvider, resolve_live_models
 
 
-@pytest.fixture(params=PROVIDERS, ids=lambda provider: provider.name)
+@pytest.fixture(params=PROVIDERS, ids=lambda provider: f"{provider.name}/{provider.chat_model}")
 def live_provider(request: pytest.FixtureRequest) -> LiveProvider:
     provider = cast(LiveProvider, request.param)
     if not os.environ.get(f"GATEWAY_PROVIDERS__{provider.name.upper()}__API_KEY"):
@@ -51,11 +51,7 @@ async def live_client(
     block = {"api_key": os.environ[prefix + "API_KEY"]}
     if prefix + "BASE_URL" in os.environ:
         block["base_url"] = os.environ[prefix + "BASE_URL"]
-    settings = Settings(
-        _env_file=None,  # pyright: ignore[reportCallIssue]  # live tests use environment only
-        providers=ProvidersSettings.model_validate({live_provider.name: block}),
-        usage_batch_size=1,
-    )
+    settings = smoke_settings(live_provider, block)
     pepper = b"fake-live-test-pepper-32-bytes-minimum"
     issued = issue_key(pepper)
     repo = MemoryKeyRepository()
@@ -102,6 +98,7 @@ async def live_client(
                 transport=httpx.ASGITransport(app=app),
                 base_url="http://gateway.test",
                 headers={"authorization": f"Bearer {issued.full_key}"},
+                timeout=live_provider.request_timeout_s,
             ) as client,
         ):
             state = get_app_state(app)

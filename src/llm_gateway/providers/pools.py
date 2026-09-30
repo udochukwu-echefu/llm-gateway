@@ -17,15 +17,16 @@ async def provider_pools(settings: Settings) -> AsyncGenerator[ProviderRegistry]
         for name, block in settings.providers.enabled():
             if block.api_key is None:
                 continue
+            timeouts = settings.provider_timeouts(name, block)
             http = await stack.enter_async_context(
                 httpx.AsyncClient(
                     base_url=str(block.base_url or DEFAULT_BASE_URLS[name]).rstrip("/") + "/",
                     headers={"authorization": f"Bearer {block.api_key.get_secret_value()}"},
                     timeout=httpx.Timeout(
-                        connect=settings.connect_timeout_s,
-                        read=settings.read_timeout_s,
-                        write=settings.write_timeout_s,
-                        pool=settings.pool_timeout_s,
+                        connect=timeouts.connect,
+                        read=timeouts.read,
+                        write=timeouts.write,
+                        pool=timeouts.pool,
                     ),
                     limits=httpx.Limits(
                         max_connections=settings.max_connections,

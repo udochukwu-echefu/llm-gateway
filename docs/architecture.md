@@ -1033,3 +1033,43 @@ responses cost zero with unknown hypothetical savings for unpriced models.
 The status reference returns JSON only. We do not invent streaming polling, nor
 GLM polling where its references do not document it. Such 202 responses return a
 clear retryable `502 upstream_pending_unsupported`, never an empty success response.
+
+### Different clocks for different providers
+
+A **read timeout** is the longest silence tolerated while waiting for the next
+bytes, including response headers or the first streaming chunk. A **request
+deadline** is a separate stopwatch for the whole provider execution through its
+first chunk, including retries and fallback. A longer read timeout cannot bypass
+a shorter deadline.
+
+The reviewer observed NVIDIA Kimi returning after 180.7 seconds for three words
+on 2026-09-30: free-tier queueing, not three minutes of generation. NVIDIA GLM
+Flash answered in 16 seconds. These observations justify a 300-second NVIDIA
+read default, not slower failure for every provider. Optional provider-specific
+connect/read/write/pool settings override globals; other providers keep their
+global defaults. Operators must explicitly set the overall deadline, e.g. 330
+seconds, to allow that queue wait. Free-tier queueing can take minutes and is not
+suitable for interactive production traffic.
+
+The **lease** is a temporary concurrency reservation. Startup checks its lifetime
+against the largest combined timeout of any enabled provider, and checks again
+after reading file-backed keys. Heartbeats renew from admission, even before the
+first byte; SSE's small text hold-back has no separate short queue timer. Tests
+use controlled delayed chunks and accelerated Redis renewal rather than sleeping
+three minutes. Disconnect stops the local wait and heartbeat and releases the
+lease; no undocumented NVIDIA job-cancellation guarantee is made.
+
+Read-timeout retries remain off, as does automatic read-timeout fallback under
+the existing policy. Approved recovery from a retryable upstream timeout must use
+the time left on the original stopwatch, never reset it after queueing.
+
+### Live history checks without making ordinary tests spend money
+
+The live model list includes both NVIDIA Kimi and GLM Flash, each with a distinct
+test label. NVIDIA fixtures use a 330-second gateway deadline and a 360-second
+per-call test bound, so the test itself does not give up before the queue can clear.
+The slow Kimi check makes a first request, takes its complete assistant message,
+including actual nonempty reasoning_content, and replays it in a second request.
+Both calls must finish and retain unpriced receipts. Without a key the check skips;
+ordinary tests mock that same two-round flow and verify the exact forwarded history,
+so a regression is caught without reading the owner's key or contacting NVIDIA.

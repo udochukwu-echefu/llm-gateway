@@ -17,11 +17,12 @@ Each step ends with tests, docs and a working gateway.
 | 11 | Guardrails: deterministic PII/secret detection, redaction and restore, data residency | ✅ Done |
 | 12a | Private admin API and Postgres usage dashboard | ✅ Done |
 | 12b | Load test report against our targets (SLOs) | ✅ Done: full amended campaign, exact timings, GCRA rolling bound and ten-minute soak |
+| 13a | Admin console: sign-in, organizations/teams, keys, limits/budgets, usage and audit | ✅ Done |
+| 13b | Model policy, guardrails, residency and cache purge console editors | ✅ Done |
 
-| 13a | Admin console: sign-in, organizations/teams, keys, limits/budgets, usage and audit | Implemented; validation results in docs/tasks/step-13a-report.md |
-| 13b | Model policy, guardrails, residency and cache purge console editors | Planned |
-
-Steps 1–12 are complete. Completed measurement does not mean every SLO passed.
+Steps 1–13 are complete. The console includes policy editors, cache purge, Overview
+and helpful empty states; local demos use an opt-in synthetic seeder.
+Completed measurement does not mean every SLO passed.
 See the [report](benchmarks/load-test-report.md) for measured capacity, saturation,
 scaling, guardrails, streaming, accounting, memory and idle-path distributions.
 

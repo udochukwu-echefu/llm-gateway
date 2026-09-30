@@ -753,7 +753,7 @@ See [reproduction commands](../loadtest/README.md),
 ## What the gateway deliberately does NOT do yet
 
 - No semantic, streaming or cross-team response cache.
-- No admin SSO, admin web UI or automated key rotation.
+- No admin SSO or automated key rotation.
 
 See [roadmap.md](roadmap.md) for the order.
 
@@ -863,3 +863,62 @@ shown as unpriced. Request and token charts have labelled axes and a table alter
 unknown token totals leave gaps. Light/dark themes, keyboard dialogs and semantic
 tables support desktop and tablet use. Playwright scans every browser response in
 all seven named real-stack tests for credential leaks.
+
+## Step 13b: safe policy editing and the complete console
+
+The org and team Policies tabs show three editors: model access, guardrails and residency.
+Each shows saved overrides next to the effective result returned by the gateway. Inheritance
+is an **intersection**, meaning both lists must allow the destination. If an org allows
+`groq/*` and its Search team allows only `groq/openai/gpt-oss-20b`, Search can use one model.
+Removing the team's override returns to the org boundary. Saving an empty list instead
+allows nothing. The UI makes those choices separate and confirms a deliberate deny-all.
+Residency choices come from the catalogue's complete regions field when present. Older
+responses use model regions plus the current five in one fallback constant, so a valid
+region remains selectable even when it currently has no models. The editor and BFF share
+that rule; the BFF reads the catalogue before validating a residency write. It blocks a
+write if that read fails and still lets the gateway make the final authorization decision.
+Region lists work the same way: `global` and `unknown` are real categories, not permission
+to process in the EU. None of today's reviewed models has an EU processing guarantee.
+
+Guardrails use **strictest wins**: block is stricter than redact, and redact is stricter
+than allow. Defaults are a floor. If the org blocks email, choosing allow on a team has no
+effect, and the editor says why. Each detector has a plain explanation and an Inherit
+choice. Replacing a stronger saved action with a weaker one needs a consequence dialog;
+removing a whole override names the org or team before confirmation.
+
+A **lost update** happens when two people open the same policy and the second person's save
+erases the first person's work. Think of a shared document warning, “someone else edited
+this since you opened it.” The GET returns a version fingerprint; the console returns it
+in an If-Match header when saving. The database locks the row while checking and changing
+it, so only one writer with that version can succeed. A 412 response keeps the second
+person's draft on screen and offers reload. The version includes a stored revision counter
+so even saving the same value, or changing a value and changing it back, invalidates old
+versions. CLI writes participate too, though they may still omit the header.
+
+The Changes box lists additions, removals and action changes before saving. Ordinary saves
+are hidden until a value changes. Tabs, links and document exits warn about unsaved edits.
+The browser's BFF validates bounded lists, detectors, actions, regions and model-pattern
+syntax, and requires a correctly quoted version for policy writes. Every call still goes
+through the server that holds the admin key; the gateway decides who may edit which org.
+The catalogue read contains only public reviewed routing metadata, never provider URLs.
+
+A cache purge removes copies of responses for one team or every team in the org. The admin
+types the exact name before confirming and sees the removed count. This is **best effort**:
+SCAN visits entries over time, and live requests can add new ones while it runs. Like
+emptying a tray while another person keeps putting papers into it, an empty tray at one
+moment is no guarantee it stays empty. Stop writers first when strict invalidation matters.
+A Redis outage returns 503 with a clear message and no success claim.
+
+Sign-in now lands on Overview. Platform admins see all orgs; org admins see their own.
+Cards, a request chart, top five models, budget threshold badges and five recent audit
+events use existing API endpoints. The console reads every page before adding numbers;
+exact decimal money stays exact, unpriced calls remain visible and known tokens are labelled
+partial when usage is missing. Empty screens guide an admin to create their first team/key
+or copy a first-request example containing only a placeholder key.
+
+For local demonstrations, `scripts/seed_demo.py` creates Demo Co, three teams, six key
+records, budgets/limits and thirty days of synthetic receipts. It refuses without
+GATEWAY_DEMO_SEED=1 and never contacts a provider or prints key secrets. Deterministic
+receipt IDs and a serialized seed operation make reruns repeatable. The screenshot harness
+uses this same seeder in a disposable database. All eighteen real-stack tests share the
+response no-leak scan, including both contexts of the concurrent-edit test. See [ADR 0025](adr/0025-safe-policy-editing.md).

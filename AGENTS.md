@@ -41,7 +41,8 @@ npm run test:e2e             # requires local Postgres/Redis; creates a disposab
 If npm's cache is inaccessible, set npm_config_cache to a writable temporary directory.
 Never sudo or force npm. Existing installed dependencies suffice in offline sandboxes.
 Playwright uses the installed Chromium; do not download browsers in an offline sandbox.
-Compose requires ADMIN_CONSOLE_SESSION_SECRET during interpolation for all profiles.
+Only the console container requires ADMIN_CONSOLE_SESSION_SECRET at startup; database-only
+compose commands work without it.
 See README for fake-only e2e settings and screenshots. Run e2e after Python db/Redis
 suites, since migrations share the gateway_readonly role on the same Postgres cluster.
 

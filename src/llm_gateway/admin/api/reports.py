@@ -1,9 +1,11 @@
 """Usage, cache invalidation and audit HTTP endpoints."""
 
 from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Query, Request
+from redis.exceptions import RedisError
 
 from llm_gateway.admin.api.auth import context, service
 from llm_gateway.errors import GatewayError
@@ -28,9 +30,10 @@ async def usage(
     return {
         "data": [
             {
-                key: str(value)
-                if value is not None
-                and (key == "cost_usd" or key == "saved_usd" or isinstance(value, date))
+                key: format(value, "f")
+                if isinstance(value, Decimal)
+                else value.isoformat()
+                if isinstance(value, date)
                 else value
                 for key, value in row.items()
             }
@@ -42,10 +45,17 @@ async def usage(
 
 @router.post("/orgs/{org}/cache/purge")
 async def purge_cache(request: Request, org: str, team: str | None = None) -> dict[str, object]:
+    admin = service(request)
+    await admin.authorize_org(org)
     client = context(request).redis
     if client is None:
         raise GatewayError(503, "Cache unavailable.", type="server_error", code="cache_unavailable")
-    count = await service(request).purge_cache(org, team, client)
+    try:
+        count = await admin.purge_cache(org, team, client)
+    except (RedisError, TimeoutError) as exc:
+        raise GatewayError(
+            503, "Cache unavailable.", type="server_error", code="cache_unavailable"
+        ) from exc
     return {"purged": count}
 
 

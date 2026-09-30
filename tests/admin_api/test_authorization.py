@@ -16,10 +16,12 @@ class Case:
     body: dict[str, object] | None = None
     platform_only: bool = False
     scoped: bool = True
+    conditional: bool = False
 
 
 CASES = [
     Case("GET", "/me", scoped=False),
+    Case("GET", "/catalog", scoped=False),
     Case("POST", "/orgs", {"name": "created"}, True, False),
     Case("GET", "/orgs", scoped=False),
     Case("POST", "/orgs/{org}/teams", {"name": "new-team"}),
@@ -47,6 +49,15 @@ CASES = [
     Case("GET", "/audit/verify", platform_only=True, scoped=False),
 ]
 
+CASES.extend(
+    [
+        Case(case.method, case.route, case.body, conditional=True)
+        for case in CASES
+        if case.method in ("PUT", "DELETE")
+        and case.route.endswith(("model-policy", "guardrails", "residency"))
+    ]
+)
+
 
 def path(case: Case, harness: AdminHarness, *, other: bool = False) -> str:
     org = harness.other if other else harness.org
@@ -64,21 +75,29 @@ def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
     assert registered == {(case.method, case.route) for case in CASES}
 
 
-@pytest.mark.parametrize("case", CASES, ids=lambda case: f"{case.method} {case.route}")
+@pytest.mark.parametrize(
+    "case",
+    CASES,
+    ids=lambda case: f"{case.method} {case.route}" + (" If-Match" if case.conditional else ""),
+)
 async def test_authorization_matrix(admin_harness: AdminHarness, case: Case) -> None:
     client = admin_harness.client
     own = path(case, admin_harness)
-    platform = await client.request(
-        case.method, own, json=case.body, headers=admin_harness.headers(admin_harness.platform_key)
-    )
+    headers = admin_harness.headers(admin_harness.platform_key)
+    if case.conditional:
+        loaded = (await client.get(own, headers=headers)).json()
+        headers["If-Match"] = f'"{loaded["version"]}"'
+    platform = await client.request(case.method, own, json=case.body, headers=headers)
     org_body = (
         {"name": "new-team-org"}
         if case.route == "/orgs/{org}/teams" and case.method == "POST"
         else case.body
     )
-    org = await client.request(
-        case.method, own, json=org_body, headers=admin_harness.headers(admin_harness.org_key)
-    )
+    org_headers = admin_harness.headers(admin_harness.org_key)
+    if case.conditional:
+        loaded = (await client.get(own, headers=org_headers)).json()
+        org_headers["If-Match"] = f'"{loaded["version"]}"'
+    org = await client.request(case.method, own, json=org_body, headers=org_headers)
     other = (
         await client.request(
             case.method,

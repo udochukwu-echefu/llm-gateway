@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:break": "node scripts/break-checks.mjs"
+    "test:break": "node scripts/break-checks.mjs",
+    "test:break:policies": "node scripts/break-policy-checks.mjs"
   },
   "dependencies": {
     "iron-session": "9.0.1",

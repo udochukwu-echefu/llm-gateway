@@ -146,7 +146,7 @@ async def test_usage_cli_reports_aggregated_cost_and_missing_counts(
 
         assert "requests=2" in report
         assert "stream_incomplete=1" in report
-        assert "cost_usd=1.234E-9" in report or "cost_usd=0.000000001234" in report
+        assert "cost_usd=0.000000001234" in report
     finally:
         await engine.dispose()
 
@@ -175,7 +175,9 @@ async def test_usage_cli_reports_cache_hits_and_savings(migrated_database: str) 
         report = run_admin(migrated_database, "usage", org, "--group-by", "team")
 
         assert "cache_hits=1" in report
-        assert "saved_usd=1.234E-9" in report or "saved_usd=0.000000001234" in report
+        assert "cost_usd=0.000000000000" in report
+        assert "0E-12" not in report
+        assert "saved_usd=0.000000001234" in report
     finally:
         await engine.dispose()
 

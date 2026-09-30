@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from llm_gateway.audit.chain import append_event
 from llm_gateway.catalog import Catalog
 from llm_gateway.guardrails.repository import GuardrailRepository, owners
+from llm_gateway.policy_version import advance_version, check_version
 from llm_gateway.routing.policy import ModelPolicy, validate_patterns
 
 
@@ -13,12 +14,19 @@ class PolicyRepository:
         self.sessions, self.actor = sessions, actor
 
     async def set_models(
-        self, org: str, team: str | None, patterns: list[str] | None, catalog: Catalog
+        self,
+        org: str,
+        team: str | None,
+        patterns: list[str] | None,
+        catalog: Catalog,
+        expected_version: str | None = None,
     ) -> None:
         validated = validate_patterns(patterns, catalog) if patterns is not None else None
         async with self.sessions.begin() as session:
-            organization, member = await owners(session, org, team)
+            organization, member = await owners(session, org, team, lock=True)
             owner = member if member is not None else organization
+            check_version(owner, "model_patterns", expected_version)
+            advance_version(owner, "model_patterns")
             owner.model_patterns = list(validated) if validated is not None else None
             await append_event(
                 session,

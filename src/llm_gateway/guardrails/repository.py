@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from llm_gateway.audit.chain import append_event
 from llm_gateway.guardrails.policy import GuardrailPolicy, parse_actions, parse_regions
+from llm_gateway.policy_version import POLICY_COLUMNS, advance_version, check_version, version
 from llm_gateway.routing.policy import ModelPolicy
 from llm_gateway.tenants.models import Organization, Team
 
@@ -14,7 +15,13 @@ class GuardrailRepository:
         self.sessions, self.actor = sessions, actor
 
     async def set_policy(
-        self, org: str, team: str | None, *, residency: bool, values: list[str] | None
+        self,
+        org: str,
+        team: str | None,
+        *,
+        residency: bool,
+        values: list[str] | None,
+        expected_version: str | None = None,
     ) -> None:
         validated: list[str] | None
         if residency:
@@ -27,8 +34,11 @@ class GuardrailRepository:
                 else None
             )
         async with self.sessions.begin() as session:
-            organization, member = await owners(session, org, team)
+            organization, member = await owners(session, org, team, lock=True)
             owner = member if member is not None else organization
+            column = "allowed_regions" if residency else "guardrail_actions"
+            check_version(owner, column, expected_version)
+            advance_version(owner, column)
             if residency:
                 owner.allowed_regions = validated
             else:
@@ -48,34 +58,47 @@ class GuardrailRepository:
             )
 
     async def get_policy(self, org: str, team: str | None) -> tuple[GuardrailPolicy, ModelPolicy]:
+        guardrails, models, _ = await self.snapshot(org, team)
+        return guardrails, models
+
+    async def snapshot(
+        self, org: str, team: str | None
+    ) -> tuple[GuardrailPolicy, ModelPolicy, dict[str, str]]:
         async with self.sessions() as session:
             organization, member = await owners(session, org, team)
-            return GuardrailPolicy(
-                parse_actions(organization.guardrail_actions or []),
-                parse_actions(member.guardrail_actions or []) if member is not None else (),
-            ), ModelPolicy(
-                tuple(organization.model_patterns)
-                if organization.model_patterns is not None
-                else None,
-                tuple(member.model_patterns)
-                if member is not None and member.model_patterns is not None
-                else None,
-                parse_regions(organization.allowed_regions),
-                parse_regions(member.allowed_regions) if member is not None else None,
+            owner = member if member is not None else organization
+            versions = {column: version(owner, column) for column in POLICY_COLUMNS}
+            return (
+                GuardrailPolicy(
+                    parse_actions(organization.guardrail_actions or []),
+                    parse_actions(member.guardrail_actions or []) if member is not None else (),
+                ),
+                ModelPolicy(
+                    tuple(organization.model_patterns)
+                    if organization.model_patterns is not None
+                    else None,
+                    tuple(member.model_patterns)
+                    if member is not None and member.model_patterns is not None
+                    else None,
+                    parse_regions(organization.allowed_regions),
+                    parse_regions(member.allowed_regions) if member is not None else None,
+                ),
+                versions,
             )
 
 
 async def owners(
-    session: AsyncSession, org: str, team: str | None
+    session: AsyncSession, org: str, team: str | None, *, lock: bool = False
 ) -> tuple[Organization, Team | None]:
-    organization = await session.scalar(select(Organization).where(Organization.name == org))
+    query = select(Organization).where(Organization.name == org)
+    # Lock the organization first in every writer, including CLI, then the team.
+    organization = await session.scalar(query.with_for_update() if lock else query)
     if organization is None:
         raise ValueError("Organization not found")
     if team is None:
         return organization, None
-    member = await session.scalar(
-        select(Team).where(Team.organization_id == organization.id, Team.name == team)
-    )
+    team_query = select(Team).where(Team.organization_id == organization.id, Team.name == team)
+    member = await session.scalar(team_query.with_for_update() if lock else team_query)
     if member is None:
         raise ValueError("Team not found")
     return organization, member

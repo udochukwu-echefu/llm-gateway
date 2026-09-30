@@ -29,6 +29,7 @@ async def main() -> None:
     await admin.set_limits(org.name, team.name, budget=Decimal("100"), alert=Decimal("0.8"))
     platform = await admin.create_admin_key("Fake platform operator", "platform", None)
     org_key = await admin.create_admin_key("Fake org operator", "org", org.name)
+    revocable = await admin.create_admin_key("Fake revocable operator", "org", org.name)
     async with sessions.begin() as session:
         for _ in range(26):
             await append_event(
@@ -65,7 +66,13 @@ async def main() -> None:
     await PostgresUsageRepository(sessions).insert(rows)
     await asyncio.to_thread(
         write_state,
-        {"platform": platform, "orgKey": org_key, "org": org.name, "other": "Other workspace"},
+        {
+            "platform": platform,
+            "orgKey": org_key,
+            "revocable": revocable,
+            "org": org.name,
+            "other": "Other workspace",
+        },
     )
     await engine.dispose()
 

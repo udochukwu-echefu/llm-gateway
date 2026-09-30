@@ -33,7 +33,7 @@ export async function responseScanner(page: Page) {
     }
   });
   return {
-    async verify(adminKeys: string[], createdKey: string) {
+    async verify(adminKeys: string[], tenantKeys: string[], permittedKey?: string) {
       await page.waitForLoadState("networkidle");
       await Promise.all(pending);
       expect(failures.length, "Every browser response must be inspected").toBe(0);
@@ -46,21 +46,26 @@ export async function responseScanner(page: Page) {
         expect(/lgwa_[A-Za-z0-9_-]{12,}/.test(text), `Admin credential in response from ${record.url}`).toBe(false);
         for (const key of adminKeys)
           expect(text.includes(key), "Admin key must never reach a response").toBe(false);
-        if (text.includes(createdKey)) {
-          const permitted = record.method === "POST" && new URL(record.url).pathname.endsWith("/keys");
+        const keys = new Set([
+          ...tenantKeys, ...(text.match(/lgw_[a-z2-7]{12}_[A-Za-z0-9_-]{43}/g) ?? []),
+        ]);
+        for (const key of keys) {
+          if (!text.includes(key)) continue;
+          const permitted = key === permittedKey && record.method === "POST"
+            && new URL(record.url).pathname.endsWith("/keys");
           expect(permitted, "Tenant secret leaked outside its creation response").toBe(true);
-          expect(record.headers.includes(createdKey), "Tenant secret in headers").toBe(false);
+          expect(record.headers.includes(key), "Tenant secret in headers").toBe(false);
           const body = JSON.parse(record.body);
-          expect(body.key === createdKey).toBe(true);
+          expect(body.key === key).toBe(true);
           const { key: _key, ...rest } = body;
           void _key;
-          expect(JSON.stringify(rest).includes(createdKey)).toBe(false);
+          expect(JSON.stringify(rest).includes(key)).toBe(false);
           oneTimeResponses++;
         }
       }
-      expect(oneTimeResponses, "Exactly one first-creation response may contain the tenant secret").toBe(1);
-      console.log(`No-leak scan: ${received.size} browser responses; one permitted key-creation response; zero leaks.`);
-      return received.size;
+      expect(oneTimeResponses, "Exactly one first-creation response may contain the tenant secret").toBe(permittedKey ? 1 : 0);
+      console.log(`No-leak scan: ${received.size} browser responses; ${oneTimeResponses} permitted key-creation response; zero leaks.`);
+      return { responses: received.size, permitted: oneTimeResponses };
     }
   };
 }

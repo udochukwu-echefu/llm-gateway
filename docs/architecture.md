@@ -725,13 +725,15 @@ network and point exclusively at that fake server. The runner ignores the owner'
 while one caller in a hundred waits too long. We subtract awaited provider operations
 using the existing overhead metric; for streams it stops at the first body byte. We
 add histogram buckets across replicas before estimating p99, rather than averaging
-their p99s. Bucket interpolation is approximate: the 10–25 ms bucket cannot give exact
-individual timings. Short prompts still run guardrails; S4 measures additional work
+their p99s. Bucket interpolation is approximate: the first campaign
+used a coarse 10–25 ms bucket. The amendment adds finer boundaries and exact
+per-request overhead logs for benchmark verdicts. Short prompts still run guardrails; S4 measures additional work
 for a 5 KB PII-rich prompt without pretending the existing metric subtracts scans.
 
-A **scaling factor** is two-replica sustainable throughput divided by one-replica
-throughput. Two means doubling capacity; below two suggests a shared bottleneck or
-coordination cost. If there is no passing one-replica rate, that factor is undefined.
+A **scaling factor** is two-replica saturation throughput divided by one-replica
+saturation throughput, using the highest tested stage with fewer than 0.1% errors.
+Two means doubling measured throughput; below two suggests a shared bottleneck or
+coordination cost. This is independent of whether an overhead SLO capacity exists.
 
 A **flame graph** stacks sampled function calls. Wider boxes appear in more samples;
 the vertical axis is call depth, not elapsed time. It guides investigation, not proof
@@ -742,7 +744,7 @@ Fresh teams isolate counters and accounting for every run. k6 validates complete
 responses and terminal streaming events, separately counts expected RPM rejections,
 and treats missed scheduled iterations as generator insufficiency. The soak compares
 durable usage records against successful provider calls after the writer flushes.
-All three repetitions remain available; the report names the selected median run.
+All repetitions remain available; the report names each selected run.
 See [reproduction commands](../loadtest/README.md),
 [ADR 0023](adr/0023-controlled-load-testing.md), and the
 [benchmark report](benchmarks/load-test-report.md) for measurements and limitations.
@@ -772,3 +774,20 @@ the access line is written, while the request trace remains active. key_cache id
 requests without a parsed key have null. Labels remain unchanged. Finer histogram
 buckets near 10 ms reduce interpolation error; benchmark verdicts use the actual
 request values, not interpolated bucket estimates.
+
+The amended campaign starts every run with 30 seconds of excluded warmup. The
+10–800 requests/s ramps measure at least 3000 requests per stage and continue
+after overhead misses, stopping at >1% errors, client p99 above five times the
+fake-provider baseline, or incomplete telemetry. Dropped iterations are retained without stopping
+the ramp on their own. SLO capacity uses
+exact p99 <10 ms and errors <0.1%; saturation throughput uses errors <0.1%.
+Streaming, PII and the ten-minute soak always run at half the selected SLO
+capacity, or 50/s if there is none. The 1/s five-minute idle path separates
+verified-key cache hits and misses and has no SLO verdict. S1/S3/S6 repeat three
+times; S2/S4/idle/S7 once, while S5 retains three repetitions.
+
+The amendment defines saturation eligibility only by HTTP errors. A generator can
+miss scheduled requests while the ones it sent mostly succeed. We therefore show
+both actual successful responses per second under that definition and the highest
+eligible stage where every scheduled request was sent. The latter gives stronger
+capacity evidence. Generation coverage is also reported beside SLO capacity.

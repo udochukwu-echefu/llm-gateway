@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from loadtest.access import access_rows, cache_breakdown, percentiles
-from loadtest.analysis import capacity_passes, measurement_coverage, median_run
+from loadtest.analysis import measurement_coverage, median_run
 from loadtest.environment import environment
 from loadtest.execution import client_metrics, execute_k6, read_summary
 from loadtest.measurements import (
@@ -19,6 +19,7 @@ from loadtest.measurements import (
     snapshot,
     usage_counts,
 )
+from loadtest.ramp import summarize_ramp
 from loadtest.rpm import inspect_times
 from loadtest.runtime import RESULTS, prepare_directories
 from loadtest.setup import create_team, setup
@@ -210,26 +211,14 @@ def main() -> None:
 
 def _ramp(scenario: str, replicas: int, repetition: int) -> dict[str, Any]:
     stages: list[dict[str, Any]] = []
-    capacity = saturation_rate = 0
-    throughput = 0.0
     baseline = json.loads((RESULTS / "provider.json").read_text())["median"]["client_ms"]["p99"]
     for rate in RATES:
         stage = run_once(scenario, rate, max(60, math.ceil(3000 / rate)), replicas, repetition)
         stages.append(stage)
-        complete = stage["measurement_complete"] and stage["dropped_iterations"] == 0
-        if complete and capacity_passes(stage["overhead_ms"]["p99"], stage["error_rate"], 0):
-            capacity = rate
-        if complete and stage["error_rate"] < 0.001:
-            saturation_rate, throughput = rate, stage["throughput_rps"]
+        complete = stage["measurement_complete"]
         if not complete or stage["error_rate"] > 0.01 or stage["client_ms"]["p99"] > 5 * baseline:
             break
-    return {
-        "capacity": capacity,
-        "saturation_rate": saturation_rate,
-        "saturation_throughput_rps": throughput,
-        "stages": stages,
-        "ceiling_reached": stages[-1]["offered_rps"] == RATES[-1],
-    }
+    return summarize_ramp(stages, RATES[-1])
 
 
 def _s1_capacity(baseline_rate: int | None) -> int:

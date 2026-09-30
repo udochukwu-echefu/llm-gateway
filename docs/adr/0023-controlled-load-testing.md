@@ -54,10 +54,21 @@ using distinct request-ID prefixes. Exact access overhead is the verdict input;
 histogram deltas remain a corroborating estimate with count-coverage validation.
 Ramp 10, 25, 50, 100, 200, 400, 800/s with at least 3000 scheduled requests per
 stage. Continue after overhead misses; stop on >1% errors, client p99 >5 times
-the measured fake baseline, or incomplete generation/telemetry. Keep the stopping
+the measured fake baseline, or incomplete telemetry. Dropped iterations are retained but do not alone stop
+the ramp. Keep the stopping
 stage. SLO capacity uses <10 ms exact p99 and <0.1% errors; saturation throughput
 uses <0.1% errors. Select a whole median ramp by saturation throughput.
 S2/S4/S7 always run at half S1 SLO capacity, or 50/s if none exists. Run S1/S3/S6
 three times, S2/S4/idle/S7 once, retaining S5's original three repetitions.
 S6 checks atomic Redis admission timestamps, including its warmup, against 630.
 Idle traffic is informational; it has no SLO verdict.
+
+The amendment explicitly authorizes replacing RPM's approximate counter with GCRA
+for correctness; the original instruction above to retain that counter is superseded.
+The amended soak is one ten-minute run. Error-only saturation throughput follows
+the amendment literally, even if k6 could not generate every iteration. Publish the
+actual successes/s and the highest eligible fully generated stage separately, so
+generator omissions cannot masquerade as capacity. A one-iteration omission caused
+an early stop in S3 repetition 3; the existing stages were retained and the missing
+higher stages were completed after correcting the runner. No stage was retried to
+obtain a better percentile.

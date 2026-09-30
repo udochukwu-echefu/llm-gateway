@@ -1,4 +1,4 @@
-# Gateway threat model (through step 13a console)
+# Gateway threat model (through step 13b console)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -81,4 +81,17 @@ hops are configured (default zero). Behind a balancer, restrict direct origin ac
 and require the trusted chain to append real peers. Misconfigured trust lets clients
 claim identities, while no trust behind a balancer shares its quota across callers.
 Startup validation runs before Next starts for both local and Docker entry points;
-missing secrets fail compose interpolation and invalid settings stop the process.
+a missing or short secret stops only the console container with exit 1 and a clear error.
+Database-only compose commands remain usable without the console secret.
+
+## Safe policies and operational overview (step 13b)
+
+| Threat | Prevention | Residual risk |
+|---|---|---|
+| Policy tampering / cross-org URL changes | Gateway authorization on every read/write; complete role matrix including conditional writes; BFF enums, bounded lists and pattern/version schemas | A stolen authorized admin key can change its scope's policies; protect the private listener and key |
+| Lost updates / replaying an old version | Owner-row locks, revision-bearing hash, conditional check + mutation + audit in one transaction; CLI advances versions too; console always supplies If-Match | Authorized unconditional API/CLI writes remain possible by design; inherited policy changes are outside this level's version |
+| Accidental deny-all or weakened guardrail | Separate inherit/deny-all choices; pre-save change summary; dangerous-change and named removal confirmations; retain draft on conflict | UI safeguards cannot stop a crafted authorized request; policy changes take up to key-cache TTL |
+| Purge abuse / availability impact | Exact typed org/team name in UI; API scope checks and successful-purge audit; Redis errors map to 503 | Authorized repeated purges consume Redis work; UI confirmation is not API authorization or a rate limiter; concurrent writers may refill |
+| UI-only checks mistaken for enforcement | Public API intersection/guardrail floors remain authoritative; browser consumes effective results; BFF never expands scope | XSS may perform same-origin actions with the current session; retain CSP, Origin and session defenses |
+| Overview hides unknown accounting or another tenant | API-scoped org inventory; complete pagination; exact decimal sums; explicit unpriced and partial-token labels; org-scope e2e test | Receipts are best effort, requests count attempts, snapshots may change while multiple pages load; overview is not an invoice |
+| Demo seeder used accidentally | GATEWAY_DEMO_SEED=1 opt-in; clearly named synthetic org; refuse pre-existing non-demo org; deterministic IDs and seed lock; print only names/IDs | An operator can deliberately opt into the wrong database; demo key secrets are discarded but hashes/metadata remain; use a local disposable database |

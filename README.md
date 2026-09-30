@@ -3,7 +3,7 @@
 One OpenAI-compatible API in front of many model providers, built for company use:
 central keys, per-team limits and budgets, cost tracking, failover and audit logs.
 
-> **Status: step 12a.** Chat completions and embeddings route to Groq, DeepSeek,
+> **Status: step 12b tooling and partial benchmark report.** Chat completions and embeddings route to Groq, DeepSeek,
 > Gemini or OpenAI. Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
@@ -195,6 +195,25 @@ is RPM, TPM or failed-IP authentication; `429 concurrency_limit_exceeded` has
 `Retry-After: 1`; `429 budget_exceeded` has type `insufficient_quota` and retries
 next month. If Redis is unavailable, the default `open` mode allows requests and
 logs a bounded error; `closed` returns `503 limits_unavailable`.
+
+## Performance
+
+Local Apple M2 Pro / Docker Desktop measurements against a synthetic 200 ms provider:
+
+- Uncached chat missed the target: selected one-replica overhead p99 **34.75 ms** at
+  1 request/s; two replicas **23.48 ms** at the same offered rate. Maximum compliant
+  throughput and scaling factor were not established.
+- Repeated embeddings: overhead p99 **9.57 ms**, client p99 **9.56 ms**, **99.67% cache
+  hits** at 5 requests/s. No unexpected errors or dropped accounting records in measured runs.
+- RPM=600 held fixed-minute buckets at or below 600 across two replicas, but the
+  selected run reached **624 requests in a rolling 60 seconds**. The weighted-window
+  estimate is not exact rolling-window enforcement.
+- Prescribed streaming/guardrail/soak loads remain **blocked** by the absent passing
+  S1 baseline. This is not a production capacity or memory-stability certification.
+
+See the [full report and charts](docs/benchmarks/load-test-report.md),
+[reproduction commands](loadtest/README.md), and [deployment checklist](docs/deployment.md).
+The benchmark ignores `.env`, uses only a fake provider and has a 30-second CI smoke.
 
 ## Development
 

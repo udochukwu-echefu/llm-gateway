@@ -16,7 +16,13 @@ Each step ends with tests, docs and a working gateway.
 | 10 | Caching, isolated per team | ✅ Done |
 | 11 | Guardrails: deterministic PII/secret detection, redaction and restore, data residency | ✅ Done |
 | 12a | Private admin API and Postgres usage dashboard | ✅ Done |
-| 12b | Load test report against our targets (SLOs) | Next |
+| 12b | Load test report against our targets (SLOs) | Tooling/report implemented; overhead target missed; S2/S4/S7 measurements blocked |
+
+Steps 1–12a are complete. Step 12b's measured campaign is **partial**, not silently
+marked done: no passing S1 baseline was found at the first tested rate, so its prescribed
+70%-load streaming, guardrail and soak scenarios cannot be claimed. See the
+[report](benchmarks/load-test-report.md) for actual results, the exact-window limitation,
+charts and profiling. No maximum sustainable capacity or scaling factor is established.
 
 ## Targets (SLOs) we'll load-test against in step 12
 

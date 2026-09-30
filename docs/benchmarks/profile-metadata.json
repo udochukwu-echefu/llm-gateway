@@ -1,0 +1,8 @@
+{
+  "rate": 1,
+  "scenario": "S1 diagnostic (not one of capacity repetitions)",
+  "measurement": "profile-S1-1-1-a831e9f7",
+  "py_spy": "0.4.2",
+  "duration_s": 65,
+  "command": "uvx --offline py-spy record --pid 1 --duration 65 --rate 100 --output /profiles/S1-flamegraph.svg"
+}

@@ -1,0 +1,17 @@
+{
+  "top_exclusive_samples": [
+    [
+      "run (asyncio/runners.py:119)",
+      169
+    ],
+    [
+      "main_loop (uvicorn/server.py:248)",
+      7
+    ],
+    [
+      "sleep (asyncio/tasks.py:718)",
+      6
+    ]
+  ],
+  "total_samples": 292
+}

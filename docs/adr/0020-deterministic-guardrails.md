@@ -120,6 +120,19 @@ Use bounded direction/detector/action metric labels, count-only input/output spa
 one `guardrail_findings` log event at request finalization, including blocked requests.
 No mapping, matched value or generated text enters those systems.
 
+### Step 12b test amendment (2026-09-30)
+
+The one-/two-second scanner limits and 200 ms scheduling target above describe the
+earlier engineering baseline, not current portable test assertions. Scanner tests now
+retain generous 10-/30-second safety limits; the HTTP scheduling test holds a worker
+scan behind an explicit event and asserts that health answers **before** that scan is
+released. This tests offloading without relying on laptop speed. The full usage queue
+and slow cache tests likewise assert completion-before-release and cancellation,
+rather than subsecond response bounds. Tight performance targets belong in controlled
+benchmarks, not correctness tests on arbitrary CI/sandbox hardware. Step 12b's 5 KB
+PII scenario does not replace the larger numeric/worker-saturation campaign recommended
+above; report any unmeasured workloads explicitly.
+
 ## Consequences
 
 Pattern matching has both false positives and false negatives. It does not recognize

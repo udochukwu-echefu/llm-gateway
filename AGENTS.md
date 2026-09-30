@@ -87,6 +87,8 @@ Keep the code easy to navigate: someone new should find anything in under a minu
 **Tests**
 - Never assert tight wall-clock bounds. Assert ordering or behaviour, and keep only a
   generous time limit as a safety net.
+- Run db and Redis pytest invocations sequentially on the same Postgres cluster:
+  migrations alter the shared `gateway_readonly` role even with separate test databases.
 - Test files mirror what they test: `tests/providers/test_groq.py` for
   `providers/groq.py`, `tests/api/...` for endpoints. Shared fixtures go in `conftest.py`.
 - Each test checks one behaviour and is named after it

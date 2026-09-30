@@ -70,3 +70,13 @@ IDs. Exception details are suppressed because exception messages/locals can cont
 - Global collectors and tracer provider: couples tests and separate app lifetimes.
 - Automatic instrumentation: risks exporting URLs, headers and external trace context.
 - Team labels: unbounded cardinality; SQL already provides team reporting.
+
+## Measurement amendment (2026-09-30)
+
+Add sub-millisecond and 2–25 ms buckets around the SLO, preserving label sets.
+Access logs now include unrounded overhead_ms from the same metric observation,
+and key_cache hit/miss (null when no key lookup occurred). Observability supplies an idempotent request-scoped callback invoked before
+the access line is emitted, preserving the active request trace.
+Benchmark percentiles use exact log observations and report histogram estimates
+alongside. Dashboard and alert queries use histogram_quantile without named bucket
+boundaries, so their queries need no changes.

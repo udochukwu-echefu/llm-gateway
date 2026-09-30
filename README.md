@@ -618,3 +618,6 @@ GROUP BY alias, provider, model;
 
 Receipts remain best effort; NULL cost is unknown, not free, and retries count as separate
 attempts. See ADRs 0016 and 0017 for policy and routing decisions.
+
+Access logs include unrounded `overhead_ms` and verified-key `key_cache` hit/miss
+(null before a key lookup); overhead uses the same observation as Prometheus.

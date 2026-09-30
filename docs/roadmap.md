@@ -32,3 +32,4 @@ charts and profiling. No maximum sustainable capacity or scaling factor is estab
 
 Step 12b amendment: RPM now uses GCRA with a bounded burst; TPM remains approximate.
 The redesigned campaign will establish capacity independently of idle-path tails.
+Exact overhead access logs and finer histogram buckets now support the revised campaign.

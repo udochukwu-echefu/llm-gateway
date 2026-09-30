@@ -764,3 +764,11 @@ Lua decision keep replicas consistent. Any rolling minute admits at most RPM + B
 while Redis is available and retains state. Retry headers describe when the next
 slot becomes usable. Token limits remain approximate: actual tokens are only
 known after a response, and their weighted minute counter can overshoot.
+
+Exact overhead_ms in each access log uses the same unrounded observation as the
+histogram, including provider-wait subtraction and the first-body-byte boundary
+for streams. Observability finalizes once through a request-scoped callback before
+the access line is written, while the request trace remains active. key_cache identifies a hit or database lookup (miss);
+requests without a parsed key have null. Labels remain unchanged. Finer histogram
+buckets near 10 ms reduce interpolation error; benchmark verdicts use the actual
+request values, not interpolated bucket estimates.

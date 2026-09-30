@@ -7,7 +7,9 @@ from dataclasses import replace
 import httpx
 import pytest
 import respx
+import structlog
 from redis.asyncio import Redis
+from structlog.testing import capture_logs
 
 from llm_gateway.catalog import Catalog
 from llm_gateway.config import Settings
@@ -259,3 +261,52 @@ async def test_authenticated_response_keeps_headers_when_redis_fails(
     assert response.status_code == status
     assert response.headers["x-ratelimit-limit-requests"] == "0"
     assert response.headers["x-ratelimit-remaining-requests"] == "unavailable"
+
+
+@pytest.mark.parametrize("path", ["/v1/models", "/v1/chat/completions"])
+@pytest.mark.parametrize("kind", ["tokens", "concurrency"])
+async def test_later_rejection_preserves_single_gcra_request_headers(
+    limited_client: tuple[httpx.AsyncClient, MemoryKeyRepository, LimitService],
+    test_redis: Redis,
+    path: str,
+    kind: str,
+) -> None:
+    client, repository, service = limited_client
+    record = next(iter(repository.records.values()))
+    repository.records[record.key_id] = replace(
+        record, limits=LimitOverrides(rpm=2, tpm=1 if kind == "tokens" else 0, max_concurrency=1)
+    )
+    if kind == "tokens":
+        await service.window(str(record.team_id), "tokens", 0, 1)
+    else:
+        await test_redis.zadd(f"lgw:leases:{record.team_id}", {"held": time.time() + 60})
+        await test_redis.expire(f"lgw:leases:{record.team_id}", 120)
+
+    response = (
+        await client.get(path)
+        if path == "/v1/models"
+        else await client.post(path, json=CHAT_REQUEST)
+    )
+
+    assert response.status_code == 429
+    assert response.headers.get_list("x-ratelimit-limit-requests") == ["2"]
+    assert response.headers.get_list("x-ratelimit-remaining-requests") == ["1"]
+    assert response.headers.get_list("x-ratelimit-reset-requests") == ["0"]
+
+
+async def test_rejected_rpm_has_no_atomic_admission_timestamp(
+    limited_client: tuple[httpx.AsyncClient, MemoryKeyRepository, LimitService],
+    upstream: respx.MockRouter,
+) -> None:
+    client, repository, _ = limited_client
+    record = next(iter(repository.records.values()))
+    repository.records[record.key_id] = replace(record, limits=LimitOverrides(rpm=2, tpm=100))
+    upstream.post("/chat/completions").respond(200, json=COMPLETION)
+
+    with capture_logs(processors=[structlog.contextvars.merge_contextvars]) as logs:
+        responses = [await client.post("/v1/chat/completions", json=CHAT_REQUEST) for _ in range(3)]
+
+    access = [row for row in logs if row["event"] == "request"]
+    assert [response.status_code for response in responses] == [200, 200, 429]
+    assert all(isinstance(row["rpm_admitted_at_us"], int) for row in access[:2])
+    assert access[2]["rpm_admitted_at_us"] is None

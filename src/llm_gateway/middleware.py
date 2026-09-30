@@ -56,6 +56,7 @@ class RequestContextMiddleware:
 
         fields, token = context.begin_request()
         fields["key_cache"] = None
+        fields["rpm_admitted_at_us"] = None
         with structlog.contextvars.bound_contextvars(request_id=request_id):
             try:
                 await self.app(scope, receive, send_with_context)

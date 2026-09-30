@@ -33,9 +33,14 @@ class UsageMiddleware:
         async def send_with_usage(message: Message) -> None:
             nonlocal status, first_byte_at
             if message["type"] == "http.response.start":
-                status = message["status"]
+                response_status: int = message["status"]
+                status = response_status
                 for key, value in scope.get("state", {}).get("limit_headers", {}).items():
-                    MutableHeaders(scope=message).append(key, value)
+                    if response_status >= 400:
+                        # A GatewayError may already carry these admission headers.
+                        MutableHeaders(scope=message)[key] = value
+                    else:
+                        MutableHeaders(scope=message).append(key, value)
             elif message["type"] == "http.response.body" and first_byte_at is None:
                 first_byte_at = time.perf_counter()
             await send(message)

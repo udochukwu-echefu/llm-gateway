@@ -181,6 +181,7 @@ class LimitService:
                 values = cast(list[int], result)
                 headers.update(self._format_headers(kind, limit, values))
                 if not values[0]:
+                    headers.update(rpm_headers)
                     self._rejected(kind)
                     raise GatewayError(
                         429,
@@ -198,6 +199,7 @@ class LimitService:
             )
         )
         if result == 0:
+            headers.update(rpm_headers)
             self._rejected("concurrency")
             raise GatewayError(
                 429,

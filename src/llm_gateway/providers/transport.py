@@ -35,27 +35,37 @@ class UpstreamClient:
         read, closed and raised as GatewayError here, so the caller only sees successes.
         """
         request = self._http.build_request("POST", path, json=payload)
+        mark_sent()
+        return await self._send(request, is_submission=True)
+
+    async def get(self, path: str) -> httpx.Response:
+        """Poll an accepted invocation without treating it as another billable submission."""
+        return await self._send(self._http.build_request("GET", path), is_submission=False)
+
+    async def _send(self, request: httpx.Request, *, is_submission: bool) -> httpx.Response:
         telemetry = current.get()
         if telemetry is not None and telemetry.propagate:
             carrier: dict[str, str] = {}
             TraceContextTextMapPropagator().inject(carrier)
             request.headers.update(carrier)
-        mark_sent()
         try:
             response = await self._http.send(request, stream=True)
         except httpx.HTTPError as exc:
-            if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+            if is_submission and isinstance(
+                exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+            ):
                 mark_connect_failed()
             raise transport_error(exc) from exc
 
         log.debug("upstream_response", status=response.status_code)
-        annotate(
-            upstream_request_id=(
-                response.headers.get(self._request_id_header) if self._request_id_header else None
-            )
+        request_id = (
+            response.headers.get(self._request_id_header) if self._request_id_header else None
         )
+        if is_submission or request_id is not None:
+            annotate(upstream_request_id=request_id)
         if response.is_error:
-            mark_rejected()
+            if is_submission:
+                mark_rejected()
             try:
                 await response.aread()
             except httpx.HTTPError as exc:
@@ -77,7 +87,10 @@ async def read_model[M: ResponseModel](response: httpx.Response, model: type[M])
     try:
         content = await response.aread()
     except httpx.HTTPError as exc:
-        raise transport_error(exc) from exc
+        error = transport_error(exc)
+        # An accepted queued job must not be resubmitted if reading its result fails.
+        error.retry_allowed = bool(response.extensions.get("gateway_retry_allowed", True))
+        raise error from exc
     finally:
         await response.aclose()
     try:

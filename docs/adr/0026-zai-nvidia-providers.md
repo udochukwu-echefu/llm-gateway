@@ -26,19 +26,36 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
   `https://integrate.api.nvidia.com/v1`. Keys use SecretStr and the usual secret
   store. Missing keys leave providers disabled. NVIDIA's documented NVCF-REQID
   header supplies the upstream request ID; Z.ai uses x-request-id if present.
-- Translate developer to system from each reference's role enum. Both token-limit
+- Translate developer to system for Z.ai and NVIDIA Kimi from their role enums;
+  NVIDIA GLM has an unrestricted string role, so preserves developer. Both token-limit
   spellings pass unchanged: `max_tokens` is documented, but omission of
   `max_completion_tokens` is not a statement of non-support. This follows the
   ADR 0004 review amendment: **not documented is not the same as not supported**.
 - Reject Z.ai json_schema, because the response-format enum is text/json_object,
   and `thinking.type=disabled` on the three reviewed GLM-5.3 models, because
-  thinking "can only be enabled". Reject NVIDIA top_p, n (even 1/null), and both
+  thinking "can only be enabled". Reject NVIDIA Kimi top_p, n (even 1/null), and both
   penalties: they are "fixed by the model and are not exposed". Reject object-list
-  content for NVIDIA system/assistant messages (including translated developer),
+  content for NVIDIA Kimi system/assistant messages (including translated developer),
   explicitly unsupported by its reference. Other fields/options pass unchanged;
   model-specific restrictions remain provider errors. No international Z.ai
   embeddings endpoint is in its documentation index; no Kimi embeddings endpoint
   is documented. Both adapters reject embeddings.
+- Add NVIDIA-hosted `z-ai/glm-5.3` and `z-ai/glm-5.3-flash`, with Global region
+  evidence and explicit unpriced trial periods, never Z.ai's direct API rates.
+  Their official infer examples confirm the exact IDs; their references permit
+  top_p and both penalties. Kimi's fixed sampling and content-array exclusions
+  apply only to its exact model ID, not to another or undocumented NVIDIA model.
+  Keep forwarding absent fields under the unknown-parameter rule; no alias changes.
+- Resolve documented **nonstreaming Kimi** 202 at the same integrate host's
+  `GET /v1/status/{requestId}` with bearer auth, UUID validation and paced polling.
+  Submission/polls/body reads share the existing total deadline. Pre-response HTTP
+  disconnect cancels local work; no remote cancellation API is documented. Do not
+  create another usage event for a poll, mark accepted jobs as rejected on poll
+  failure, or retry inference after polling fails (duplicate billing risk).
+  The status reference documents JSON only; GLM references do not document a queue
+  protocol. For queued streaming or GLM, close the response and raise generic
+  retryable `502 upstream_pending_unsupported` rather than inventing SSE polling
+  or asserting that every integrate endpoint is synchronous.
 - Add a strict `str | None` reasoning_content field to assistant request history.
   Preserve it only when serving Z.ai or NVIDIA; older providers retain their
   dropping behaviour. Other fields keep their existing validation, including the
@@ -80,8 +97,10 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
   (temporary overload), and unrecognized errors, keep shared retry/error mapping.
   Authentication codes keep the existing sanitized non-retryable 401/403 mapping.
   This narrowly supersedes ADR 0002's status-only 429 rule. No equivalent billing
-  error code was documented in NVIDIA's hosted Kimi reference, FAQ or quickstart;
-  do not infer one from trial credit terms.
+  error code was documented in NVIDIA's hosted Kimi reference, FAQ or quickstart.
+  The later GLM review documents HTTP 402 Payment Required with credit exhaustion;
+  NVIDIA 402 now uses the same sanitized non-retryable account error. Do not infer
+  additional 429 business codes from trial credit terms.
 
 ## Evidence checked 2026-09-30
 
@@ -94,6 +113,9 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
 | Z.ai Singapore | https://docs.z.ai/legal-agreement/privacy-policy, API DPA section 3 |
 | Z.ai streamed reasoning, usage/cache fields | https://docs.z.ai/guides/capabilities/streaming; include_usage is not explicitly documented, so forwarded without a support guarantee |
 | NVIDIA exact model ID / URL / stream options / usage / exclusions | https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-infer |
+| NVIDIA GLM IDs / sampling / credit error | https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3-infer and https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3-flash-infer: request examples, top_p/penalties, 402 "Payment Required", example "You have reached your limit of credits." |
+| NVIDIA GLM geography / trial terms | https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3 and https://build.nvidia.com/z-ai/glm-5-3-flash: "Global" and Trial Terms link |
+| Kimi queued integrate request | Kimi infer 202: "Result is pending. Client should poll using the requestId."; https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3-statuspolling: GET /status/{requestId}, bearer auth, 200 JSON, 202 pending; no SSE status response |
 | Kimi context 1,048,576, reasoning_effort low/high/max, tools, structured output, complete history, Global | https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3 and https://build.nvidia.com/moonshotai/kimi-k3 |
 | NVIDIA trial pricing | [Trial Terms PDF](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf), sections 1.2/1.4: trial only, credit deductions and possible purchased credits; not a no-per-token-charge guarantee |
 

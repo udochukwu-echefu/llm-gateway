@@ -183,6 +183,35 @@ unpriced = true
 source_url = "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf"
 checked_on = 2026-09-30
 
+[[models]]
+provider = "nvidia"
+model = "z-ai/glm-5.3"
+region = "global"
+region_source_url = "https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+# Hosted trial credits are not verified zero-cost tokens; Z.ai's own rates do not apply.
+unpriced = true
+source_url = "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf"
+checked_on = 2026-09-30
+
+[[models]]
+provider = "nvidia"
+model = "z-ai/glm-5.3-flash"
+region = "global"
+region_source_url = "https://build.nvidia.com/z-ai/glm-5-3-flash"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+unpriced = true
+source_url = "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf"
+checked_on = 2026-09-30
+
 # Aliases are reviewed destinations, including permission to split traffic across providers.
 [aliases.fast]
 targets = [

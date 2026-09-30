@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Response
 
 from llm_gateway.api.caching import execute_with_cache
 from llm_gateway.api.common import parse_request, read_json_body, record_usage
+from llm_gateway.api.disconnect import until_disconnected
 from llm_gateway.api.execution import begin_execution
 from llm_gateway.api.guardrails import begin_guardrails, guarded_call
 from llm_gateway.api.streaming import ProviderStreamingResponse
@@ -34,7 +35,11 @@ async def chat_completions(request: Request) -> Response:
         "chat",
         ChatCompletion,
         lambda: guarded_call(
-            guardrails, lambda: state.resilience.execute_chat(chat, execution), execution
+            guardrails,
+            lambda: until_disconnected(
+                request, lambda: state.resilience.execute_chat(chat, execution)
+            ),
+            execution,
         ),
     )
     headers = {**execution.headers, "x-lgw-cache": cache_result}

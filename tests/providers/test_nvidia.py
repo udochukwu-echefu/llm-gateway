@@ -9,26 +9,27 @@ from llm_gateway.guardrails.policy import GuardrailPolicy
 from tests.conftest import MemoryKeyRepository
 from tests.fixtures import parse_events, sse
 from tests.providers.conftest import HostedGateway
-from tests.providers.fixtures import HISTORY, hosted_completion, hosted_stream
+from tests.providers.fixtures import HISTORY, NVIDIA_MODELS, hosted_completion, hosted_stream
 
 pytestmark = pytest.mark.parametrize("provider_name", ["nvidia"])
 MODEL = "moonshotai/kimi-k3"
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("model", NVIDIA_MODELS)
 async def test_nested_model_reasoning_and_unknown_cost_receipt(
-    hosted_gateway: HostedGateway, upstream: respx.MockRouter, stream: bool
+    hosted_gateway: HostedGateway, upstream: respx.MockRouter, stream: bool, model: str
 ) -> None:
     route = upstream.post("/chat/completions")
     if stream:
-        route.respond(200, content=b"".join(sse(*hosted_stream(MODEL), "[DONE]")))
+        route.respond(200, content=b"".join(sse(*hosted_stream(model), "[DONE]")))
     else:
-        route.respond(200, json=hosted_completion(MODEL))
+        route.respond(200, json=hosted_completion(model))
 
     response = await hosted_gateway.client.post(
         "/v1/chat/completions",
         json={
-            "model": f"nvidia/{MODEL}",
+            "model": f"nvidia/{model}",
             "messages": [
                 {"role": "developer", "content": "Be brief."},
                 {"role": "user", "content": "Hi"},
@@ -42,20 +43,20 @@ async def test_nested_model_reasoning_and_unknown_cost_receipt(
 
     assert response.status_code == 200
     sent = json.loads(route.calls.last.request.content)
-    assert sent["model"] == MODEL
-    assert sent["messages"][0]["role"] == "system"
+    assert sent["model"] == model
+    assert sent["messages"][0]["role"] == ("system" if model == MODEL else "developer")
     assert sent["reasoning_effort"] == "low"
     if stream:
         events = parse_events(response.text)
         assert events[-1] == "[DONE]"
-        assert events[0]["model"] == f"nvidia/{MODEL}"
+        assert events[0]["model"] == f"nvidia/{model}"
         assert events[0]["choices"][0]["delta"]["reasoning_content"] == "Analysis"
         assert sent["stream_options"] == {"include_usage": True}
     else:
-        assert response.json()["model"] == f"nvidia/{MODEL}"
+        assert response.json()["model"] == f"nvidia/{model}"
         assert response.json()["choices"][0]["message"]["reasoning_content"] == "Analysis"
     record = hosted_gateway.records[0]
-    assert record.model == MODEL
+    assert record.model == model
     assert (
         record.prompt_tokens,
         record.completion_tokens,
@@ -135,7 +136,9 @@ async def test_unpriced_hosted_model_is_listed(hosted_gateway: HostedGateway) ->
     response = await hosted_gateway.client.get("/v1/models")
 
     assert response.status_code == 200
-    assert [entry["id"] for entry in response.json()["data"]] == [f"nvidia/{MODEL}"]
+    assert {entry["id"] for entry in response.json()["data"]} == {
+        f"nvidia/{model}" for model in NVIDIA_MODELS
+    }
 
 
 async def test_history_reasoning_cannot_bypass_guardrails(

@@ -15,7 +15,7 @@ DOCUMENTED_CHAT_REJECTIONS = {
     "gemini": frozenset[str](),
     "openai": frozenset[str](),
     "zai": frozenset[str](),
-    "nvidia": frozenset({"top_p", "presence_penalty", "frequency_penalty", "n"}),
+    "nvidia": frozenset[str](),  # Kimi exclusions are model-specific, tested with its exact ID.
 }
 CANONICAL_CHAT_VALUES: dict[str, Any] = {
     "model": "model",

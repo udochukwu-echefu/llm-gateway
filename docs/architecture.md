@@ -933,6 +933,12 @@ the cinema and Moonshot is the studio. Our routing prefix names the cinema:
 Z.ai both makes GLM and serves it on its international Model API. Its endpoint
 uses `/api/paas/v4`, unlike the more common `/v1`. The Coding Plan and China
 BigModel platforms are separate and are not part of this step.
+NVIDIA also hosts GLM-5.3 and GLM-5.3-Flash. The routing IDs are
+`nvidia/z-ai/glm-5.3` and `nvidia/z-ai/glm-5.3-flash`: the host remains NVIDIA,
+with Global geography and unpriced trial terms, not Z.ai's Singapore/rate evidence.
+Each model's restrictions stay separate. For example, NVIDIA's Kimi fixes top_p
+and penalties, but its GLM endpoints allow those controls. Kimi translates
+developer messages to system; the GLM reference permits arbitrary role strings.
 
 Both adapters reuse the gateway's checked OpenAI-shaped protocol. Each enabled
 provider gets its own connection pool (reusable telephone lines) and circuit
@@ -1006,5 +1012,24 @@ attempt. A metadata-only log tells the operator to check billing, quota and
 entitlements; clients never receive the private provider account message.
 Actual request rate limits (`1302`) and temporary overload (`1305`) still use
 bounded retries and the existing 429 response. The original upstream status stays
-available to telemetry and the circuit breaker. NVIDIA keeps its existing mapping
-because its checked hosted documentation supplied no equivalent billing code.
+available to telemetry and the circuit breaker. NVIDIA's GLM references document
+credit exhaustion as HTTP 402, which uses the same sanitized non-retryable account
+error. No NVIDIA-specific billing code on HTTP 429 was documented.
+
+### Waiting for a queued NVIDIA request
+
+HTTP 202 means **accepted but not finished**. Kimi's integrate API documents a
+request ID and a status endpoint: we submit inference once, then ask that same
+authenticated host for the result. Every poll and its short pacing delay are inside
+the existing total deadline, so waiting cannot continue forever. The HTTP endpoint
+watches for client disconnect before response headers and cancels the ongoing wait.
+This stops local work, not NVIDIA's job: no remote cancellation API is documented.
+The accepted job produces one receipt; polling errors cannot trigger a fresh billed
+submission. Missing usage after timeout/failure remains unknown, never zero cost.
+The merged demo seeder follows the same distinction: known trial tokens have
+`unpriced`/NULL cost, missing token counts remain `usage_missing`, and cached
+responses cost zero with unknown hypothetical savings for unpriced models.
+
+The status reference returns JSON only. We do not invent streaming polling, nor
+GLM polling where its references do not document it. Such 202 responses return a
+clear retryable `502 upstream_pending_unsupported`, never an empty success response.

@@ -10,7 +10,7 @@ from llm_gateway.cost import compute_cost
 from llm_gateway.schemas.chat import Usage
 from llm_gateway.tenants.auth import Principal
 from llm_gateway.usage.record import UsageEvent
-from tests.providers.fixtures import HOSTED_USAGE
+from tests.providers.fixtures import HOSTED_USAGE, NVIDIA_MODELS
 
 
 @pytest.mark.parametrize(
@@ -40,12 +40,15 @@ def test_zai_receipts_use_exact_list_and_cached_prices(model: str, expected: str
     assert record.reasoning_tokens == 3  # Already part of output, not charged twice.
 
 
-def test_nvidia_unknown_price_cannot_be_computed_as_zero() -> None:
+@pytest.mark.parametrize("model", NVIDIA_MODELS)
+def test_nvidia_unknown_price_cannot_be_computed_as_zero(model: str) -> None:
     catalog = load_catalog()
-    price = catalog.find("nvidia", "moonshotai/kimi-k3", "chat")
+    price = catalog.find("nvidia", model, "chat")
     assert price is not None
+    assert price.region == "global"
     period = price.at(datetime(2026, 9, 30, tzinfo=UTC))
     assert period is not None
+    assert period.unpriced
 
     with pytest.raises(ValueError, match="model price is unknown"):
         compute_cost(period, 20, 10, 8)

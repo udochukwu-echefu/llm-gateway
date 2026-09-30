@@ -5,6 +5,7 @@ import pytest
 from llm_gateway.catalog import load_catalog
 from llm_gateway.guardrails.policy import REGIONS
 from tests.admin_api.conftest import AdminHarness
+from tests.providers.fixtures import NVIDIA_MODELS
 
 pytestmark = pytest.mark.db
 
@@ -50,5 +51,5 @@ async def test_catalog_does_not_call_unpriced_models_priced(admin_harness: Admin
     response = await h.client.get("/admin/v1/catalog", headers=h.headers(h.platform_key))
 
     models = {row["name"]: row for row in response.json()["models"]}
-    assert models["nvidia/moonshotai/kimi-k3"]["priced"] is False
+    assert all(models[f"nvidia/{model}"]["priced"] is False for model in NVIDIA_MODELS)
     assert models["zai/glm-5.3-flash"]["priced"] is True

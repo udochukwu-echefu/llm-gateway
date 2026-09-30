@@ -81,5 +81,7 @@ def test_unpriced_trial_is_listable_but_not_an_alias_candidate() -> None:
 
     assert "nvidia/moonshotai/kimi-k3" not in available_models(catalog, ["nvidia"], now)
     assert available_models(catalog, ["nvidia"], now, include_unpriced=True) == {
-        "nvidia/moonshotai/kimi-k3"
+        "nvidia/moonshotai/kimi-k3",
+        "nvidia/z-ai/glm-5.3",
+        "nvidia/z-ai/glm-5.3-flash",
     }

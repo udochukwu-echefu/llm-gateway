@@ -24,7 +24,7 @@ class OpenAICompatibleAdapter:
     async def chat(self, request: ChatCompletionRequest, model: str) -> ChatCompletion:
         payload = self._chat_payload(request, model)
         payload["stream"] = False
-        response = await self._transport.open("chat/completions", payload)
+        response = await self._open_chat_response(payload)
         result = await read_model(response, ChatCompletion)
         self.normalize_chat(result)
         return result
@@ -34,7 +34,7 @@ class OpenAICompatibleAdapter:
         payload["stream"] = True
         if self.capabilities.supports_stream_usage:
             payload["stream_options"] = {"include_usage": True}
-        response = await self._transport.open("chat/completions", payload)
+        response = await self._open_chat_response(payload)
         return CompatibleChatStream(response, self.normalize_chat)
 
     async def embed(self, request: EmbeddingRequest, model: str) -> EmbeddingResponse:
@@ -63,6 +63,9 @@ class OpenAICompatibleAdapter:
 
     def _status_error(self, response: httpx.Response) -> GatewayError:
         return status_error(response)
+
+    async def _open_chat_response(self, payload: dict[str, Any]) -> httpx.Response:
+        return await self._transport.open("chat/completions", payload)
 
     def _chat_payload(self, request: ChatCompletionRequest, model: str) -> dict[str, Any]:
         payload = request.to_upstream(self.name)

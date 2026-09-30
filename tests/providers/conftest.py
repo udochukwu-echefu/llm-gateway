@@ -5,6 +5,7 @@ from typing import cast
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from llm_gateway.config import ProvidersSettings, Settings
 from llm_gateway.main import create_app
@@ -44,11 +45,20 @@ class HostedGateway:
     client: httpx.AsyncClient
     records: list[UsageRecord]
     recorded: asyncio.Event
+    app: FastAPI
+
+
+@pytest.fixture
+def hosted_max_retries() -> int:
+    return 0
 
 
 @pytest.fixture
 async def hosted_gateway(
-    settings: Settings, memory_repository: MemoryKeyRepository, issued_test_key: str
+    settings: Settings,
+    memory_repository: MemoryKeyRepository,
+    issued_test_key: str,
+    hosted_max_retries: int,
 ) -> AsyncIterator[HostedGateway]:
     records: list[UsageRecord] = []
     recorded = asyncio.Event()
@@ -58,7 +68,7 @@ async def hosted_gateway(
         recorded.set()
 
     settings.usage_batch_size = 1
-    settings.resilience.max_retries = 0
+    settings.resilience.max_retries = hosted_max_retries
     app = create_app(
         settings,
         key_repository=memory_repository,
@@ -73,4 +83,4 @@ async def hosted_gateway(
             headers={"authorization": f"Bearer {issued_test_key}"},
         ) as client,
     ):
-        yield HostedGateway(client, records, recorded)
+        yield HostedGateway(client, records, recorded, app)

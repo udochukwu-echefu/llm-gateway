@@ -5,6 +5,7 @@ from typing import Any
 from tests.fixtures import COMPLETION, chunk
 
 HOSTED_MODELS = {"zai": "glm-5.3-flash", "nvidia": "moonshotai/kimi-k3"}
+NVIDIA_MODELS = ("moonshotai/kimi-k3", "z-ai/glm-5.3", "z-ai/glm-5.3-flash")
 HOSTED_USAGE = {
     "prompt_tokens": 20,
     "completion_tokens": 10,

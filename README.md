@@ -5,7 +5,7 @@ central keys, per-team limits and budgets, cost tracking, failover and audit log
 
 > **Status: steps 1–13 complete; step 14 providers implemented.** The admin console
 > includes policy editors, residency and cache purge. Chat routes to Groq,
-> DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted Kimi; embeddings to Gemini/OpenAI.
+> DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted Kimi/GLM; embeddings to Gemini/OpenAI.
 > Every `/v1` request requires a gateway-issued key; Redis coordinates
 > team limits and budgets across replicas. Bounded retries, local circuit breakers and
 > approved opt-in fallback recover from provider failures. Guardrails block secrets,
@@ -484,7 +484,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_PROVIDERS__GEMINI__API_KEY` | unset | Enable Gemini's OpenAI-compatible endpoint |
 | `GATEWAY_PROVIDERS__OPENAI__API_KEY` | unset | Enable OpenAI |
 | `GATEWAY_PROVIDERS__ZAI__API_KEY` | unset | Enable Z.ai international Model API (not Coding Plan) |
-| `GATEWAY_PROVIDERS__NVIDIA__API_KEY` | unset | Enable NVIDIA API catalogue hosted Kimi trial |
+| `GATEWAY_PROVIDERS__NVIDIA__API_KEY` | unset | Enable NVIDIA API catalogue hosted Kimi/GLM trials |
 | `GATEWAY_PROVIDERS__<PROVIDER>__BASE_URL` | provider default | Optional HTTP(S) endpoint override |
 | `GATEWAY_READ_TIMEOUT_S` | 60 | Longest silence allowed between chunks |
 | `GATEWAY_MAX_REQUEST_BYTES` | 2 MiB | Larger bodies are rejected with 413 |
@@ -588,6 +588,7 @@ are literal categories, not aliases for permitted US/EU processing.
 | `groq/openai/gpt-oss-20b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
 | `zai/glm-5.3-flash`, `zai/glm-5.3-flashx`, `zai/glm-5.3` | `sg` | [Z.ai API DPA section 3](https://docs.z.ai/legal-agreement/privacy-policy): generally processed in Singapore |
 | `nvidia/moonshotai/kimi-k3` | `global` | [NVIDIA Kimi geography](https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3) |
+| `nvidia/z-ai/glm-5.3`, `nvidia/z-ai/glm-5.3-flash` | `global` | [NVIDIA GLM-5.3](https://docs.api.nvidia.com/nim/reference/z-ai-glm-5-3) and [GLM Flash](https://build.nvidia.com/z-ai/glm-5-3-flash): Global, unlike Z.ai's direct endpoint |
 | `groq/openai/gpt-oss-120b` | `unknown` | [Groq data controls](https://console.groq.com/docs/your-data) |
 | `deepseek/deepseek-flash` | `cn` | [DeepSeek privacy policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html) |
 | `gemini/gemini-3.8-flash` | `global` | [Gemini API terms](https://ai.google.dev/gemini-api/terms) |
@@ -634,7 +635,8 @@ configured providers. Responses and stream chunks prefix the provider's returned
 Configured but uncatalogued models also return `404 model_not_found`.
 
 Unsupported parameters return `400 unsupported_parameter` before a provider call.
-Developer instructions become system instructions on DeepSeek, Gemini, Z.ai and NVIDIA. DeepSeek's
+Developer instructions become system instructions on DeepSeek, Gemini, Z.ai and NVIDIA's Kimi.
+NVIDIA-hosted GLM preserves developer instructions. DeepSeek's
 token limit is translated to `max_tokens` (supplying both limits is rejected).
 Groq's separate `reasoning` output becomes `reasoning_content`, as on DeepSeek.
 Capabilities are endpoint-level; models can have additional restrictions.
@@ -646,11 +648,12 @@ Verified documentation and conservative restrictions are recorded in each adapte
 Undocumented parameters, including Gemini's token limits, are forwarded unchanged;
 only explicit documented restrictions or nonexistent endpoints are rejected locally.
 
-### Z.ai GLM and NVIDIA-hosted Kimi (step 14)
+### Z.ai GLM and NVIDIA-hosted Kimi/GLM (step 14)
 
 Use `zai/glm-5.3-flash`, `zai/glm-5.3-flashx`, `zai/glm-5.3` or
-`nvidia/moonshotai/kimi-k3` for streaming or nonstreaming chat. NVIDIA is the host;
-Moonshot makes Kimi. Only the first slash selects the provider. Key entitlements
+`nvidia/moonshotai/kimi-k3`, `nvidia/z-ai/glm-5.3` or `nvidia/z-ai/glm-5.3-flash`
+for streaming or nonstreaming chat. NVIDIA is the host; Moonshot makes Kimi and
+Z.ai makes GLM. Only the first slash selects the provider. Key entitlements
 may differ by model. Neither provider serves embeddings through these adapters.
 Each keeps its own pool and breaker; optional BASE_URL overrides and existing
 global connect/read/write/pool timeout settings apply. Existing aliases stay unchanged.
@@ -676,7 +679,9 @@ including typed `reasoning_content` and `tool_calls`. Z.ai supports the same pre
 reasoning when `provider_options.zai.thinking.clear_thinking` is false. Other
 providers still drop reasoning history. This text remains guardrail-inspected.
 Both token-limit spellings pass unchanged; undocumented parameters are forwarded.
-NVIDIA rejects top_p, n and both penalties plus system/assistant content arrays;
+NVIDIA's **Kimi** rejects top_p, n and both penalties plus system/assistant content arrays.
+NVIDIA's GLM references allow top_p and both penalties; other undocumented options
+are forwarded, not rejected just because they are absent from a schema.
 Z.ai rejects json_schema and disabled thinking on the reviewed GLM-5.3 models.
 See [ADR 0026](docs/adr/0026-zai-nvidia-providers.md) for exact evidence and limitations.
 
@@ -691,6 +696,16 @@ a generic `502 upstream_account_error` without retries or private account messag
 Operators receive a metadata-only event directing them to check billing, quota and
 entitlements. Genuine request rate limits (`1302`) and temporary overload (`1305`)
 retain bounded retries and the normal 429 path.
+
+NVIDIA's GLM references document `402 Payment Required` for credit exhaustion;
+NVIDIA 402 responses use the same generic non-retryable account error.
+Nonstreaming Kimi 202 responses are polled at the documented integrate
+`/v1/status/{requestId}` endpoint within the existing total deadline. Client
+disconnect stops local polling, but no remote job-cancellation API is documented.
+Polling failures never resubmit an already accepted inference job. The status
+reference documents JSON, not SSE; queued streaming and GLM 202 responses return
+`502 upstream_pending_unsupported` on the bounded retry path, not an empty 202.
+These trials remain unpriced even when an account provides free development credits.
 
 ## Docs
 

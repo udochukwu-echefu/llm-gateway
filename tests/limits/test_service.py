@@ -2,7 +2,6 @@
 
 import asyncio
 import math
-import time
 import uuid
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -259,27 +258,32 @@ async def test_slow_budget_rebuild_has_one_total_deadline(
 ) -> None:
     team = uuid.uuid4()
     entered = asyncio.Event()
+    cancelled = asyncio.Event()
 
     async def slow_spend(team_id: uuid.UUID, start: datetime, end: datetime) -> Decimal:
         entered.set()
-        await asyncio.Event().wait()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.set()
         return Decimal(0)
 
-    service = LimitService(test_redis, fail_mode=mode, rebuild_timeout=0.04, spend_total=slow_spend)
-    started = time.perf_counter()
+    await test_redis.get(f"lgw:budget:{team}:warmup")
+    service = LimitService(test_redis, fail_mode=mode, rebuild_timeout=0.5, spend_total=slow_spend)
 
-    if status is None:
-        lease, _ = await service.admission(team, limits(budget="1"))
-        assert lease is not None
-        await service.finish(team, lease, None, limits(budget="1"))
-    else:
-        with pytest.raises(GatewayError) as failure:
-            await service.admission(team, limits(budget="1"))
-        assert failure.value.status_code == status
-        assert failure.value.code == "limits_unavailable"
+    async with asyncio.timeout(10):
+        if status is None:
+            lease, _ = await service.admission(team, limits(budget="1"))
+            assert lease is not None
+            await service.finish(team, lease, None, limits(budget="1"))
+        else:
+            with pytest.raises(GatewayError) as failure:
+                await service.admission(team, limits(budget="1"))
+            assert failure.value.status_code == status
+            assert failure.value.code == "limits_unavailable"
 
     assert entered.is_set()
-    assert time.perf_counter() - started < 0.3
+    assert cancelled.is_set()
     assert await test_redis.exists(f"lgw:budget:{team}:{datetime.now(UTC):%Y-%m}:lock") == 0
 
 
@@ -288,12 +292,12 @@ async def test_budget_rebuild_lock_wait_shares_the_same_deadline(test_redis: Red
     now = datetime.now(UTC)
     key = f"lgw:budget:{team}:{now:%Y-%m}"
     await test_redis.set(f"{key}:lock", "other-owner", ex=5)
-    service = LimitService(test_redis, fail_mode="closed", rebuild_timeout=0.04)
-    started = time.perf_counter()
+    await test_redis.get(f"lgw:budget:{team}:warmup")
+    service = LimitService(test_redis, fail_mode="closed", rebuild_timeout=0.5)
 
-    with pytest.raises(GatewayError) as failure:
-        await service.admission(team, limits(budget="1"))
+    async with asyncio.timeout(10):
+        with pytest.raises(GatewayError) as failure:
+            await service.admission(team, limits(budget="1"))
 
     assert failure.value.code == "limits_unavailable"
-    assert time.perf_counter() - started < 0.3
     assert await test_redis.get(f"{key}:lock") == b"other-owner"

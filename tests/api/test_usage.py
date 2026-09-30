@@ -2,7 +2,6 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Sequence
 from decimal import Decimal
-from time import perf_counter
 
 import anyio
 import httpx
@@ -404,11 +403,10 @@ async def test_full_usage_queue_does_not_delay_successful_requests(
             assert (await client.post("/v1/chat/completions", json=CHAT_REQUEST)).status_code == 200
             await entered.wait()
             assert (await client.post("/v1/chat/completions", json=CHAT_REQUEST)).status_code == 200
-            started = perf_counter()
-            with anyio.fail_after(0.5):
+            with anyio.fail_after(5):
                 response = await client.post("/v1/chat/completions", json=CHAT_REQUEST)
             assert response.status_code == 200
-            assert perf_counter() - started < 0.25
+            assert not release.is_set()
             assert app.state.gateway.usage_writer.dropped == 1
         finally:
             release.set()

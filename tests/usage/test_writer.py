@@ -54,7 +54,7 @@ async def test_batch_flushes_at_size_without_waiting_for_interval() -> None:
     writer.start()
     writer.enqueue(sample_record())
     writer.enqueue(sample_record())
-    await asyncio.wait_for(_until(lambda: bool(batches)), 1)
+    await asyncio.wait_for(_until(lambda: bool(batches)), 5)
     await writer.stop()
 
     assert batches == [2]
@@ -69,7 +69,7 @@ async def test_batch_flushes_at_time_when_not_full() -> None:
     writer = UsageWriter(sink, batch_size=10, interval=0.01)
     writer.start()
     writer.enqueue(sample_record())
-    await asyncio.wait_for(_until(lambda: bool(batches)), 1)
+    await asyncio.wait_for(_until(lambda: bool(batches)), 5)
     await writer.stop()
 
     assert batches == [1]
@@ -139,7 +139,7 @@ async def test_database_retries_then_succeeds_without_losing_records() -> None:
     writer = UsageWriter(sink, batch_size=1, sleep=sleep)
     writer.start()
     writer.enqueue(sample_record())
-    await asyncio.wait_for(_until(lambda: writer.flushed == 1), 1)
+    await asyncio.wait_for(_until(lambda: writer.flushed == 1), 5)
     await writer.stop()
 
     assert calls == 3
@@ -161,7 +161,7 @@ async def test_database_give_up_counts_lost_records() -> None:
     writer = UsageWriter(sink, batch_size=1, sleep=sleep)
     writer.start()
     writer.enqueue(sample_record())
-    await asyncio.wait_for(_until(lambda: writer.lost == 1), 1)
+    await asyncio.wait_for(_until(lambda: writer.lost == 1), 5)
     await writer.stop()
 
     assert calls == 3

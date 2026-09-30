@@ -162,10 +162,19 @@ def test_catalog() -> Catalog:
         ("groq", "llama-3.3-70b-versatile", "chat"),
         ("groq", "nope", "chat"),
         ("openai", "text-embedding-004", "embedding"),
-        *((name, "vendor/model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
-        *((name, "model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
-        *((name, "nested/model", "chat") for name in ("groq", "deepseek", "gemini", "openai")),
-        *((name, "embedding", "embedding") for name in ("gemini", "openai")),
+        *(
+            (name, "vendor/model", "chat")
+            for name in ("groq", "deepseek", "gemini", "openai", "zai", "nvidia")
+        ),
+        *(
+            (name, "model", "chat")
+            for name in ("groq", "deepseek", "gemini", "openai", "zai", "nvidia")
+        ),
+        *(
+            (name, "nested/model", "chat")
+            for name in ("groq", "deepseek", "gemini", "openai", "zai", "nvidia")
+        ),
+        *((name, "embedding", "embedding") for name in ("gemini", "openai", "zai", "nvidia")),
         ("gemini", "gemini-embedding-001", "embedding"),
     ):
         template = next(entry for entry in base.models if entry.kind == kind)

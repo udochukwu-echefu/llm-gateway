@@ -109,6 +109,32 @@ def test_assistant_history_may_carry_output_only_fields() -> None:
     }
 
 
+@pytest.mark.parametrize("provider", ["zai", "nvidia", "groq", "deepseek", "gemini", "openai"])
+def test_reasoning_history_is_typed_and_only_sent_to_preserved_thinking_providers(
+    provider: str,
+) -> None:
+    from typing import cast
+
+    from llm_gateway.schemas.common import ProviderName
+
+    request = chat(
+        messages=[USER, {"role": "assistant", "content": "OK", "reasoning_content": "Analysis"}]
+    )
+
+    sent = request.to_upstream(cast(ProviderName, provider))["messages"][1]
+
+    if provider in ("zai", "nvidia"):
+        assert sent["reasoning_content"] == "Analysis"
+    else:
+        assert "reasoning_content" not in sent
+
+
+@pytest.mark.parametrize("value", [[], 123, {"text": "Analysis"}])
+def test_invalid_assistant_reasoning_types_are_rejected(value: object) -> None:
+    with pytest.raises(ValidationError, match="reasoning_content"):
+        chat(messages=[{"role": "assistant", "content": "OK", "reasoning_content": value}])
+
+
 def test_only_the_serving_providers_options_are_sent() -> None:
     request = chat(
         provider_options={

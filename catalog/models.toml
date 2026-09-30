@@ -1,4 +1,4 @@
-version = "2026-09-27.4"
+version = "2026-09-30.1"
 
 [[models]]
 provider = "groq"
@@ -117,6 +117,71 @@ currency = "USD"
 input_price = "0.02"
 source_url = "https://platform.openai.com/docs/pricing"
 checked_on = 2026-09-26
+
+[[models]]
+provider = "zai"
+model = "glm-5.3-flash"
+region = "sg"
+region_source_url = "https://docs.z.ai/legal-agreement/privacy-policy"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+# Verified list rates; no launch discount. Cache storage is currently limited-time free.
+input_price = "0.15"
+cached_input_price = "0.03"
+output_price = "0.50"
+source_url = "https://docs.z.ai/guides/overview/pricing"
+checked_on = 2026-09-30
+
+[[models]]
+provider = "zai"
+model = "glm-5.3-flashx"
+region = "sg"
+region_source_url = "https://docs.z.ai/legal-agreement/privacy-policy"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+input_price = "0.37"
+cached_input_price = "0.075"
+output_price = "1.25"
+source_url = "https://docs.z.ai/guides/overview/pricing"
+checked_on = 2026-09-30
+
+[[models]]
+provider = "zai"
+model = "glm-5.3"
+region = "sg"
+region_source_url = "https://docs.z.ai/legal-agreement/privacy-policy"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+input_price = "1.4"
+cached_input_price = "0.26"
+output_price = "4.4"
+source_url = "https://docs.z.ai/guides/overview/pricing"
+checked_on = 2026-09-30
+
+[[models]]
+provider = "nvidia"
+model = "moonshotai/kimi-k3"
+region = "global"
+region_source_url = "https://docs.api.nvidia.com/nim/reference/moonshotai-kimi-k3"
+region_checked_on = 2026-09-30
+kind = "chat"
+[[models.periods]]
+effective_from = 2026-09-30
+currency = "USD"
+# Trial only: terms 1.4 allow deducted/purchased credits, not a per-token $0 guarantee.
+# Production requires a paid NVIDIA NIM or partner subscription and reviewed prices.
+unpriced = true
+source_url = "https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf"
+checked_on = 2026-09-30
 
 # Aliases are reviewed destinations, including permission to split traffic across providers.
 [aliases.fast]

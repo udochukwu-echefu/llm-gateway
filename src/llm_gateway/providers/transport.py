@@ -173,8 +173,24 @@ class _ProviderError(ResponseModel):
     error: Detail
 
 
+class _ProviderProblem(ResponseModel):
+    """NVIDIA also documents RFC 7807 problem details for rejected requests."""
+
+    type: str
+    status: int
+    detail: str
+
+
 def _upstream_message(response: httpx.Response) -> str | None:
-    try:
-        return _ProviderError.model_validate_json(response.content).error.message
-    except ValidationError:
-        return None
+    for shape in (_ProviderError, _ProviderError.Detail, _ProviderProblem):
+        try:
+            parsed = shape.model_validate_json(response.content)
+        except ValidationError:
+            continue
+        if isinstance(parsed, _ProviderError):
+            return parsed.error.message
+        if isinstance(parsed, _ProviderError.Detail):
+            return parsed.message
+        if parsed.status == response.status_code:
+            return parsed.detail
+    return None

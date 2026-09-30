@@ -18,6 +18,11 @@ async def test_live_chat(
         json={
             "model": f"{live_provider.name}/{live_provider.chat_model}",
             "messages": [{"role": "user", "content": "Reply only with OK."}],
+            **(
+                {"max_tokens": 1024, "reasoning_effort": "low"}
+                if live_provider.name in ("zai", "nvidia")
+                else {}
+            ),
         },
     )
 
@@ -26,8 +31,8 @@ async def test_live_chat(
     assert body["model"].startswith(f"{live_provider.name}/")
     assert body["choices"][0]["message"]["content"]
     record = await _record(live_records)
-    assert record.cost_status == "priced"
-    assert record.cost_usd is not None
+    assert record.cost_status == ("unpriced" if live_provider.name == "nvidia" else "priced")
+    assert (record.cost_usd is None) == (live_provider.name == "nvidia")
     assert record.prompt_tokens is not None
     assert record.prompt_tokens > 0
 
@@ -44,6 +49,11 @@ async def test_live_stream_with_usage(
             "messages": [{"role": "user", "content": "Reply only with OK."}],
             "stream": True,
             "stream_options": {"include_usage": True},
+            **(
+                {"max_tokens": 1024, "reasoning_effort": "low"}
+                if live_provider.name in ("zai", "nvidia")
+                else {}
+            ),
         },
     )
 
@@ -57,8 +67,8 @@ async def test_live_stream_with_usage(
         if event.get("usage")
     )
     record = await _record(live_records)
-    assert record.cost_status == "priced"
-    assert record.cost_usd is not None
+    assert record.cost_status == ("unpriced" if live_provider.name == "nvidia" else "priced")
+    assert (record.cost_usd is None) == (live_provider.name == "nvidia")
     assert record.prompt_tokens is not None
     assert record.prompt_tokens > 0
 

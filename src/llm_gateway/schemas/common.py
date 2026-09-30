@@ -2,7 +2,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-ProviderName = Literal["openai", "groq", "gemini", "deepseek"]
+ProviderName = Literal["openai", "groq", "gemini", "deepseek", "zai", "nvidia"]
 
 
 class RequestModel(BaseModel):

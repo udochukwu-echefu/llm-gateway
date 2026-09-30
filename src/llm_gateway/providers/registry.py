@@ -5,8 +5,10 @@ from llm_gateway.providers.base import ProviderAdapter
 from llm_gateway.providers.deepseek import DeepSeekAdapter
 from llm_gateway.providers.gemini import GeminiAdapter
 from llm_gateway.providers.groq import GroqAdapter
+from llm_gateway.providers.nvidia import NvidiaAdapter
 from llm_gateway.providers.openai import OpenAIAdapter
 from llm_gateway.providers.openai_compat import OpenAICompatibleAdapter
+from llm_gateway.providers.zai import ZaiAdapter
 from llm_gateway.schemas.common import ProviderName
 
 ADAPTER_TYPES: dict[ProviderName, type[OpenAICompatibleAdapter]] = {
@@ -14,6 +16,8 @@ ADAPTER_TYPES: dict[ProviderName, type[OpenAICompatibleAdapter]] = {
     "deepseek": DeepSeekAdapter,
     "gemini": GeminiAdapter,
     "openai": OpenAIAdapter,
+    "zai": ZaiAdapter,
+    "nvidia": NvidiaAdapter,
 }
 
 

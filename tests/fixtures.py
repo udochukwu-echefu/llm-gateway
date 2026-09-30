@@ -14,6 +14,8 @@ DOCUMENTED_CHAT_REJECTIONS = {
     "deepseek": frozenset({"frequency_penalty", "presence_penalty"}),
     "gemini": frozenset[str](),
     "openai": frozenset[str](),
+    "zai": frozenset[str](),
+    "nvidia": frozenset({"top_p", "presence_penalty", "frequency_penalty", "n"}),
 }
 CANONICAL_CHAT_VALUES: dict[str, Any] = {
     "model": "model",

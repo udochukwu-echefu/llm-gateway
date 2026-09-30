@@ -18,6 +18,8 @@ PROVIDERS = (
     LiveProvider("deepseek", "deepseek-flash", None),
     LiveProvider("gemini", "gemini-3.8-flash", "gemini-embedding-2"),
     LiveProvider("openai", "gpt-4.1-nano", "text-embedding-3-small"),
+    LiveProvider("zai", "glm-5.3-flash", None),
+    LiveProvider("nvidia", "moonshotai/kimi-k3", None),
 )
 
 

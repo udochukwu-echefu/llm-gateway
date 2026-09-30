@@ -47,6 +47,8 @@ class ProvidersSettings(BaseModel):
     deepseek: ProviderSettings = Field(default_factory=ProviderSettings)
     gemini: ProviderSettings = Field(default_factory=ProviderSettings)
     openai: ProviderSettings = Field(default_factory=ProviderSettings)
+    zai: ProviderSettings = Field(default_factory=ProviderSettings)
+    nvidia: ProviderSettings = Field(default_factory=ProviderSettings)
 
     def enabled(self) -> list[tuple[ProviderName, ProviderSettings]]:
         return [

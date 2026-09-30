@@ -71,3 +71,17 @@ The reporting role has no login until a password is provided during migration.
   could drift.
 - Store encrypted key responses for replay: rejected because a leak of Postgres and
   the pepper would reveal usable client credentials from idempotency rows.
+
+## Amendment: valid administrators bypass the failure limiter (2026-09-30)
+
+Verify a well-formed key before consulting the IP failure counter. Only invalid,
+revoked or expired credentials increment that counter and receive its 429 envelope
+once exhausted. A valid administrator must remain usable when other callers share
+an IP, especially when the console's BFF supplies every administrator's request.
+
+This deliberately spends a database key lookup and an HMAC comparison per
+well-formed attempt, even after the failure limit is reached. These are cheap
+operations compared with a provider call; avoiding a repeatable shared-IP lockout
+is the better trade-off. Constant-time secret comparison and error envelopes stay
+the same. The console separately throttles login failures per browser client,
+in memory on each replica, before forwarding more guesses.

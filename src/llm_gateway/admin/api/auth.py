@@ -42,8 +42,6 @@ def context(request: Request) -> AdminContext:
 async def authenticate(request: Request) -> None:
     ctx = context(request)
     ip = client_ip(request, ctx.trusted_proxy_hops)
-    if ctx.limits is not None:
-        await _failure_limit(ctx.limits, ip, False)
     scheme, separator, token = request.headers.get("authorization", "").partition(" ")
     parsed = parse_key(token, prefix="lgwa") if separator and scheme.lower() == "bearer" else None
     if parsed is None:

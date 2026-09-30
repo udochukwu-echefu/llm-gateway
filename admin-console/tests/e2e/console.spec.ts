@@ -3,6 +3,7 @@ import { abusiveLogin } from "./attacks";
 
 test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await signIn(page, credentials.platform);
+  await page.goto("/orgs");
   await expect(page.getByRole("link", { name: credentials.org, exact: true })).toBeVisible();
   await screenshot(page, "organisations");
   const org = "E2E workspace";
@@ -102,7 +103,7 @@ test("one-time key dialog", async ({ page, credentials, recordKey }) => {
 
 test("org-admin isolation and URL tampering", async ({ page, credentials }) => {
   await signIn(page, credentials.orgKey);
-  await expect(page).toHaveURL(new RegExp(encodeURIComponent(credentials.org)));
+  await expect(page).toHaveURL(/\/overview$/);
   await expect(page.getByRole("link", { name: credentials.other, exact: true })).toHaveCount(0);
   for (const path of ["", "/teams/Private%20team"]) {
     await page.goto(`/orgs/${encodeURIComponent(credentials.other)}${path}`);
@@ -214,7 +215,5 @@ test("login throttle and no shared-IP lockout", async ({ page, context, credenti
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await signIn(page, credentials.platform);
-  await expect(
-    page.getByRole("heading", { name: "Organisations", exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
 });

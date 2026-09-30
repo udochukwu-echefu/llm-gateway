@@ -25,7 +25,7 @@ export function LoginForm() {
           const body = await response.json();
           if (!response.ok) throw new Error(body.error);
           input.value = "";
-          window.location.assign("/orgs");
+          window.location.assign("/overview");
         } catch (e) {
           setError((e as Error).message);
         } finally {

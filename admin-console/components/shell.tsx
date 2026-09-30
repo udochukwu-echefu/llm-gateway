@@ -33,6 +33,13 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           <nav aria-label="Main navigation">
             <Link
               prefetch={false}
+              aria-current={path === "/overview" ? "page" : undefined}
+              href="/overview"
+            >
+              Overview
+            </Link>
+            <Link
+              prefetch={false}
               aria-current={path.startsWith("/orgs") ? "page" : undefined}
               href={
                 identity.role === "org" && identity.organization

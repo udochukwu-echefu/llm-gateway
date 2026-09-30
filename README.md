@@ -436,7 +436,7 @@ Redis tests skip locally without `GATEWAY_TEST_REDIS_URL` and fail in CI without
 
 Live tests read `GATEWAY_PROVIDERS__<PROVIDER>__API_KEY` from the process environment
 (load `.env` explicitly with `uv run --env-file .env`), and optional matching `BASE_URL`
-overrides. They run one chat and one stream with usage records per configured provider
+overrides. They run one chat and one stream with usage records per configured model
 (NVIDIA is unpriced; the others are priced);
 OpenAI and Gemini embeddings run when configured. The guardrail live test spies on the
 outgoing transport body to prove email redaction and client restoration. The default suite deselects live tests and
@@ -462,11 +462,29 @@ provider prefix. Unset or empty overrides retain the defaults below.
 | OpenAI | `gpt-4.1-nano` | `text-embedding-3-small` |
 | Z.ai | `glm-5.3-flash` | None (no documented international endpoint) |
 | NVIDIA | `moonshotai/kimi-k3` | None (chat-only Kimi endpoint) |
+| NVIDIA | `z-ai/glm-5.3-flash` | None (chat-only GLM endpoint) |
 
 The two new providers use low reasoning effort and a 1024-token output limit in
 these smoke calls. Run just them with
 `uv run --env-file .env pytest -m live tests/live/test_providers.py -k 'zai or nvidia'`.
 Live calls require keys/network and may consume paid tokens or trial credits.
+
+NVIDIA live profiles use a 300-second read timeout and **330-second gateway
+deadline**, with a **360-second per-call asyncio test bound** and client timeout.
+Other providers keep 60-second gateway deadlines. The separate Kimi multi-turn
+test is marked `live` and `slow`: it replays the complete first assistant message,
+including nonempty `reasoning_content`, then checks both unknown-cost receipts.
+It sends two requests, which can each wait minutes; it skips without an NVIDIA key.
+Run it explicitly with:
+
+```bash
+uv run --env-file .env pytest -m 'live and slow' tests/live/test_providers.py -k kimi_multi_turn
+```
+
+To exclude that slow two-call test, select `-m 'live and not slow'`. The existing
+`GATEWAY_LIVE_NVIDIA_CHAT_MODEL` override applies to both NVIDIA smoke rows; leave
+it unset to exercise Kimi and GLM Flash separately. The dedicated history test
+skips if that override selects a non-Kimi model, rather than claiming Kimi coverage.
 
 Groq's default replaces retired `llama-3.1-8b-instant`, exercises first-slash routing,
 and uses its reasoning-capable GPT-OSS adapter path. These variables configure tests only;

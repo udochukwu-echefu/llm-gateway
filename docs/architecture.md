@@ -1062,3 +1062,14 @@ lease; no undocumented NVIDIA job-cancellation guarantee is made.
 Read-timeout retries remain off, as does automatic read-timeout fallback under
 the existing policy. Approved recovery from a retryable upstream timeout must use
 the time left on the original stopwatch, never reset it after queueing.
+
+### Live history checks without making ordinary tests spend money
+
+The live model list includes both NVIDIA Kimi and GLM Flash, each with a distinct
+test label. NVIDIA fixtures use a 330-second gateway deadline and a 360-second
+per-call test bound, so the test itself does not give up before the queue can clear.
+The slow Kimi check makes a first request, takes its complete assistant message,
+including actual nonempty reasoning_content, and replays it in a second request.
+Both calls must finish and retain unpriced receipts. Without a key the check skips;
+ordinary tests mock that same two-round flow and verify the exact forwarded history,
+so a regression is caught without reading the owner's key or contacting NVIDIA.

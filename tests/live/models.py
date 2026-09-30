@@ -12,6 +12,18 @@ class LiveProvider:
     chat_model: str
     embedding_model: str | None
 
+    @property
+    def deadline_s(self) -> float:
+        return 330.0 if self.name == "nvidia" else 60.0
+
+    @property
+    def request_timeout_s(self) -> float:
+        return self.deadline_s + 30.0 if self.name == "nvidia" else self.deadline_s + 5.0
+
+
+NVIDIA_KIMI = LiveProvider("nvidia", "moonshotai/kimi-k3", None)
+NVIDIA_GLM_FLASH = LiveProvider("nvidia", "z-ai/glm-5.3-flash", None)
+
 
 PROVIDERS = (
     LiveProvider("groq", "openai/gpt-oss-20b", None),
@@ -19,7 +31,8 @@ PROVIDERS = (
     LiveProvider("gemini", "gemini-3.8-flash", "gemini-embedding-2"),
     LiveProvider("openai", "gpt-4.1-nano", "text-embedding-3-small"),
     LiveProvider("zai", "glm-5.3-flash", None),
-    LiveProvider("nvidia", "moonshotai/kimi-k3", None),
+    NVIDIA_KIMI,
+    NVIDIA_GLM_FLASH,
 )
 
 

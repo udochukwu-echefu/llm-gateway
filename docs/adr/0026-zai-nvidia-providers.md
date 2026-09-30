@@ -168,7 +168,16 @@ policies still apply. Do not describe these requests as free or budget-enforced
 actual spend. Operators must review changed endpoints and contractual terms.
 
 Live smoke tests are opt-in, environment-key-gated, with low reasoning effort
-and 1024 output-token limits for these two providers. Mocked tests prove protocol
+and 1024 output-token limits for these two providers. NVIDIA's list contains Kimi
+and GLM Flash separately, sharing the owner's key but labelled with distinct IDs.
+NVIDIA live fixtures set the gateway deadline to 330 seconds; each chat test call
+has a 360-second asyncio bound/client timeout, covering queueing without adding a
+timeout dependency. Other live providers keep the shorter deadline. A dedicated
+`live`/`slow` Kimi test makes two calls and replays the first complete assistant
+message including nonempty reasoning_content; it skips without a key or if an
+explicit model override selects non-Kimi. Its two-round flow is also exercised
+offline with respx so dropping the history would fail an ordinary test.
+Mocked tests prove protocol
 behaviour, not account entitlements, physical inference location or live billing.
 
 ## Alternatives considered

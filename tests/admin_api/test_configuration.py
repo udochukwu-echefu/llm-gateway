@@ -76,3 +76,20 @@ async def test_policy_reads_show_org_and_team_overrides_and_effective_values(
         "overrides": {"organization": ["us", "eu"], "team": ["us"]},
         "effective": {"regions": ["us"]},
     }
+
+
+async def test_residency_accepts_sg_and_lists_it_in_validation_errors(
+    admin_harness: AdminHarness,
+) -> None:
+    harness = admin_harness
+    path = f"/admin/v1/orgs/{harness.org}/residency"
+    headers = harness.headers(harness.org_key)
+
+    response = await harness.client.put(path, json={"regions": ["sg"]}, headers=headers)
+    saved = await harness.client.get(path, headers=headers)
+    invalid = await harness.client.put(path, json={"regions": ["bad"]}, headers=headers)
+
+    assert response.status_code == 200
+    assert saved.json()["effective"]["regions"] == ["sg"]
+    assert invalid.status_code == 400
+    assert "sg" in invalid.json()["error"]["message"]

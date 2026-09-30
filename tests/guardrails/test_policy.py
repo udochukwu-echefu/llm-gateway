@@ -21,12 +21,13 @@ def test_defaults_cannot_be_loosened() -> None:
 @pytest.mark.parametrize(
     ("org", "team", "expected"),
     [
-        (None, None, ("us", "eu", "cn", "global", "unknown")),
+        (None, None, ("us", "eu", "cn", "sg", "global", "unknown")),
         (("us", "eu"), None, ("us", "eu")),
         (None, ("eu",), ("eu",)),
         (("us", "eu"), ("eu", "cn"), ("eu",)),
         (("us",), ("eu",), ()),
         ((), None, ()),
+        (("sg",), ("sg", "eu"), ("sg",)),
     ],
 )
 def test_residency_is_intersection(

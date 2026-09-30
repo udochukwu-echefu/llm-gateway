@@ -19,6 +19,7 @@ COPY --from=builder --chown=console:console /app/.next/standalone ./
 COPY --from=builder --chown=console:console /app/.next/static ./.next/static
 COPY --from=builder --chown=console:console /app/lib/config-schema.mjs ./lib/config-schema.mjs
 COPY --from=builder --chown=console:console /app/scripts/bootstrap.mjs /app/scripts/docker-start.mjs /app/scripts/client-address.mjs /app/scripts/request-address.mjs ./scripts/
+COPY --from=dependencies --chown=console:console /app/node_modules/zod ./node_modules/zod
 USER console
 EXPOSE 3000
 CMD ["node", "scripts/docker-start.mjs"]

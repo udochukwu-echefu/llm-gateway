@@ -96,3 +96,56 @@ jobs:
           name: loadtest-smoke
           path: loadtest/results/
           retention-days: 7
+
+
+  console:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: gateway
+          POSTGRES_PASSWORD: ci-only-example
+          POSTGRES_DB: gateway
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gateway -d gateway"
+          --health-interval 2s --health-timeout 2s --health-retries 15
+      redis:
+        image: redis:7.4.5
+        ports: ["6379:6379"]
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      ADMIN_API_URL: http://127.0.0.1:18091
+      ADMIN_CONSOLE_ORIGIN: http://localhost:3100
+      ADMIN_CONSOLE_SESSION_SECRET: obviously-fake-ci-session-secret-at-least-32-bytes
+      CONSOLE_TEST_DATABASE_URL: postgresql+asyncpg://gateway:ci-only-example@127.0.0.1:5432/gateway
+    defaults:
+      run:
+        working-directory: admin-console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: admin-console/.nvmrc
+          cache: npm
+          cache-dependency-path: admin-console/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+      - name: Install locked gateway tools
+        working-directory: .
+        run: uv sync --locked
+      - name: Install pinned console dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit and component tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+      - name: Real-stack end-to-end and response no-leak scan
+        run: npm run test:e2e

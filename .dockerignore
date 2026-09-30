@@ -9,3 +9,10 @@ tests
 docs
 loadtest/.state
 loadtest/results
+
+admin-console/node_modules
+admin-console/.next
+admin-console/.env*
+admin-console/test-results
+admin-console/playwright-report
+admin-console/tests/e2e/.state.json

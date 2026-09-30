@@ -129,7 +129,7 @@ guardrails, residency and cache purge, which completes the console.
 
 ## Docs and CI
 
-- **ADR 0023:** the admin console architecture (BFF, encrypted session cookie, CSRF
+- **ADR 0024:** the admin console architecture (BFF, encrypted session cookie, CSRF
   defences, CSP, the API as the only authority).
 - **`docs/architecture.md`:** a "Step 13a" section in plain language: what a BFF is and
   why the browser must never hold the admin key (analogy: a bank teller handles the

@@ -1,4 +1,4 @@
-# ADR 0023: Admin console with a server-side credential boundary
+# ADR 0024: Admin console with a server-side credential boundary
 
 - **Status:** Accepted
 - **Date:** 2026-09-30
@@ -7,9 +7,7 @@
 
 The private API already enforces platform and organization roles. Administrators need
 an accessible browser interface without distributing their administrative credential
-through React props, HTML, JavaScript or JSON responses. The step spec reserves 0023;
-0023-controlled-load-testing.md already exists. Both files are preserved by name;
-renumbering published decisions is deferred to the repository owner.
+through React props, HTML, JavaScript or JSON responses. The console decision is 0024; decision 0023 covers controlled load testing.
 
 ## Decision
 

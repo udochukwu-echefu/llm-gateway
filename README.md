@@ -218,7 +218,7 @@ Screenshots contain synthetic workspaces and public IDs only:
 ![Dark theme](docs/images/console-usage-dark.png)
 ![Tablet](docs/images/console-tablet.png)
 
-See [ADR 0023](docs/adr/0023-admin-console.md) and the
+See [ADR 0024](docs/adr/0024-admin-console.md) and the
 [validation report](docs/tasks/step-13a-report.md).
 
 ## Pricing and usage

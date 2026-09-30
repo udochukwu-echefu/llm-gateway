@@ -8,7 +8,7 @@ Date: 2026-09-30. Branch: `feat/step-13a-admin-console`.
 optional organization ID/name). It has Python endpoint tests and an authorization
 matrix row. The console includes sign-in/out, organizations, team creation, monthly
 usage, API key creation/revocation, limits, budgets and the paginated audit log with
-filters and platform chain verification. ADR 0023 records the credential boundary.
+filters and platform chain verification. ADR 0024 records the credential boundary.
 
 The Next.js BFF makes all private admin calls server-side. It seals credentials in
 an encrypted Secure/httpOnly/Strict host cookie, enforces 8-hour absolute and
@@ -113,9 +113,8 @@ changing scope. Organizations in `/me` include both ID and name; platform identi
 null organization. No source module exceeds 400 lines; larger declarative screen
 functions primarily contain JSX, with operations split into named modules.
 
-The spec requested ADR 0023 although `0023-controlled-load-testing.md` already exists.
-Both decisions are preserved; owner renumbering is the only documentation decision
-left open. No binding architecture decision was changed. Step 13b features remain out
+The console ADR was renumbered to 0024 during review; 0023 remains controlled load
+testing. No numbering decision remains open. No binding architecture decision was changed. Step 13b features remain out
 of scope. Stateless encrypted-cookie logout cannot revoke stolen ciphertext; revoking
 the underlying admin key invalidates its use, as documented in the threat model.
 

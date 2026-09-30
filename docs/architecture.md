@@ -828,5 +828,5 @@ retain one submission UUID, reusing the gateway's idempotency contract.
 Money uses decimal strings and BigInt pico-dollars, never binary floating-point arithmetic.
 Partial or wholly unknown usage is labelled unpriced instead of being treated as free.
 Tables, focus rings, native dialogs and system/light/dark themes support keyboard and
-tablet use. See [ADR 0023](adr/0023-admin-console.md), the README screenshots and the
+tablet use. See [ADR 0024](adr/0024-admin-console.md), the README screenshots and the
 real-stack Playwright test with a scan of every observed browser response.

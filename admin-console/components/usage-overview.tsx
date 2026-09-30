@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { loadUsage, currentMonth } from "@/lib/usage-data";
 import { budgetPercent, pico, compareMoney, money } from "@/lib/money";
+import { DailyUsage } from "./daily-usage";
 import { DataState } from "./data-state";
 export function UsageOverview({ org }: {
   org: string;
@@ -64,25 +65,7 @@ export function UsageOverview({ org }: {
           </table> : <p className="empty">No model usage this month.</p>}</div>
         <div>
           <h3>Requests and tokens over time</h3>{data.byDay.length ? <>
-            <svg viewBox="0 0 480 120" role="img" aria-label="Daily request trend">
-              <polyline fill="none" stroke="currentColor" strokeWidth="3" points={data.byDay.map((r, i) => `${20 + i * 440 / Math.max(1, data.byDay.length - 1)},${100 - r.requests * 80 / Math.max(1, ...data.byDay.map((d) => d.requests))}`).join(" ")} />
-            </svg>
-            <table>
-              <thead>
-                <tr>
-                  <th>Day</th>
-                  <th>Requests</th>
-                  <th>Input tokens</th>
-                  <th>Output tokens</th>
-                </tr>
-              </thead>
-              <tbody>{data.byDay.map((r) => <tr key={r.group}>
-                <td>{r.group}</td>
-                <td>{r.requests}</td>
-                <td>{r.prompt_tokens ?? "Unknown"}</td>
-                <td>{r.completion_tokens ?? "Unknown"}</td>
-              </tr>)}</tbody>
-            </table>
+            <DailyUsage rows={data.byDay} />
           </> : <p className="empty">No requests this month. Usage appears after receipts are written.</p>}</div>
       </div>
     </>}

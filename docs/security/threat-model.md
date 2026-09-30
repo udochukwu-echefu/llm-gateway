@@ -25,6 +25,7 @@ ratings are qualitative for this early deployment.
 | Malicious base-URL override | Unlikely / high | Strict HTTP(S) URL validation, no embedded credentials/query/fragment | An operator with config access can still send provider keys to a hostile endpoint; lock down deployment config |
 | Tampered catalogue | Plausible / high | Reviewed git changes; strict startup validation of prices and model IDs | A compromised reviewer or deployment can still approve a wrong price; compare with provider invoices |
 | Trial costs mistaken for free usage | Plausible / high | NVIDIA has explicit unpriced catalogue periods, NULL-cost receipts and separate CLI counts; never fabricate zero prices | USD budgets cannot account for unknown trial credit consumption; review paid endpoint rates before production |
+| Budget bypass via unpriced models | Plausible / high | Operators use model policy to allow only reviewed priced models for budget-limited teams; do not allow `nvidia/*` | Budgets cannot limit an unpriced model because its cost is unknown; RPM, TPM and concurrency limits are not money caps |
 | NVIDIA trial receives confidential data or production traffic | Plausible / high | Trial-only README/ADR warning; no automatic alias/fallback traffic; existing model/region policies | Trial terms prohibit production and confidential/sensitive inputs; default PII actions do not enforce the whole contract; use synthetic nonsensitive data |
 | Queue flooding or writer outage | Plausible / high | Bounded non-blocking queue, retry, error logs and drop counts | Lost records on overflow, failed batches, shutdown timeout or abrupt kill; monitor and reconcile bills |
 | Usage records disclose business activity | Plausible / medium | Store only IDs, model, counts, cost and timings; never content or vectors | Model and spending patterns remain sensitive; restrict Postgres/report access and retention |
@@ -105,5 +106,5 @@ Step 14 residency values are `us`, `eu`, `cn`, `sg`, `global`, `unknown`.
 `sg` reflects Z.ai's API DPA statement that Customer Data is **generally** processed
 in Singapore; NVIDIA's Kimi page states Global. Neither label certifies physical
 processing location on each call. Changing a base URL requires source/region review.
-The admin identity endpoint exposes the authoritative region list to either admin
+The admin identity and catalogue endpoints expose the authoritative region list to either admin
 role, but no tenant policies or credentials beyond its existing identity metadata.

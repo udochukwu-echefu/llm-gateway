@@ -53,10 +53,10 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
   routing label, not an exclusive-location guarantee or legal certification.
   Regions remain plain string arrays (`0008_guardrails.py`, tenants/models.py);
   cost status is also a string. No database migration is needed.
-- Add `regions` to authenticated `GET /admin/v1/me`, sourced from REGIONS. Both
-  admin roles can learn the same valid values during existing identity bootstrap.
-  This avoids another auth/authorization route and gives the parallel console
-  editor one authoritative list. No console files are edited on this branch.
+- Add `regions` to authenticated `GET /admin/v1/me` and `GET /admin/v1/catalog`,
+  sourced from REGIONS. Both admin roles learn the same valid values. Step 13b's
+  console editor and BFF consume the catalogue list, including Singapore; no
+  separate region-discovery route or duplicated validation list is needed.
 - Catalogue all three verified Z.ai models with list input/cache/output rates
   effective 2026-09-30. Catalogue NVIDIA Kimi with an effective-dated explicit
   `unpriced=true` period carrying its terms source/check date, **no token prices**.
@@ -71,12 +71,24 @@ do not establish a zero per-token price. Assuming zero would hide unknown spend.
 - Extend shared transport message parsing for documented NVIDIA flat message and
   RFC 7807 problem-detail errors as well as the existing nested error shape.
   Authentication/server errors remain sanitized per ADR 0002.
+- Classify Z.ai's documented account/quota/billing 429 business codes before
+  retry handling: 1113, 1308, 1309, 1310, 1311, 1313-1321 become generic
+  `502 upstream_account_error`, without retry or Retry-After. Keep the original
+  upstream status for telemetry/circuit breaking, but explicitly exclude this code
+  from retries. Log only provider, business code, HTTP status and operator action,
+  never the provider's account message. Codes 1302 (request rate limit) and 1305
+  (temporary overload), and unrecognized errors, keep shared retry/error mapping.
+  Authentication codes keep the existing sanitized non-retryable 401/403 mapping.
+  This narrowly supersedes ADR 0002's status-only 429 rule. No equivalent billing
+  error code was documented in NVIDIA's hosted Kimi reference, FAQ or quickstart;
+  do not infer one from trial credit terms.
 
 ## Evidence checked 2026-09-30
 
 | Fact | Official source / finding |
 |---|---|
 | Z.ai URL | https://docs.z.ai/guides/overview/quick-start |
+| Z.ai account errors vs rate limits | https://docs.z.ai/api-reference/api-code: 1113 "Insufficient balance or no resource package. Please recharge."; 1302 "Rate limit reached for requests"; 1305 "The service may be temporarily overloaded, please try again later"; full account/quota code list in the adapter docstring |
 | GLM Flash/FlashX IDs and preserved thinking | https://docs.z.ai/guides/vlm/glm-5.3-flash and https://docs.z.ai/api-reference/llm/chat-completion |
 | GLM list rates | https://docs.z.ai/guides/overview/pricing: Flash 0.15/0.03/0.50; FlashX 0.37/0.075/1.25; GLM-5.3 1.4/0.26/4.4 USD/1M |
 | Z.ai Singapore | https://docs.z.ai/legal-agreement/privacy-policy, API DPA section 3 |
@@ -98,8 +110,11 @@ NVIDIA cached-token shape or numeric trial rate limit was verified.
 Production NVIDIA use needs a paid NIM or partner endpoint and newly reviewed
 prices/regions. The terms prohibit trial production and confidential/sensitive
 inputs (sections 2.6/4.3); deterministic guardrails cannot certify compliance.
-Use synthetic, nonsensitive trial prompts. USD budgets can count only known
-costs, not NVIDIA credit consumption; RPM, TPM, concurrency and model/residency
+Use synthetic, nonsensitive trial prompts. **Budgets cannot limit an unpriced model
+because its cost is unknown.** Operators restrict these models with model policy:
+budget-limited teams should allow only reviewed priced models, excluding `nvidia/*`.
+USD budgets can count only known costs, not NVIDIA credit consumption;
+RPM, TPM, concurrency and model/residency
 policies still apply. Do not describe these requests as free or budget-enforced
 actual spend. Operators must review changed endpoints and contractual terms.
 

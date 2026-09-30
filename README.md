@@ -664,7 +664,10 @@ as limited-time free, not included in the token-cost formula.
 and evaluation, not production. Its [trial terms](https://assets.ngc.nvidia.com/products/api-catalog/legal/NVIDIA%20API%20Trial%20Terms%20of%20Service.pdf)
 permit deducted/purchased credits, so its catalogue price is **unpriced, not $0**.
 Production needs a paid NVIDIA NIM or partner endpoint with newly reviewed prices
-and geography. USD budgets cannot quantify trial credit consumption. Confidential
+and geography. **Budgets cannot limit an unpriced model because its cost is unknown.**
+Operators must restrict such models with model policy: for budget-limited teams,
+allow only reviewed priced models and do not allow `nvidia/*`.
+USD budgets cannot quantify trial credit consumption. Confidential
 or sensitive input is prohibited by the trial terms; use synthetic nonsensitive
 prompts. The gateway's pattern-based guardrails cannot guarantee contractual compliance.
 
@@ -678,9 +681,16 @@ Z.ai rejects json_schema and disabled thinking on the reviewed GLM-5.3 models.
 See [ADR 0026](docs/adr/0026-zai-nvidia-providers.md) for exact evidence and limitations.
 
 Valid residency values are `us`, `eu`, `cn`, `sg`, `global`, `unknown`. Policies
-store strings, so `sg` requires no migration. `GET /admin/v1/me` adds a `regions`
-list sourced from the API's validation list; console editors should read that list,
-not hard-code regions. No console changes are included in this branch.
+store strings, so `sg` requires no migration. `GET /admin/v1/me` and
+`GET /admin/v1/catalog` return the same authoritative `regions` list. The console
+residency editor reads the catalogue list, so Singapore is selectable without
+another hard-coded list.
+
+Z.ai account/billing/quota 429s (including insufficient-balance code `1113`) return
+a generic `502 upstream_account_error` without retries or private account messages.
+Operators receive a metadata-only event directing them to check billing, quota and
+entitlements. Genuine request rate limits (`1302`) and temporary overload (`1305`)
+retain bounded retries and the normal 429 path.
 
 ## Docs
 

@@ -968,9 +968,9 @@ or an exclusive processing-location guarantee.
 
 The database already stores region policies as lists of strings, so no migration
 is necessary. Admin API validation and CLI help share the same list.
-`GET /admin/v1/me` now returns `regions` for the console to discover valid choices
-during its existing identity request, rather than maintaining a second hard-coded
-list. This branch does not implement or change the console editor.
+`GET /admin/v1/me` and `GET /admin/v1/catalog` return the same authoritative
+`regions` list. Step 13b's console editor and its server-side validator read the
+catalogue list, so Singapore is selectable without a second hard-coded list.
 
 ### An unknown price is not a zero price
 
@@ -985,10 +985,26 @@ If NVIDIA returns usage, we save known tokens but NULL cost with status `unprice
 No returned usage remains `usage_missing`, a different accounting gap. CLI reports
 count both separately. A cached reply still costs zero to serve; its hypothetical
 savings remain unknown. USD budget accounting cannot measure NVIDIA credit
-consumption; token/rate/concurrency controls still work. Production requires a paid
+consumption. Budgets cannot limit an unpriced model because its cost is unknown.
+Operators must use model policy to exclude unpriced destinations such as `nvidia/*`
+for budget-limited teams. Token/rate/concurrency controls still work. Production requires a paid
 NVIDIA NIM or partner deployment and a review of its prices, terms and location.
 The trial also prohibits confidential/sensitive input: use synthetic test prompts;
 our deterministic scanner is not a guarantee of contractual compliance.
 
 See [ADR 0026](adr/0026-zai-nvidia-providers.md) for official sources, parameter
 restrictions, undocumented-parameter forwarding and the limits of verification.
+
+### A billing problem is not a request rate limit
+
+Z.ai sometimes uses HTTP 429 for account problems. Its business code `1113`
+means insufficient balance, not too many requests. Retrying spends time without
+repairing the account; returning 429 misleadingly tells a client to slow down.
+The adapter therefore checks documented billing, quota and account codes before
+the retry decision and returns a generic `502 upstream_account_error` after one
+attempt. A metadata-only log tells the operator to check billing, quota and
+entitlements; clients never receive the private provider account message.
+Actual request rate limits (`1302`) and temporary overload (`1305`) still use
+bounded retries and the existing 429 response. The original upstream status stays
+available to telemetry and the circuit breaker. NVIDIA keeps its existing mapping
+because its checked hosted documentation supplied no equivalent billing code.

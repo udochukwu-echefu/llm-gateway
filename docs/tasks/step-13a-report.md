@@ -44,7 +44,7 @@ Run from `admin-console/` using the already installed pinned dependencies and Ch
 | `npm run lint` | Exit 0; ESLint reported no diagnostics |
 | `npm run typecheck` | Exit 0; `tsc --noEmit` reported no diagnostics |
 | `npm test` | `Test Files 6 passed (6)` / `Tests 26 passed (26)` |
-| `npm run test:e2e` | `1 passed (7.7s)` on the final of three consecutive successful runs |
+| `npm run test:e2e` | `1 passed (8.6s)`; also passed three consecutive scanner stability runs |
 | `npm run build` | Exit 0; production Next.js 16.3.7 build succeeded; dynamic routes and Proxy |
 | `npm run test:break` | All four mutations caught; sources restored; clean production build regenerated |
 
@@ -74,6 +74,10 @@ specific designated test to fail, then restores the original bytes even on error
 | Remove cookie `httpOnly` | Session unit test `round trip encrypts the credential and has secure cookie flags` |
 
 The final clean unit suite passed after restoration. No deliberate vulnerability remains.
+Playwright explicitly sends SIGTERM to the Python harness so its cleanup runs.
+After the final browser run and mutation checks, the disposable-database count was
+zero and the ignored fake-credential state file was absent. Earlier abandoned test
+fixtures were removed only after confirming they had no active connections.
 
 ## Screenshots
 

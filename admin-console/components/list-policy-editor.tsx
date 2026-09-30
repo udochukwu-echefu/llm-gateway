@@ -1,7 +1,8 @@
 "use client";
 import type { Catalog, ListPolicy } from "@/lib/policy-contracts";
 import { listChanges } from "@/lib/policy-changes";
-import { regions as regionNames, regionDescriptions } from "@/lib/policy-contracts";
+import { regionDescriptions } from "@/lib/policy-contracts";
+import { catalogRegions } from "@/lib/policy-regions";
 import { usePolicyEditor } from "./use-policy-editor";
 import { PolicyEditorFrame } from "./policy-editor-frame";
 import { PolicyLevelChoice, type ListMode } from "./policy-level-choice";
@@ -22,6 +23,7 @@ export function ListPolicyEditor({
   catalog: Catalog;
 }) {
   const isRegions = kind === "residency";
+  const regionNames = catalogRegions(catalog);
   const title = isRegions ? "Residency" : "Model policy";
   const own = (view: ListPolicy) => view.overrides[team ? "team" : "organization"];
   const draftOf = (view: ListPolicy) => {
@@ -103,7 +105,10 @@ export function ListPolicyEditor({
                     onChange={(e) => toggle(region, e.target.checked)}
                   />
                   <span>
-                    {region} <small>{regionDescriptions[region]}</small>
+                    {region}{" "}
+                    <small>
+                      {regionDescriptions[region] ?? "Processing region reported by the gateway"}
+                    </small>
                   </span>
                 </label>
               ))

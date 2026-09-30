@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { actions, detectors, regions } from "./policy-contracts";
+import { actions, detectors, type Catalog } from "./policy-contracts";
+import { catalogRegions } from "./policy-regions";
 export const ifMatchSchema = z.string().regex(/^"[0-9a-f]{64}"$/);
 const pattern = z
   .string()
@@ -35,9 +36,13 @@ export const guardrailsSchema = z
       ),
   })
   .strict();
-export const residencySchema = z
-  .object({ regions: z.array(z.enum(regions)).max(5).transform(unique) })
-  .strict();
+export function residencySchemaFor(catalog?: Catalog) {
+  const regions = catalogRegions(catalog);
+  return z
+    .object({ regions: z.array(z.enum(regions)).max(regions.length).transform(unique) })
+    .strict();
+}
+export const residencySchema = residencySchemaFor();
 export function isPolicyPath(path: string) {
   return /^\/orgs\/[^/]+\/(model-policy|guardrails|residency)$/.test(path);
 }

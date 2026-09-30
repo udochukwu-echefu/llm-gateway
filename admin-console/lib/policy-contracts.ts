@@ -8,7 +8,6 @@ export const detectors = [
   "ip_address",
 ] as const;
 export const actions = ["allow", "redact", "block"] as const;
-export const regions = ["us", "eu", "cn", "global", "unknown"] as const;
 export type Detector = (typeof detectors)[number];
 export type Action = (typeof actions)[number];
 export type GuardrailOverrides = Partial<Record<Detector, Action>>;
@@ -26,6 +25,7 @@ export type GuardrailView = PolicyView<GuardrailOverrides, Record<Detector, Acti
   defaults: Record<Detector, Action>;
 };
 export interface Catalog {
+  regions?: string[];
   models: {
     name: string;
     provider: string;

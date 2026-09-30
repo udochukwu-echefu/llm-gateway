@@ -212,3 +212,44 @@ test("a saved policy with a failed refresh requires reload without claiming a co
   expect(fetch).toHaveBeenCalledTimes(3);
   expect(screen.queryByRole("button", { name: "Save model policy" })).toBeNull();
 });
+
+for (const source of ["regions field", "model regions"] as const)
+  test(`residency renders and saves a region supplied by catalogue ${source}`, async () => {
+    const user = userEvent.setup();
+    const apiCatalog =
+      source === "regions field"
+        ? { ...catalog, regions: ["test-region"] }
+        : { ...catalog, models: [{ ...catalog.models[0], region: "test-region" }] };
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"updated":true}'))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...initial,
+            version: "b".repeat(64),
+            overrides: { organization: ["test-region"], team: null },
+          }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetch);
+    render(
+      <ListPolicyEditor
+        kind="residency"
+        path="/api/admin/orgs/Fake/residency"
+        initial={initial}
+        org="Fake"
+        catalog={apiCatalog}
+      />,
+    );
+    await user.click(screen.getByLabelText("Allow only these regions"));
+    const option = screen.getByRole("checkbox", { name: /test-region/ });
+    expect(option).toBeDefined();
+    if (source === "regions field")
+      expect(screen.queryByRole("checkbox", { name: /European Union/ })).toBeNull();
+    await user.click(option);
+    await user.click(screen.getByText("Save residency"));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ regions: ["test-region"] });
+    expect(fetch.mock.calls[0][1].headers["If-Match"]).toBe(`"${version}"`);
+  });

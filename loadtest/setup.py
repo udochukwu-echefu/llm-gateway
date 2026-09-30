@@ -22,7 +22,7 @@ def setup() -> None:
         )
     elif runtime.is_symlink() or runtime.stat().st_mode & 0o077:
         raise ValueError("Load-test runtime credentials must be a private regular file")
-    compose("up", "-d", "postgres", "redis")
+    compose("up", "-d", "--wait", "postgres", "redis")
     exists = compose(
         "exec",
         "-T",

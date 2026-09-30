@@ -791,3 +791,42 @@ miss scheduled requests while the ones it sent mostly succeed. We therefore show
 both actual successful responses per second under that definition and the highest
 eligible stage where every scheduled request was sent. The latter gives stronger
 capacity evidence. Generation coverage is also reported beside SLO capacity.
+
+
+## Step 13a: a browser desk in front of the private management door
+
+The web console lives in admin-console/. A **backend for frontend (BFF)** is a small
+server built for one user interface: the browser asks Next.js to do an operation, and
+Next.js talks privately to the gateway. Think of a bank teller handling the vault key;
+the customer never touches it. The admin key stays inside an encrypted, httpOnly,
+Secure cookie and server-only code. HTML, JavaScript and public identity props contain
+only the name, role, public key ID and optional organization. /admin/v1/me returns that
+identity after authentication. The gateway remains the authority for every operation:
+hiding a button does not authorize anything, and another organization's data is 404.
+
+A session lasts at most eight hours, or thirty minutes without authenticated activity.
+Logout removes the browser's cookie; a revoked gateway key causes a fresh sign-in.
+Because this is a stateless encrypted cookie, revoking the admin key is how to stop a
+stolen copy of the session. The runtime settings are validated before serving requests.
+
+**CSRF** is another site tricking a signed-in browser into making a change. SameSite=Strict
+limits when cookies travel; each write also requires the exact configured Origin,
+including login and logout. These are HTTP route handlers, so their explicit check is
+required; Next's Server Action Origin/Host check is not invoked by this implementation.
+**XSS** is injected JavaScript running as part of our page. React escapes text, the
+credential never reaches browser JavaScript, and a **Content Security Policy (CSP)**
+limits executable scripts. A new random **nonce** (one-request permission token) allows
+Next's own scripts. Pages render dynamically so nonces are never reused from a static
+page cache. No inline script exemption or third-party script is needed. frame-ancestors
+'none' prevents clickjacking: another site cannot frame our buttons to disguise a change.
+
+Operators can create organizations and teams, issue/revoke application keys, adjust
+limits and budgets, inspect this month's UTC usage and filter/page the audit log.
+Platform admins can verify the audit chain. The key dialog is the only display of a
+new tenant secret: closing it, changing tabs or reloading discards it. Creation retries
+retain one submission UUID, reusing the gateway's idempotency contract.
+Money uses decimal strings and BigInt pico-dollars, never binary floating-point arithmetic.
+Partial or wholly unknown usage is labelled unpriced instead of being treated as free.
+Tables, focus rings, native dialogs and system/light/dark themes support keyboard and
+tablet use. See [ADR 0023](adr/0023-admin-console.md), the README screenshots and the
+real-stack Playwright test with a scan of every observed browser response.

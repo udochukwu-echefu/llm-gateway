@@ -22,6 +22,26 @@ GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0
 GATEWAY_TEST_DATABASE_URL='postgresql+asyncpg://gateway:local-only-example@127.0.0.1:5432/gateway' GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis
 ```
 
+## Frontend commands
+
+Use Node 24.15.0 (admin-console/.nvmrc). From admin-console/:
+
+```bash
+npm ci                       # exact lockfile; no updates during implementation
+npm run lint
+npm run typecheck
+npm test                     # unit and component tests
+npm run build                # set ADMIN_API_URL, ADMIN_CONSOLE_ORIGIN and session secret
+npm run start                # production standalone server plus local assets
+npm run test:e2e             # requires local Postgres/Redis; creates a disposable database
+```
+
+If npm's cache is inaccessible, set npm_config_cache to a writable temporary directory.
+Never sudo or force npm. Existing installed dependencies suffice in offline sandboxes.
+Playwright uses the installed Chromium; do not download browsers in an offline sandbox.
+See README for fake-only e2e settings and screenshots. Run e2e after Python db/Redis
+suites, since migrations share the gateway_readonly role on the same Postgres cluster.
+
 ## Sandboxed environments
 
 When `uv run` cannot write its cache, use `.venv/bin/ruff`,
@@ -71,6 +91,14 @@ Keep the code easy to navigate: someone new should find anything in under a minu
 
 - Dependencies point downward only: `api` → `providers` → `schemas`. Never import from
   `api` in a lower layer, and avoid import cycles.
+
+**Frontend**
+- admin-console/app/: thin App Router pages and HTTP route handlers; proxy.ts owns CSP.
+- lib/: named modules for server-only gateway access, session, origin, validation and
+  exact decimal money. Never pass admin credentials to client props or NEXT_PUBLIC settings.
+- components/: one UI task per module; native dialogs, labelled forms and semantic tables.
+- tests/lib and tests/components mirror the source; tests/e2e uses a disposable real stack.
+  No .env, admin keys, tenant secrets, browser traces or key-dialog screenshots in git.
 
 **Functions and classes**
 - A function does one thing and is short enough to read without scrolling (roughly under

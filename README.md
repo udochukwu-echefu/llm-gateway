@@ -125,6 +125,102 @@ the migration and observability profile environments, then run
 It reads Postgres as `gateway_readonly`, which has no key-table access. The local
 Grafana profile allows anonymous viewing; restrict it in production.
 
+## Admin web console (step 13a)
+
+The console runs Next.js 16.3.7 and Node 24.15.0. All admin API calls happen in its
+server-side BFF. `GET /admin/v1/me` returns verified `key_id`, `name`, `role` and
+an optional organization `{id, name}`. The admin key is sealed in a Secure,
+httpOnly, SameSite=Strict session cookie, never in React props or browser API responses.
+The gateway still enforces all permissions. Sessions expire after 8 hours absolutely
+or 30 minutes idle; logout clears the cookie and a gateway 401 returns to sign-in.
+
+Start Postgres and Redis, migrate, enable the private API, and issue a platform key
+as described above. Save the printed key privately, then start the console:
+
+```bash
+cd admin-console
+# Use Node 24.15.0 from .nvmrc and the committed package-lock.json.
+npm ci
+export ADMIN_API_URL=http://127.0.0.1:8081
+export ADMIN_CONSOLE_ORIGIN=http://localhost:3100
+# Generate a fresh secret in this shell without printing it or putting it in history.
+export ADMIN_CONSOLE_SESSION_SECRET="$(openssl rand -base64 48)"
+npm run dev -- --hostname localhost --port 3100
+# Production: npm run build, then PORT=3100 HOSTNAME=localhost npm run start
+```
+
+Use [the console](http://localhost:3100/login) and paste the issued admin key.
+Local Chromium allows Secure cookies on localhost; deployments must use HTTPS.
+`ADMIN_CONSOLE_ORIGIN` must exactly match the browser's origin (scheme, host, port).
+Invalid URLs or a missing/short secret fail server startup. Keep `.env*` untracked;
+do not use any `NEXT_PUBLIC_` setting for these values. Changing the session secret
+invalidates existing sessions. The secret must be at least 32 characters and bytes.
+
+For containers, set `ADMIN_CONSOLE_SESSION_SECRET` securely in the compose environment
+and retain the existing gateway `.env` configuration (provider key, pepper and cache
+secret when enabled). Run `docker compose --profile console up -d --build`.
+This starts Postgres, Redis, the gateway with its private admin listener, and the console
+at localhost:3100. The admin API port is not published by this profile. The public
+model API is loopback port 8001. The console image is multi-stage and runs as UID 1001.
+The image build needs npm registry access for the exact lockfile and the pinned Node image;
+installed local node_modules are used for offline development and checks.
+
+13a includes organizations/teams, one-time tenant-key creation and confirmed revocation,
+limits with override/default/unlimited sources, budgets and alert thresholds, UTC-month
+usage with explicit unpriced calls, and cursor-paginated audit filtering/verification.
+Model policy, guardrails, residency, cache purge, admin-key management and SSO are 13b/later.
+Closing/Escape, changing tabs or reloading discards a newly created tenant secret. If its
+first response is lost, revoke the resulting key and issue a replacement. Money stays
+as decimal strings and BigInt pico-dollars; no float accounting. Theme defaults to system
+and can be changed to light/dark for the current document.
+
+Validation from `admin-console/`:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+# After Python db and Redis suites finish (shared migration role), with local services up:
+npm run test:e2e
+CONSOLE_SCREENSHOTS=1 npm run test:e2e
+npm run test:break
+```
+
+Playwright uses a disposable `console_e2e_<uuid>` Postgres database and Redis DB 13.
+It starts the real gateway/public/admin listeners (ports 18090/18091) and the production
+standalone console (3100). It deliberately ignores `.env` and inherited gateway config,
+uses a fake pepper/provider key and a provider URL at closed port 1, and never invokes a
+provider. The database account must be able to create/drop its test database. Optional
+`CONSOLE_TEST_DATABASE_URL` and `CONSOLE_TEST_REDIS_URL` select test services; defaults
+match compose. Runtime admin keys are stored only in an ignored mode-0600 state file,
+removed on shutdown. No traces, videos or full-key screenshots are retained.
+Install Chromium beforehand with `./node_modules/.bin/playwright install chromium` on
+an online machine; an offline sandbox must use the installed browser and packages.
+
+The no-leak test scans every observed browser response body and all headers. Exactly one
+successful tenant-key creation JSON response may contain its newly issued tenant secret;
+all other responses must omit it, and no response may contain an admin credential.
+Break checks deliberately inject an admin key into a client component, remove the Origin
+check, add a reveal control and drop httpOnly, require the designated test to fail, then
+restore sources and the production build. This runner uses only fake, disposable test data.
+CI runs lint, typing, unit/component tests, build and the same real-stack Chromium suite.
+
+Screenshots contain synthetic workspaces and public IDs only:
+
+![Sign-in](docs/images/console-login.png)
+![Organizations](docs/images/console-organisations.png)
+![Usage](docs/images/console-usage.png)
+![API keys](docs/images/console-keys.png)
+![Limits](docs/images/console-limits.png)
+![Budget](docs/images/console-budget.png)
+![Audit](docs/images/console-audit.png)
+![Dark theme](docs/images/console-usage-dark.png)
+![Tablet](docs/images/console-tablet.png)
+
+See [ADR 0023](docs/adr/0023-admin-console.md) and the
+[validation report](docs/tasks/step-13a-report.md).
+
 ## Pricing and usage
 
 Edit `catalog/models.toml` through code review: verify each model's per-million-token

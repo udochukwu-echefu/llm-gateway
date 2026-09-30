@@ -179,7 +179,11 @@ Postgres when Redis is offline and display live values as `unavailable`.
 
 NULL team values inherit global defaults. A zero (or unset) default means unlimited.
 Limit updates become visible when the verified-key cache expires (30 seconds by default).
-RPM checks at admission; TPM adds actual tokens only once the response ends. A finite
+RPM uses atomic GCRA slots with Redis time: any rolling minute admits at most
+RPM + B while Redis is available and retains state. B defaults to 5% of RPM
+rounded up (minimum one), or `GATEWAY_LIMITS__RPM_BURST`. Remaining requests means
+slots available now; reset means seconds until the next slot. TPM remains an
+approximate sliding counter and adds actual tokens only once the response ends. A finite
 concurrency limit bounds the number of in-flight calls that can overshoot TPM. Monthly
 USD budgets block at 100%; one `budget_alert` warning per team and month occurs at
 the threshold. Unknown or missing usage and in-flight calls are not included; this
@@ -287,6 +291,7 @@ All settings are environment variables prefixed `GATEWAY_` (see `src/llm_gateway
 | `GATEWAY_ADMIN_API__HOST` | `127.0.0.1` | Admin listener bind address |
 | `GATEWAY_ADMIN_API__PORT` | `8081` | Admin listener port |
 | `GATEWAY_READONLY_DB_PASSWORD` | unset | Deployment-supplied Grafana database password; migration leaves role without login when absent |
+| `GATEWAY_LIMITS__RPM_BURST` | unset | Immediate request burst; defaults to max(1, ceil(RPM × 0.05)) |
 | `GATEWAY_LIMITS__DEFAULT_RPM`, `DEFAULT_TPM`, `DEFAULT_MAX_CONCURRENCY` | `0` | Global team limits (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_MONTHLY_BUDGET_USD` | `0` | Global USD budget (0 = unlimited) |
 | `GATEWAY_LIMITS__DEFAULT_ALERT_THRESHOLD` | `0.8` | Budget warning fraction |

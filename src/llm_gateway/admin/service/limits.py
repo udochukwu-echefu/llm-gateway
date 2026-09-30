@@ -38,7 +38,7 @@ def admin_defaults() -> LimitsSettings:
     base = LimitsSettings()
     return LimitsSettings.model_validate(
         {
-            name: os.environ.get(f"GATEWAY_LIMITS__{name.upper()}", str(getattr(base, name)))
+            name: os.environ.get(f"GATEWAY_LIMITS__{name.upper()}", getattr(base, name))
             for name in LimitsSettings.model_fields
         }
     )

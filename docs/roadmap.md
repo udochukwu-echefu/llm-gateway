@@ -29,3 +29,6 @@ charts and profiling. No maximum sustainable capacity or scaling factor is estab
 - Gateway overhead (time added on top of the provider): under 10 ms at p99, excluding
   guardrails.
 - Availability, excluding provider errors: 99.9%.
+
+Step 12b amendment: RPM now uses GCRA with a bounded burst; TPM remains approximate.
+The redesigned campaign will establish capacity independently of idle-path tails.

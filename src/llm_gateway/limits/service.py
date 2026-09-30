@@ -12,6 +12,7 @@ from typing import cast
 import structlog
 from redis.asyncio import Redis
 
+from llm_gateway.context import annotate
 from llm_gateway.errors import GatewayError
 from llm_gateway.limits.configuration import EffectiveLimits
 from llm_gateway.limits.redis import Scripts
@@ -40,6 +41,7 @@ class LimitService:
         fail_mode: str = "open",
         lease_ttl: int = 900,
         ip_limit: int = 20,
+        rpm_burst: int | None = None,
         rebuild_timeout: float = 0.2,
         clock: Callable[[], float] = time.time,
         spend_total: Callable[[uuid.UUID, datetime, datetime], Awaitable[Decimal]] | None = None,
@@ -50,6 +52,7 @@ class LimitService:
         self.fail_mode = fail_mode
         self.lease_ttl = lease_ttl
         self.ip_limit = ip_limit
+        self.rpm_burst = rpm_burst
         self.rebuild_timeout = rebuild_timeout
         self.clock = clock
         self.spend_total = spend_total
@@ -78,6 +81,19 @@ class LimitService:
     async def window(
         self, subject: str, kind: str, limit: int, delta: int, update: bool = True
     ) -> list[int]:
+        if kind == "requests":
+            result = await self.scripts.call(
+                "gcra",
+                [f"lgw:requests:{subject}:tat"],
+                [
+                    limit,
+                    self.rpm_burst or max(1, math.ceil(limit * 0.05)),
+                    int(update and delta > 0),
+                ],
+            )
+            if not isinstance(result, list):
+                raise ValueError("Invalid GCRA script result")
+            return result
         now = self.clock()
         slot = math.floor(now / 60)
         result = await self.scripts.call(
@@ -115,6 +131,8 @@ class LimitService:
         result = await self.safe(lambda: self.window(str(team), "requests", limits.rpm, 1))
         if isinstance(result, list):
             headers = self._format_headers("requests", limits.rpm, cast(list[int], result))
+            if result[0] and limits.rpm:
+                annotate(rpm_admitted_at_us=result[3])
             if not result[0]:
                 values = cast(list[int], result)
                 self._rejected("requests")

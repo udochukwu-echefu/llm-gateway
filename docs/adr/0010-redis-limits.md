@@ -52,3 +52,29 @@ active; configure a TTL longer than the worst anticipated provider/client stall.
   refill accounting. The weighted sliding counter is small and predictable.
 - Process-local counters cannot coordinate replicas. An INCR/DECR concurrency counter
   does not self-heal after a process crash.
+
+## Amendment: exact RPM admission (2026-09-30)
+
+RPM now uses the Generic Cell Rate Algorithm (GCRA) in one atomic Lua script.
+Each request books the next free time slot, spaced T = 60 / RPM seconds apart.
+A request is admitted only if its slot is no more than (B - 1) slots ahead.
+Redis TIME supplies the clock, so replica clock skew cannot change the decision.
+For any interval W the bound is W / T + B; a rolling minute admits at most RPM + B.
+This guarantee assumes Redis retains state and is available; fail-open outages
+and state loss still permit uncounted traffic.
+
+GATEWAY_LIMITS__RPM_BURST is a positive integer override; unset means
+max(1, ceil(RPM * 0.05)). It controls the immediate burst, not a full minute's
+initial allowance. Remaining requests means slots available now, and reset and
+Retry-After mean seconds until the next conforming request, rounded upward.
+The new key lgw:requests:<team UUID>:tat holds the theoretical arrival time and
+expires when the booked slots drain. Older minute keys expire naturally.
+
+TPM and failed authentication still use approximate weighted sliding counters.
+TPM also records tokens after responses, allowing concurrent-call overshoot.
+The first campaign's RPM counter reached 968 rolling-minute admissions at RPM
+600 (61.3% overshoot) in one repetition: evidence that this counter algorithm
+cannot promise exact rolling bounds. TPM itself was not load-tested; do not
+misrepresent that RPM observation as a measured TPM overshoot.
+Production Lua uses Redis TIME; tests replace only its clock expression to
+exercise the actual script against seeded random and saturated arrivals.

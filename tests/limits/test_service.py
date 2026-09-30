@@ -26,7 +26,7 @@ def limits(
 
 async def test_two_replicas_admit_exactly_ten_of_fifty_rpm(test_redis: Redis) -> None:
     team = uuid.uuid4()
-    first, second = LimitService(test_redis), LimitService(test_redis)
+    first, second = LimitService(test_redis, rpm_burst=10), LimitService(test_redis, rpm_burst=10)
 
     async def one(index: int) -> bool:
         try:
@@ -103,17 +103,17 @@ async def test_budget_retry_after_rounds_up_to_next_utc_month(test_redis: Redis)
     assert failure.value.headers["x-ratelimit-limit-requests"] == "0"
 
 
-async def test_sliding_window_weights_previous_at_edge(test_redis: Redis) -> None:
+async def test_tpm_sliding_window_weights_previous_at_edge(test_redis: Redis) -> None:
     team = str(uuid.uuid4())
     clock = [120.0]
     service = LimitService(test_redis, clock=lambda: clock[0])
     for _ in range(10):
-        assert (await service.window(team, "requests", 10, 1))[0] == 1
-    assert (await service.window(team, "requests", 10, 1))[0] == 0
+        assert (await service.window(team, "tokens", 10, 1))[0] == 1
+    assert (await service.window(team, "tokens", 10, 1))[0] == 0
     clock[0] = 210.0
-    assert (await service.window(team, "requests", 10, 1)) == [1, 4, 30]
+    assert (await service.window(team, "tokens", 10, 1)) == [1, 4, 30]
     clock[0] = 240.0
-    assert (await service.window(team, "requests", 10, 1))[0] == 1
+    assert (await service.window(team, "tokens", 10, 1))[0] == 1
 
 
 async def test_missing_script_sha_is_reloaded_without_losing_admission(test_redis: Redis) -> None:

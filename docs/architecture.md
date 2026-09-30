@@ -753,3 +753,14 @@ See [reproduction commands](../loadtest/README.md),
 - No admin SSO, admin web UI or automated key rotation.
 
 See [roadmap.md](roadmap.md) for the order.
+
+## Step 12b amendment: request slots shared by replicas
+
+GCRA (Generic Cell Rate Algorithm) gives each request the next free time slot.
+Slots are spaced 60 / RPM seconds apart. The gateway admits a request only if
+its slot is not too far in the future. B is the immediate burst allowance,
+normally 5% of RPM rounded up, at least one. A shared Redis clock and atomic
+Lua decision keep replicas consistent. Any rolling minute admits at most RPM + B
+while Redis is available and retains state. Retry headers describe when the next
+slot becomes usable. Token limits remain approximate: actual tokens are only
+known after a response, and their weighted minute counter can overshoot.

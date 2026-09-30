@@ -33,7 +33,7 @@ async def limited_client(
     memory_repository.records[record.key_id] = replace(
         record, limits=LimitOverrides(rpm=2, tpm=10, max_concurrency=1)
     )
-    service = LimitService(test_redis)
+    service = LimitService(test_redis, rpm_burst=2)
     slot = int(time.time() // 60)
     await test_redis.delete(*(f"lgw:auth-fail:127.0.0.1:{slot - offset}" for offset in (0, 1)))
     app = create_app(

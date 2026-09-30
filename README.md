@@ -251,7 +251,7 @@ Screenshots contain synthetic workspaces and public IDs only:
 ![Tablet](docs/images/console-tablet.png)
 
 See [ADR 0024](docs/adr/0024-admin-console.md) and the
-[validation report](docs/tasks/step-13a-report.md).
+[validation report](docs/tasks/step-13a-review-corrections.md).
 
 ## Pricing and usage
 

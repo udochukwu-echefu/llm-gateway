@@ -705,6 +705,48 @@ records. The dashboard shows spend against budget, models, traffic, cache saving
 and unknown-cost calls; unknown cost is visible rather than mistaken for zero.
 See [ADR 0022](adr/0022-admin-api.md).
 
+## Step 12b: measure the gateway rather than the model
+
+A **load test** sends requests at a declared rate and records how the gateway behaves
+as that rate increases. An **open-loop** generator keeps sending that offered rate even
+if responses slow down; otherwise slower responses could quietly reduce the pressure.
+A **soak test** holds a steady load for ten minutes, looking for rising memory, receipt
+loss and queues that cannot drain. It is a useful observation, not proof that no leak
+can ever happen.
+
+The fake provider is a metronome: it waits 200 ms, returns synthetic text or vectors
+and known token counts, and emits 20 streaming chunks at 50 ms intervals. We measure
+it directly first so it cannot hide as the bottleneck. There are no real-provider costs
+or unpredictable model answers. The load-test replicas have only an internal Docker
+network and point exclusively at that fake server. The runner ignores the owner's
+`.env`; generated credentials and CLI-issued keys stay in private ignored files.
+
+**p99** is the slow tail, below which 99% of requests fall. An average can look fine
+while one caller in a hundred waits too long. We subtract awaited provider operations
+using the existing overhead metric; for streams it stops at the first body byte. We
+add histogram buckets across replicas before estimating p99, rather than averaging
+their p99s. Bucket interpolation is approximate: the 10–25 ms bucket cannot give exact
+individual timings. Short prompts still run guardrails; S4 measures additional work
+for a 5 KB PII-rich prompt without pretending the existing metric subtracts scans.
+
+A **scaling factor** is two-replica sustainable throughput divided by one-replica
+throughput. Two means doubling capacity; below two suggests a shared bottleneck or
+coordination cost. If there is no passing one-replica rate, that factor is undefined.
+
+A **flame graph** stacks sampled function calls. Wider boxes appear in more samples;
+the vertical axis is call depth, not elapsed time. It guides investigation, not proof
+that every wide function can safely be optimized. We publish only stack samples, never
+locals, prompts or credentials. No product optimization is included in this step.
+
+Fresh teams isolate counters and accounting for every run. k6 validates complete
+responses and terminal streaming events, separately counts expected RPM rejections,
+and treats missed scheduled iterations as generator insufficiency. The soak compares
+durable usage records against successful provider calls after the writer flushes.
+All three repetitions remain available; the report names the selected median run.
+See [reproduction commands](../loadtest/README.md),
+[ADR 0023](adr/0023-controlled-load-testing.md), and the
+[benchmark report](benchmarks/load-test-report.md) for measurements and limitations.
+
 ## What the gateway deliberately does NOT do yet
 
 - No semantic, streaming or cross-team response cache.

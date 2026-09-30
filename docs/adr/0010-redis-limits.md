@@ -76,5 +76,11 @@ The first campaign's RPM counter reached 968 rolling-minute admissions at RPM
 600 (61.3% overshoot) in one repetition: evidence that this counter algorithm
 cannot promise exact rolling bounds. TPM itself was not load-tested; do not
 misrepresent that RPM observation as a measured TPM overshoot.
-Production Lua uses Redis TIME; tests replace only its clock expression to
-exercise the actual script against seeded random and saturated arrivals.
+Production Lua uses Redis TIME; tests replace its clock expression and hold expiry long enough to
+prevent real-time scheduling pauses from clearing simulated-clock state, exercising the actual script against seeded random and saturated arrivals.
+
+The bound covers admissions made under GCRA with retained Redis state. Old
+weighted counters and new slot keys do not coordinate during a mixed-version
+rollout. Drain old replicas and let their admissions age out for a full minute
+before claiming the bound across the whole rolling window. The benchmark uses
+fresh teams and only upgraded replicas.

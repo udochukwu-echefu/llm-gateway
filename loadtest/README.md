@@ -69,10 +69,18 @@ overhead p99 >=50 ms. CI uses a single 30-second repetition (see the workflow).
 ## Charts and profile
 
 ```bash
-uv run --with matplotlib python loadtest/charts.py
+uv run --with matplotlib python -m loadtest.charts
 ```
 
 Matplotlib is ephemeral, not in `pyproject.toml`/`uv.lock`. Profile with `uvx py-spy`
-against a reviewed local replica or in Docker with ptrace permission; never use
-`--locals` or profile an app holding real keys. The report records the exact successful
-command or the exact platform failure. See [report](../docs/benchmarks/load-test-report.md).
+using this extra S1-shaped diagnostic run:
+
+```bash
+uv run python -m loadtest.profile
+```
+
+It builds an ephemeral py-spy 0.4.2 image, joins only the fake-key replica's PID
+namespace with `SYS_PTRACE` and `seccomp=unconfined`, and disables its network. These
+debugging permissions are **not** applied to the production image or regular replicas.
+Never use `--locals` or profile an app holding real keys. The report records the exact
+successful command or platform failure. See [report](../docs/benchmarks/load-test-report.md).

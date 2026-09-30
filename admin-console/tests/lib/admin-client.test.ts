@@ -5,13 +5,11 @@ afterEach(() => vi.unstubAllGlobals());
 test("maps API envelope messages and preserves scoped 404", async () => {
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ error: { message: "Organization not found" } }), {
-          status: 404,
-        }),
-      ),
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: { message: "Organization not found" } }), {
+        status: 404,
+      }),
+    ),
   );
   await expect(
     adminRequest("http://fake.test", "fake-key", "/orgs/other/teams"),

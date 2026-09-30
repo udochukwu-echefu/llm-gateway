@@ -15,6 +15,7 @@ export function Shell({ identity, children }: {
   return <div className="console">
     <a href="#main" className="skip">Skip to content</a>
     <aside>
+      <div className="sidebar-content">
       <Link prefetch={false} className="brand" href="/orgs">
         <span className="brand-mark">g</span>gateway<span className="brand-sub">ADMIN CONSOLE</span>
       </Link>
@@ -27,6 +28,7 @@ export function Shell({ identity, children }: {
         <span className="badge">{identity.role === "platform" ? "Platform admin" : "Organisation admin"}</span>
         <p>{identity.name}</p>
         <small>Key ID · {identity.key_id}</small>
+      </div>
       </div>
     </aside>
     <div className="workspace">

@@ -8,6 +8,10 @@ aside {
   flex-shrink: 0;
   border-right: 1px solid var(--line);
   background: var(--panel);
+  align-self: stretch;
+}
+
+.sidebar-content {
   padding: 28px 20px;
   display: flex;
   flex-direction: column;
@@ -199,6 +203,9 @@ footer {
 @media (max-width:1100px) {
   aside {
     width: 185px;
+  }
+
+  .sidebar-content {
     padding: 24px 14px;
   }
 
@@ -230,8 +237,11 @@ footer {
   }
 
   aside {
-    position: static;
     width: 100%;
+  }
+
+  .sidebar-content {
+    position: static;
     height: auto;
     padding: 16px;
   }

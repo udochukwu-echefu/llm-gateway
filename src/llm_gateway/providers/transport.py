@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -17,9 +18,15 @@ log = structlog.get_logger("llm_gateway.upstream")
 class UpstreamClient:
     """HTTP transport and ADR 0002 error mapping shared by compatible adapters."""
 
-    def __init__(self, http: httpx.AsyncClient, request_id_header: str | None) -> None:
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        request_id_header: str | None,
+        map_status: Callable[[httpx.Response], GatewayError] | None = None,
+    ) -> None:
         self._http = http
         self._request_id_header = request_id_header
+        self._map_status = map_status or status_error
 
     async def open(self, path: str, payload: dict[str, Any]) -> httpx.Response:
         """POST `payload` and return the response with its body still unread.
@@ -55,9 +62,11 @@ class UpstreamClient:
                 raise transport_error(exc) from exc
             finally:
                 await response.aclose()
-            error = status_error(response)
+            error = self._map_status(response)
             error.upstream_status = response.status_code
-            if retry_after := response.headers.get("retry-after"):
+            if error.code != "upstream_account_error" and (
+                retry_after := response.headers.get("retry-after")
+            ):
                 error.headers["retry-after"] = retry_after
             raise error
         return response

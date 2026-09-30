@@ -5,7 +5,7 @@ import httpx
 from llm_gateway.errors import GatewayError
 from llm_gateway.providers.base import Capabilities, ChatStream
 from llm_gateway.providers.stream import CompatibleChatStream
-from llm_gateway.providers.transport import UpstreamClient, read_model
+from llm_gateway.providers.transport import UpstreamClient, read_model, status_error
 from llm_gateway.schemas.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionRequest
 from llm_gateway.schemas.common import ProviderName
 from llm_gateway.schemas.embeddings import EmbeddingRequest, EmbeddingResponse
@@ -19,7 +19,7 @@ class OpenAICompatibleAdapter:
     request_id_header: str | None = "x-request-id"
 
     def __init__(self, http: httpx.AsyncClient) -> None:
-        self._transport = UpstreamClient(http, self.request_id_header)
+        self._transport = UpstreamClient(http, self.request_id_header, self._status_error)
 
     async def chat(self, request: ChatCompletionRequest, model: str) -> ChatCompletion:
         payload = self._chat_payload(request, model)
@@ -60,6 +60,9 @@ class OpenAICompatibleAdapter:
             type="invalid_request_error",
             code="unsupported_parameter",
         )
+
+    def _status_error(self, response: httpx.Response) -> GatewayError:
+        return status_error(response)
 
     def _chat_payload(self, request: ChatCompletionRequest, model: str) -> dict[str, Any]:
         payload = request.to_upstream(self.name)

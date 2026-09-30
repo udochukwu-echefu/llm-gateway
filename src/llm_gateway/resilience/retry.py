@@ -39,6 +39,8 @@ class RetryBudget:
 
 
 def retryable(error: GatewayError, settings: ResilienceSettings) -> bool:
+    if error.code == "upstream_account_error":
+        return False
     if error.upstream_status is not None:
         return error.upstream_status in {429, 500, 502, 503, 504, 529}
     return error.transport_kind in {"ConnectError", "ConnectTimeout", "PoolTimeout"} or (

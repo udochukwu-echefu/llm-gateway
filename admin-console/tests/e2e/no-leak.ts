@@ -1,15 +1,22 @@
-import type { Page } from "@playwright/test";
+import type { Page, Request } from "@playwright/test";
 import { expect } from "@playwright/test";
 export async function responseScanner(page: Page) {
-  const records: {
-    url: string;
-    method: string;
-    body: string;
-    headers: string;
-  }[] = [];
+  const records = new Map<Request, { url: string; method: string; body: string; headers: string }>();
   const failures: string[] = [];
-  let received = 0;
-  page.on("response", () => received++);
+  const received = new Set<Request>();
+  const pending: Promise<void>[] = [];
+  page.on("response", (response) => {
+    received.add(response.request());
+    if (records.has(response.request())) return;
+    // Chromium may follow a redirect without invoking the route handler again.
+    // Read those responses immediately, before later navigation can evict them.
+    pending.push((async () => {
+      try {
+        const body = (await response.body()).toString("utf8");
+        records.set(response.request(), { url: response.url(), method: response.request().method(), body, headers: JSON.stringify(await response.allHeaders()) });
+      } catch { failures.push(response.url()); }
+    })());
+  });
   // Capture complete bytes before fulfillment: browser navigations otherwise evict
   // old response bodies from Chromium's protocol cache. No response is exempted.
   await page.route("**/*", async (route) => {
@@ -17,7 +24,7 @@ export async function responseScanner(page: Page) {
       const upstream = await route.fetch({ maxRedirects: 0 });
       const body = await upstream.body();
       const record = { url: route.request().url(), method: route.request().method(), body: body.toString("utf8"), headers: JSON.stringify(upstream.headersArray()) };
-      records.push(record);
+      records.set(route.request(), record);
       await route.fulfill({ response: upstream, body });
     }
     catch {
@@ -28,10 +35,13 @@ export async function responseScanner(page: Page) {
   return {
     async verify(adminKeys: string[], createdKey: string) {
       await page.waitForLoadState("networkidle");
+      await Promise.all(pending);
       expect(failures.length, "Every browser response must be inspected").toBe(0);
-      expect(records.length, "Captured bytes for every response received by the browser").toBe(received);
+      // Captured requests cancelled before a response are also scanned below.
+      for (const request of received)
+        expect(records.has(request), "Captured bytes for every response received by the browser").toBe(true);
       let oneTimeResponses = 0;
-      for (const record of records) {
+      for (const record of records.values()) {
         const text = record.body + record.headers;
         expect(/lgwa_[A-Za-z0-9_-]{12,}/.test(text), `Admin credential in response from ${record.url}`).toBe(false);
         for (const key of adminKeys)
@@ -49,8 +59,8 @@ export async function responseScanner(page: Page) {
         }
       }
       expect(oneTimeResponses, "Exactly one first-creation response may contain the tenant secret").toBe(1);
-      console.log(`No-leak scan: ${records.length} browser responses; one permitted key-creation response; zero leaks.`);
-      return records.length;
+      console.log(`No-leak scan: ${received.size} browser responses; one permitted key-creation response; zero leaks.`);
+      return received.size;
     }
   };
 }

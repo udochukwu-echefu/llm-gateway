@@ -47,10 +47,25 @@
 .danger {
   color: var(--danger);
 }
+progress {
+  appearance: none;
+  --progress-fill: var(--accent);
+}
+progress::-webkit-progress-bar {
+  background: var(--line);
+}
+progress::-webkit-progress-value {
+  background: var(--progress-fill);
+}
+progress::-moz-progress-bar {
+  background: var(--progress-fill);
+}
 progress.danger {
+  --progress-fill: var(--danger);
   accent-color: var(--danger);
 }
 progress.warning {
+  --progress-fill: var(--warning);
   accent-color: var(--warning);
 }
 .copy-id {

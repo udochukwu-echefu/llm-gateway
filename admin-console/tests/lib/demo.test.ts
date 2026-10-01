@@ -41,6 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   mocks.config.DEMO_MODE = true;
+  mocks.config.DEMO_ALLOW_KEY_SIGN_IN = false;
   mocks.session.issuedAt = Date.now();
   mocks.session.lastSeen = Date.now();
   mocks.identity.mockResolvedValue(mocks.session.identity);
@@ -151,6 +152,14 @@ test("demo sign-in throttles each client including successful sign-ins", async (
 test("key sign-in is 404 by default in demo mode", async () => {
   expect((await login(request({ key: "fake" }))).status).toBe(404);
   expect(mocks.identity).not.toHaveBeenCalled();
+});
+test("explicitly enabled key sign-in uses the demo session lifetime", async () => {
+  mocks.config.DEMO_ALLOW_KEY_SIGN_IN = true;
+  mocks.session.demo = false;
+  const response = await login(request({ key: mocks.config.DEMO_VIEWER_KEY }));
+  expect(response.status).toBe(200);
+  expect(mocks.session.demo).toBe(true);
+  expect(mocks.session.save).toHaveBeenCalledOnce();
 });
 test("viewer BFF mutations fail before parsing bodies or accessing gateway", async () => {
   for (const handler of [POST, PUT, DELETE]) {

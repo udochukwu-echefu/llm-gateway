@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     Object.assign(session, {
       adminKey: parsed.data.key,
       identity,
+      demo: config.DEMO_MODE,
       issuedAt: Date.now(),
       lastSeen: Date.now(),
     });

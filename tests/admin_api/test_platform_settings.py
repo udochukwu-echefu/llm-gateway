@@ -63,3 +63,36 @@ async def test_providers_label_this_replica_and_unknown_health(admin_harness: Ad
     assert groq["circuit_breaker"] == "open"
     unused = next(row for row in body["data"] if row["provider"] == "openai")
     assert unused["15m"] == {"attempts": 0, "error_rate": None, "p95_ms": None}
+
+
+@pytest.mark.parametrize("path", ["settings", "providers"])
+async def test_platform_readouts_reject_unknown_filters(
+    admin_harness: AdminHarness, path: str
+) -> None:
+    h = admin_harness
+    response = await h.client.get(
+        f"/admin/v1/{path}?unknown=fake", headers=h.headers(h.platform_key)
+    )
+    assert response.status_code == 400
+
+
+async def test_provider_health_percentiles_use_recent_recorded_attempts(
+    admin_harness: AdminHarness,
+) -> None:
+    from sqlalchemy import delete
+
+    from llm_gateway.usage.repository import UsageRow
+    from tests.admin_api.usage_fixtures import add_receipts
+
+    h = admin_harness
+    async with h.sessions.begin() as session:
+        await session.execute(delete(UsageRow))
+    await add_receipts(h)
+    response = await h.client.get("/admin/v1/providers", headers=h.headers(h.platform_key))
+    assert response.status_code == 200
+    providers = {row["provider"]: row for row in response.json()["data"]}
+    for window in ("15m", "24h"):
+        assert providers["groq"][window] == {"attempts": 2, "error_rate": 1, "p95_ms": 195}
+        assert providers["deepseek"][window] == {"attempts": 1, "error_rate": 0, "p95_ms": 300}
+    assert providers["groq"]["enabled"] is True
+    assert providers["groq"]["key_configured"] is True

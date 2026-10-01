@@ -182,6 +182,31 @@ caption {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.analytics-table-scroll {
+  overscroll-behavior-inline: contain;
+  padding-bottom: 10px;
+}
+table.analytics-table {
+  min-width: 2360px;
+}
+.analytics-table th,
+.analytics-table td {
+  min-width: 148px;
+  padding: 18px 24px;
+  white-space: nowrap;
+}
+.analytics-table thead th {
+  padding-block: 14px;
+}
+.analytics-table :is(th, td):first-child {
+  min-width: 248px;
+}
+.analytics-table :is(th, td):nth-child(2) {
+  min-width: 180px;
+}
+.analytics-table :is(th, td):nth-child(n + 3) {
+  text-align: right;
+}
 @media (hover: hover) and (pointer: fine) {
   tbody tr:hover {
     background: var(--bg);

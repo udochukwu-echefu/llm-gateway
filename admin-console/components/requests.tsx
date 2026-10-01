@@ -11,6 +11,7 @@ import { MoneyValue } from "./money-value";
 import { RequestDetail } from "./request-detail";
 import { listSort } from "@/lib/list-query";
 import type { RequestAttempt } from "@/lib/console-contracts";
+import { GooeyRanges } from "./gooey-ranges";
 const fields: FilterField[] = [
   { name: "since", label: "From timestamp (UTC)", type: "datetime" },
   { name: "until", label: "To timestamp (UTC)", type: "datetime" },
@@ -65,31 +66,34 @@ export function Requests() {
       </div>
       <OrgScope {...scope} />
       <div className="quick-ranges" aria-label="Quick ranges">
-        {[
-          ["15m", 15 / 60],
-          ["1h", 1],
-          ["24h", 24],
-          ["7d", 168],
-          ["30d", 720],
-        ].map(([label, hours]) => (
-          <button
-            key={label}
-            className="secondary"
-            onClick={() =>
-              set({
-                since: new Date(Date.now() - Number(hours) * 3600000).toISOString(),
-                until: new Date().toISOString(),
-              })
-            }
-          >
-            {label}
-          </button>
-        ))}
+        <GooeyRanges
+          items={[
+            { label: "15m", value: 15 / 60, duration: 15 * 60000 },
+            { label: "1h", value: 1, duration: 3600000 },
+            { label: "24h", value: 24, duration: 24 * 3600000 },
+            { label: "7d", value: 168, duration: 168 * 3600000 },
+            { label: "30d", value: 720, duration: 720 * 3600000 },
+          ]}
+          since={params.get("since")}
+          until={params.get("until")}
+          onSelect={(hours) =>
+            set({
+              since: new Date(Date.now() - hours * 3600000).toISOString(),
+              until: new Date().toISOString(),
+            })
+          }
+        />
         <span>Custom: use the timestamp fields</span>
       </div>
-      <section className="panel">
-        <details>
-          <summary>Request filters</summary>
+      <section className="panel request-filter-panel">
+        <details className="request-filters">
+          <summary className="request-filters-toggle">
+            <span className="request-filters-label">
+              <span className="request-filters-icon" aria-hidden="true" />
+              Request filters
+            </span>
+            <span className="request-filters-chevron" aria-hidden="true" />
+          </summary>
           <FilterBar fields={fields} />
         </details>
       </section>

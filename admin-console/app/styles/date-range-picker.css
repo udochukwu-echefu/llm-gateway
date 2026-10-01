@@ -1,0 +1,314 @@
+/* DevClub Date Range Picker optics. Local CSS replaces Motion's inline styles.
+   License: public/licenses/devclub-components.txt. UTC time controls preserve the console's timestamp filters. */
+@import "./date-range-calendar.css";
+
+.date-range-fields {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  flex: 2 1 376px;
+  max-width: 576px;
+  min-width: 0;
+  anchor-name: --calendar-fields;
+  anchor-scope: --calendar-fields;
+}
+.filter-bar .date-range-fields > label {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.calendar-input-frame {
+  display: block;
+  position: relative;
+  margin-top: 7px;
+}
+.calendar-input-frame input {
+  margin: 0;
+  padding-right: 40px;
+  min-width: 0;
+}
+.calendar-input-frame input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+button.calendar-trigger {
+  position: absolute;
+  inset: 1px 1px 1px auto;
+  width: 36px;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0 7px 7px 0;
+}
+.calendar-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("../../public/icons/calendar.svg") center / contain no-repeat;
+}
+.date-range-popover {
+  --calendar-panel: oklch(1 0 0 / 95%);
+  --calendar-border: oklch(0.92 0.004 286 / 90%);
+  --calendar-ink: oklch(0.21 0.006 286);
+  --calendar-muted: oklch(0.552 0.016 286);
+  --calendar-faint: oklch(0.705 0.015 286);
+  --calendar-hover: oklch(0.967 0.001 286);
+  --calendar-band: oklch(0.942 0.004 286);
+  --calendar-pill: oklch(0.92 0.004 286 / 80%);
+  --calendar-edge: oklch(0.21 0.006 286);
+  --calendar-edge-ink: oklch(1 0 0);
+  --calendar-shadow: 0 20px 50px -12px rgb(0 0 0 / 8%), 0 1px 3px rgb(0 0 0 / 5%);
+  position: fixed;
+  position-anchor: --calendar-fields;
+  inset: auto;
+  top: clamp(16px, calc(anchor(bottom) + 8px), max(16px, calc(100dvh - 720px)));
+  left: clamp(16px, anchor(left), calc(100vw - 852px));
+  width: 836px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 28px;
+  background: var(--calendar-panel);
+  color: var(--calendar-ink);
+  border: 1px solid var(--calendar-border);
+  border-radius: 24px;
+  box-shadow: var(--calendar-shadow);
+  backdrop-filter: blur(24px);
+  font: 400 14px/1.5 var(--font-ui);
+  user-select: none;
+}
+.date-range-popover::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(161 161 170 / 25%), transparent);
+  pointer-events: none;
+}
+.date-range-popover[aria-hidden="true"] {
+  display: none;
+}
+.date-range-popover[data-open="true"]:not([popover]) {
+  display: block;
+  z-index: 70;
+}
+.calendar-body {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: 32px;
+}
+.calendar-presets {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 24px;
+  border-right: 1px solid var(--calendar-border);
+}
+.calendar-presets::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 24px;
+  height: 42px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 12px;
+  background: var(--calendar-pill);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  opacity: 1;
+  transform: translateY(calc(var(--preset-index, 0) * 46px));
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 120ms ease-out;
+  pointer-events: none;
+}
+.calendar-presets[data-active-preset="-1"]::before {
+  opacity: 0;
+}
+.calendar-presets[data-active-preset="0"] {
+  --preset-index: 0;
+}
+.calendar-presets[data-active-preset="1"] {
+  --preset-index: 1;
+}
+.calendar-presets[data-active-preset="2"] {
+  --preset-index: 2;
+}
+.calendar-presets[data-active-preset="3"] {
+  --preset-index: 3;
+}
+.calendar-presets[data-active-preset="4"] {
+  --preset-index: 4;
+}
+.calendar-presets[data-active-preset="5"] {
+  --preset-index: 5;
+}
+.calendar-presets[data-active-preset="6"] {
+  --preset-index: 6;
+}
+.calendar-presets[data-active-preset="7"] {
+  --preset-index: 7;
+}
+button.calendar-preset {
+  position: relative;
+  z-index: 1;
+  height: 42px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--calendar-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+button.calendar-preset[aria-pressed="true"] {
+  color: var(--calendar-ink);
+  font-weight: 600;
+}
+.calendar-times {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 20px;
+}
+.date-range-popover .calendar-times label {
+  flex: 0 1 160px;
+  max-width: 160px;
+  color: var(--calendar-muted);
+  font-size: 11px;
+}
+.date-range-popover .calendar-times input {
+  color: var(--calendar-ink);
+  background: var(--calendar-hover);
+  border-color: var(--calendar-border);
+  font-size: 13px;
+}
+.calendar-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--calendar-border);
+}
+.calendar-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.calendar-summary-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 8px;
+  background: var(--calendar-hover);
+  color: var(--calendar-muted);
+}
+.calendar-range-label {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.calendar-count {
+  display: table;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 999px;
+  background: var(--calendar-hover);
+  color: var(--calendar-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.calendar-footer-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+}
+button.calendar-cancel,
+button.calendar-clear {
+  background: transparent;
+  color: var(--calendar-muted);
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+button.calendar-apply {
+  min-width: 84px;
+  min-height: 36px;
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--calendar-edge);
+  color: var(--calendar-edge-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+.calendar-clear-row {
+  margin: 8px 0 -10px;
+}
+button.calendar-clear {
+  padding: 4px 0;
+  min-height: 24px;
+  font-size: 11px;
+}
+.calendar-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .date-range-popover {
+  --calendar-panel: rgb(20 20 22 / 95%);
+  --calendar-border: rgb(255 255 255 / 8%);
+  --calendar-ink: oklch(0.967 0.001 286);
+  --calendar-muted: oklch(0.705 0.015 286);
+  --calendar-faint: oklch(0.552 0.016 286);
+  --calendar-hover: rgb(255 255 255 / 6%);
+  --calendar-band: rgb(39 39 42 / 90%);
+  --calendar-pill: rgb(39 39 42 / 90%);
+  --calendar-edge: oklch(1 0 0);
+  --calendar-edge-ink: oklch(0.141 0.005 286);
+  --calendar-shadow: 0 24px 60px -12px rgb(0 0 0 / 80%), 0 0 0 1px rgb(255 255 255 / 4%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .date-range-popover {
+    --calendar-panel: rgb(20 20 22 / 95%);
+    --calendar-border: rgb(255 255 255 / 8%);
+    --calendar-ink: oklch(0.967 0.001 286);
+    --calendar-muted: oklch(0.705 0.015 286);
+    --calendar-faint: oklch(0.552 0.016 286);
+    --calendar-hover: rgb(255 255 255 / 6%);
+    --calendar-band: rgb(39 39 42 / 90%);
+    --calendar-pill: rgb(39 39 42 / 90%);
+    --calendar-edge: oklch(1 0 0);
+    --calendar-edge-ink: oklch(0.141 0.005 286);
+    --calendar-shadow: 0 24px 60px -12px rgb(0 0 0 / 80%), 0 0 0 1px rgb(255 255 255 / 4%);
+  }
+}

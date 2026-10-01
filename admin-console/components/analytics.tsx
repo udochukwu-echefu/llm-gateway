@@ -11,6 +11,7 @@ import { formatMeasure } from "@/lib/number-format";
 import { AnalyticsChart } from "./analytics-chart";
 import { listSort } from "@/lib/list-query";
 import type { AnalyticsRow } from "@/lib/console-contracts";
+import { GooeyRanges } from "./gooey-ranges";
 export function Analytics() {
   const scope = useOrgScope();
   const { params, set } = useListQuery();
@@ -25,20 +26,21 @@ export function Analytics() {
       </div>
       <OrgScope {...scope} />
       <div className="quick-ranges">
-        {[7, 30, 90].map((days) => (
-          <button
-            className="secondary"
-            key={days}
-            onClick={() =>
-              set({
-                since: new Date(Date.now() - days * 86400000).toISOString(),
-                until: new Date().toISOString(),
-              })
-            }
-          >
-            {days} days
-          </button>
-        ))}
+        <GooeyRanges
+          items={[7, 30, 90].map((days) => ({
+            label: `${days} days`,
+            value: days,
+            duration: days * 86400000,
+          }))}
+          since={params.get("since")}
+          until={params.get("until")}
+          onSelect={(days) =>
+            set({
+              since: new Date(Date.now() - days * 86400000).toISOString(),
+              until: new Date().toISOString(),
+            })
+          }
+        />
       </div>
       <section className="panel">
         <FilterBar
@@ -101,8 +103,13 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
             measure={measure}
             bucket={params.get("bucket") === "hour" ? "hour" : "day"}
           />
-          <div className="table-scroll">
-            <table>
+          <div
+            className="table-scroll analytics-table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Analytics results table"
+          >
+            <table className="analytics-table">
               <caption>UTC buckets; durations in ms or seconds; rates as percentages.</caption>
               <thead>
                 <tr>

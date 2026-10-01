@@ -6,3 +6,7 @@ playwright-report
 tests/e2e/.state.json
 *.tsbuildinfo
 __pycache__
+
+.demo-keys.env
+.demo-keys.*.env
+tests/e2e/.demo-keys.e2e.env

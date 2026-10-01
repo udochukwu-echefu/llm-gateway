@@ -131,6 +131,7 @@ class Settings(BaseSettings):
     cache_encryption_key: SecretStr | None = None
     cache: CacheSettings = Field(default_factory=CacheSettings)
     admin_api: AdminApiSettings = Field(default_factory=AdminApiSettings)
+    demo_deployment: bool = False
     limits: LimitsSettings = Field(default_factory=LimitsSettings)
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
     tracing: TracingSettings = Field(default_factory=TracingSettings)
@@ -185,6 +186,23 @@ class Settings(BaseSettings):
                 f"Lease TTL must exceed combined provider timeouts for enabled provider '{name}' "
                 f"({combined:g} s); GATEWAY_LIMITS__LEASE_TTL_S={self.limits.lease_ttl_s}"
             )
+
+    @model_validator(mode="after")
+    def _demo_provider_guard(self) -> Self:
+        self.validate_demo_providers()
+        return self
+
+    def validate_demo_providers(self) -> None:
+        """Demo URLs are an exact service allowlist, never arbitrary private hosts."""
+        if not self.demo_deployment:
+            return
+        for block in vars(self.providers).values():
+            if block.api_key is None and block.base_url is None:
+                continue
+            if block.base_url is None or str(block.base_url).rstrip("/") != (
+                "http://127.0.0.1:18000/v1"
+            ):
+                raise ValueError("Demo deployment permits only http://127.0.0.1:18000/v1")
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "json"

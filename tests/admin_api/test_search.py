@@ -7,17 +7,23 @@ from tests.admin_api.conftest import AdminHarness
 pytestmark = pytest.mark.db
 
 
-async def test_search_is_scoped_before_matching_names_and_ids(admin_harness: AdminHarness) -> None:
+@pytest.mark.parametrize("viewer", [False, True], ids=["admin", "viewer"])
+async def test_search_is_scoped_before_matching_names_and_ids(
+    admin_harness: AdminHarness, viewer: bool
+) -> None:
     h = admin_harness
+    key = h.org_viewer_key if viewer else h.org_key
     for query in (h.other, "team", "fake-client", h.other_team_key.split("_")[1]):
         response = await h.client.get(
-            "/admin/v1/search", params={"q": query}, headers=h.headers(h.org_key)
+            "/admin/v1/search", params={"q": query}, headers=h.headers(key)
         )
         assert response.status_code == 200
         assert all(item["org"] == h.org for item in response.json()["data"])
     platform = await h.client.get(
-        "/admin/v1/search", params={"q": h.other}, headers=h.headers(h.platform_key)
+        "/admin/v1/search",
+        params={"q": h.other},
+        headers=h.headers(h.viewer_key if viewer else h.platform_key),
     )
     assert platform.json()["data"][0]["org"] == h.other
-    invalid = await h.client.get("/admin/v1/search?q=x&unknown=y", headers=h.headers(h.org_key))
+    invalid = await h.client.get("/admin/v1/search?q=x&unknown=y", headers=h.headers(key))
     assert invalid.status_code == 400

@@ -55,16 +55,9 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await page.getByRole("link", { name: "Audit log", exact: true }).click();
   await page.getByRole("button", { name: "Verify chain" }).click();
   await expect(page.getByText(/^Chain verified:/)).toBeVisible();
-  while (
-    !(await page.getByRole("cell", { name: "revoke-key", exact: true }).count()) &&
-    (await page.getByRole("button", { name: "Next events" }).count())
-  ) {
-    const firstRow = await page.locator("tbody tr").first().textContent();
-    await page.getByRole("button", { name: "Next events" }).click();
-    await expect(page.locator("tbody tr").first()).not.toHaveText(firstRow!);
-  }
-  await expect(page.getByRole("cell", { name: "revoke-key", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "First page" }).click();
+  await page
+    .getByLabel("Actor", { exact: true })
+    .fill(`admin:${credentials.platform.split("_")[1]}`);
   for (const action of [
     "create-org",
     "create-team",
@@ -74,8 +67,9 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
     "set-budget",
     "revoke-key",
   ]) {
-    await page.getByLabel("Action", { exact: true }).fill(action);
-    await page.getByRole("button", { name: "Filter events" }).click();
+    await page.getByRole("combobox", { name: "Action", exact: true }).selectOption(action);
+    await page.getByRole("button", { name: "Apply filters" }).click();
+    await expect(page).toHaveURL(new RegExp(`action=${action}`));
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
   await expect(page.getByText(key.key_id, { exact: true })).toBeVisible();

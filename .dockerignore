@@ -16,3 +16,8 @@ admin-console/.env*
 admin-console/test-results
 admin-console/playwright-report
 admin-console/tests/e2e/.state.json
+
+.demo-keys.env
+.demo-keys.*.env
+
+admin-console/tests/e2e/.demo-keys.e2e.env

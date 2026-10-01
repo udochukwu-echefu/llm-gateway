@@ -1,0 +1,18 @@
+export const auditActions = [
+  "create-org",
+  "create-team",
+  "create-key",
+  "revoke-key",
+  "create-admin-key",
+  "revoke-admin-key",
+  "set-limits",
+  "clear-limits",
+  "set-budget",
+  "set-models",
+  "clear-models",
+  "set-guardrails",
+  "clear-guardrails",
+  "set-residency",
+  "clear-residency",
+  "cache-purge",
+];

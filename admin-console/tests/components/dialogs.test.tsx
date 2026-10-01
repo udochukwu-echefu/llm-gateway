@@ -5,6 +5,20 @@ import { KeyCreatedDialog } from "@/components/key-created-dialog";
 import { RevokeDialog } from "@/components/revoke-dialog";
 import { MutationForm } from "@/components/mutation-form";
 import { TeamKeys } from "@/components/team-keys";
+vi.mock("@/components/use-list-query", () => ({
+  useListQuery: () => ({ params: new URLSearchParams(), set: vi.fn() }),
+}));
+vi.mock("@/components/use-paged-resource", () => ({
+  usePagedResource: () => ({
+    data: [],
+    total: 0,
+    cursor: null,
+    loading: false,
+    error: "",
+    refresh: vi.fn(),
+    more: vi.fn(),
+  }),
+}));
 vi.mock("@/components/use-resource", () => ({
   useResource: () => ({ data: { data: [], next_cursor: null }, loading: false, refresh: vi.fn() }),
 }));

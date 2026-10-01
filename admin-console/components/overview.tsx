@@ -1,9 +1,10 @@
 "use client";
+import { SortableTable } from "./sortable-table";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { loadOverview } from "@/lib/overview-data";
 import { currentMonth } from "@/lib/usage-data";
-import { money } from "@/lib/money";
+import { MoneyValue } from "./money-value";
 import { UsageEmpty } from "./usage-empty";
 import { OverviewCards } from "./overview-cards";
 import { OverviewBudgets } from "./overview-budgets";
@@ -76,7 +77,7 @@ export function Overview() {
                   />
                   <details>
                     <summary>Daily request values</summary>
-                    <table>
+                    <SortableTable name="overview-1">
                       <thead>
                         <tr>
                           <th>Day (UTC)</th>
@@ -91,7 +92,7 @@ export function Overview() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </SortableTable>
                   </details>
                 </>
               ) : (
@@ -101,7 +102,7 @@ export function Overview() {
             <section className="panel">
               <h2>Top 5 models by priced spend</h2>
               {data.models.length ? (
-                <table>
+                <SortableTable name="overview-2">
                   <thead>
                     <tr>
                       <th>Model</th>
@@ -117,7 +118,7 @@ export function Overview() {
                         </td>
                         <td>{row.requests}</td>
                         <td>
-                          {money(row.cost_usd)}
+                          <MoneyValue value={row.cost_usd} />
                           {row.usage_missing + row.stream_incomplete > 0 && (
                             <small className="warning">Plus unpriced usage</small>
                           )}
@@ -125,7 +126,7 @@ export function Overview() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </SortableTable>
               ) : (
                 <p className="empty">No model usage this month.</p>
               )}
@@ -140,7 +141,7 @@ export function Overview() {
               </Link>
             </div>
             {data.recent.length ? (
-              <table>
+              <SortableTable name="overview-3">
                 <thead>
                   <tr>
                     <th>Time (UTC)</th>
@@ -165,7 +166,7 @@ export function Overview() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </SortableTable>
             ) : (
               <p className="empty">No audit events yet. Administrative changes will appear here.</p>
             )}

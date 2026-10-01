@@ -1,14 +1,22 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import type { NamedResource, Page } from "@/lib/contracts";
-import { useResource } from "./use-resource";
+
+import type { NamedResource } from "@/lib/contracts";
+import { usePagedResource } from "./use-paged-resource";
+import { useListQuery } from "./use-list-query";
+import { listSort } from "@/lib/list-query";
+import { SortHeading, PageCount } from "./list-controls";
+import { RecordTime } from "./record-time";
+import { CopyId } from "./copy-id";
 import { DataState } from "./data-state";
 import { MutationForm } from "./mutation-form";
 export function Organisations() {
-  const [cursor, setCursor] = useState("");
-  const resource = useResource<Page<NamedResource>>(
-    `/api/admin/orgs?page_size=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+  const resource = usePagedResource<NamedResource>("/api/admin/orgs?page_size=25");
+  const { params } = useListQuery();
+  const rows = listSort(
+    resource.data,
+    (params.get("sort") ?? "name") as keyof NamedResource,
+    params.get("direction") ?? "asc",
   );
   return (
     <>
@@ -26,7 +34,6 @@ export function Organisations() {
           label="Create organisation"
           fields={[{ name: "name", label: "Organisation name" }]}
           onSuccess={() => {
-            setCursor("");
             resource.refresh();
           }}
         />
@@ -34,53 +41,45 @@ export function Organisations() {
       <section className="panel">
         <h2>Organisations</h2>
         <DataState {...resource} />
-        {resource.data &&
-          (resource.data.data.length ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Created</th>
-                  <th>Organisation ID</th>
+        {rows.length ? (
+          <table>
+            <thead>
+              <tr>
+                <SortHeading field="name">Name</SortHeading>
+                <SortHeading field="created_at">Created</SortHeading>
+                <SortHeading field="id">Organisation ID</SortHeading>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((org) => (
+                <tr key={org.id}>
+                  <td>
+                    <Link prefetch={false} href={`/orgs/${encodeURIComponent(org.name)}`}>
+                      {org.name}
+                    </Link>
+                  </td>
+                  <td>
+                    <RecordTime value={org.created_at} />
+                  </td>
+                  <td>
+                    <CopyId value={org.id} />
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {resource.data.data.map((org) => (
-                  <tr key={org.id}>
-                    <td>
-                      <Link prefetch={false} href={`/orgs/${encodeURIComponent(org.name)}`}>
-                        {org.name}
-                      </Link>
-                    </td>
-                    <td>{org.created_at?.slice(0, 10)}</td>
-                    <td>
-                      <code>{org.id}</code>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="empty">
-              No organisations yet. Create your first organisation using the form above. Create one
-              to get started.
-            </p>
-          ))}
-        <div className="actions">
-          {cursor && (
-            <button className="secondary" onClick={() => setCursor("")}>
-              First page
-            </button>
-          )}
-          {resource.data?.next_cursor && (
-            <button
-              className="secondary"
-              onClick={() => setCursor(String(resource.data!.next_cursor))}
-            >
-              Next organisations
-            </button>
-          )}
-        </div>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="empty">
+            No organisations yet. Create your first organisation using the form above. Create one to
+            get started.
+          </p>
+        )}
+        <PageCount
+          shown={rows.length}
+          total={resource.total}
+          more={!!resource.cursor}
+          onMore={resource.more}
+        />
       </section>
     </>
   );

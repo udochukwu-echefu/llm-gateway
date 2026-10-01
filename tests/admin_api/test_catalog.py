@@ -22,13 +22,25 @@ async def test_catalog_shape_and_no_secrets(admin_harness: AdminHarness) -> None
             f"{entry.provider}/{entry.model}" for entry in load_catalog().models
         }
         for row in body["models"]:
-            assert set(row) == {"name", "provider", "region", "endpoints", "priced"}
+            assert set(row) == {
+                "name",
+                "provider",
+                "region",
+                "endpoints",
+                "priced",
+                "maker",
+                "prices",
+                "effective_price",
+                "region_source_url",
+                "region_checked_on",
+            }
             assert row["endpoints"] in (["chat"], ["embeddings"])
             assert isinstance(row["priced"], bool)
         assert set(body["aliases"]) == set(load_catalog().aliases)
         for targets in body["aliases"].values():
             assert all(set(target) == {"model", "weight"} for target in targets)
-        assert "http" not in response.text
+        assert "base_url" not in response.text
+        assert all("source_url" in period for row in body["models"] for period in row["prices"])
         assert "lgwa_" not in response.text
         assert "api_key" not in response.text
 

@@ -41,9 +41,18 @@ export const budgetSchema = z.object({ usd: moneySchema, alert_at: thresholdSche
 const segment = "[^/]+";
 const teamPath = `/orgs/${segment}/teams/${segment}`;
 const routes: { method: string; path: RegExp; schema: z.ZodType | null }[] = [
-  { method: "GET", path: /^\/(orgs|catalog|audit|audit\/verify)$/, schema: null },
-  { method: "GET", path: new RegExp(`^/orgs/${segment}/(teams|keys|usage)$`), schema: null },
+  {
+    method: "GET",
+    path: /^\/(orgs|catalog|settings|providers|search|audit|audit\/verify)$/,
+    schema: null,
+  },
+  {
+    method: "GET",
+    path: new RegExp(`^/orgs/${segment}/(teams|keys|usage|requests|analytics)$`),
+    schema: null,
+  },
   { method: "GET", path: new RegExp(`^${teamPath}/(limits|budget)$`), schema: null },
+  { method: "GET", path: new RegExp(`^/orgs/${segment}/requests/${segment}$`), schema: null },
   ...["model-policy", "guardrails", "residency"].flatMap((kind) => [
     { method: "GET", path: new RegExp(`^/orgs/${segment}/${kind}$`), schema: null },
     { method: "DELETE", path: new RegExp(`^/orgs/${segment}/${kind}$`), schema: null },

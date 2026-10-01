@@ -67,6 +67,7 @@ class TeamLimits(Base):
     tpm: Mapped[int | None] = mapped_column(Integer)
     max_concurrency: Mapped[int | None] = mapped_column(Integer)
     monthly_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(20, 12))
+    budget_display: Mapped[str | None] = mapped_column(String(32))
     alert_threshold: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
 
 

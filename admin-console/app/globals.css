@@ -6,3 +6,5 @@
 @import "./styles/policies.css";
 @import "./styles/overview.css";
 @import "./styles/data.css";
+
+@import "./styles/completeness.css";

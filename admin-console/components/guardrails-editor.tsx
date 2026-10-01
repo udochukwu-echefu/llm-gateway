@@ -1,4 +1,5 @@
 "use client";
+import { SortableTable } from "./sortable-table";
 import {
   actions,
   detectors,
@@ -50,7 +51,7 @@ export function GuardrailsEditor({
         Pattern checks cover recognized text only; they do not inspect images, audio, files or
         obfuscated values.
       </p>
-      <table>
+      <SortableTable name="guardrails-editor-1">
         <thead>
           <tr>
             <th>Detector</th>
@@ -104,7 +105,7 @@ export function GuardrailsEditor({
             </tr>
           ))}
         </tbody>
-      </table>
+      </SortableTable>
     </PolicyEditorFrame>
   );
 }

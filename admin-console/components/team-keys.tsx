@@ -3,12 +3,13 @@ import { useState } from "react";
 import type { KeyRecord, Page } from "@/lib/contracts";
 import { browserApi } from "@/lib/browser-api";
 import { useResource } from "./use-resource";
-import { DataState } from "./data-state";
+import { KeyInventory } from "./key-inventory";
 import { MutationForm } from "./mutation-form";
 import { KeyCreatedDialog } from "./key-created-dialog";
 import { RevokeDialog } from "./revoke-dialog";
 export function TeamKeys({ base, orgBase, team }: { base: string; orgBase: string; team: string }) {
-  const [cursor, setCursor] = useState("");
+  const [version, setVersion] = useState(0);
+  const cursor = "";
   const cursorQuery = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
   const keyQuery = `team=${encodeURIComponent(team)}&page_size=25${cursorQuery}`;
   const keys = useResource<Page<KeyRecord>>(`/api/admin${orgBase}/keys?${keyQuery}`);
@@ -36,6 +37,7 @@ export function TeamKeys({ base, orgBase, team }: { base: string; orgBase: strin
         ]}
         onSuccess={(body) => {
           keys.refresh();
+          setVersion((value) => value + 1);
           if (typeof body.key === "string") setSecret(body.key);
           else
             setNotice(
@@ -44,69 +46,7 @@ export function TeamKeys({ base, orgBase, team }: { base: string; orgBase: strin
         }}
       />
       {notice && <p role="status">{notice}</p>}
-      <DataState {...keys} />
-      {keys.data &&
-        (keys.data.data.length ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Name / key ID</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Expiry</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.data.data.map((key) => (
-                <tr key={key.id}>
-                  <td>
-                    {key.name}
-                    <br />
-                    <code>{key.key_id}</code>
-                  </td>
-                  <td>
-                    <span className="badge">
-                      {key.revoked_at
-                        ? "Revoked"
-                        : key.expires_at && Date.parse(key.expires_at) <= (keys.loadedAt ?? 0)
-                          ? "Expired"
-                          : "Active"}
-                    </span>
-                  </td>
-                  <td>{key.created_at?.slice(0, 10)}</td>
-                  <td>{key.expires_at?.slice(0, 10) ?? "No expiry"}</td>
-                  <td>
-                    <button
-                      className="secondary"
-                      disabled={Boolean(key.revoked_at)}
-                      onClick={() => setRevoke(key.key_id)}
-                    >
-                      Revoke {key.key_id}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="empty">
-            No keys yet. An API key lets an application call the gateway as this team. Create your
-            first key using the form above; its full value is shown only once.
-          </p>
-        ))}
-      <div className="actions">
-        {cursor && (
-          <button className="secondary" onClick={() => setCursor("")}>
-            First page
-          </button>
-        )}
-        {keys.data?.next_cursor && (
-          <button className="secondary" onClick={() => setCursor(String(keys.data!.next_cursor))}>
-            Next keys
-          </button>
-        )}
-      </div>
+      <KeyInventory key={version} orgBase={orgBase} team={team} onRevoke={setRevoke} />
       {secret && <KeyCreatedDialog secret={secret} onClose={() => setSecret(undefined)} />}
       {revoke && (
         <RevokeDialog
@@ -115,6 +55,7 @@ export function TeamKeys({ base, orgBase, team }: { base: string; orgBase: strin
           onConfirm={async () => {
             await browserApi(`/api/admin/keys/${revoke}/revoke`, { method: "POST" });
             keys.refresh();
+            setVersion((value) => value + 1);
           }}
         />
       )}

@@ -7,15 +7,23 @@ import { useState, type ReactNode } from "react";
 import type { Identity } from "@/lib/contracts";
 import { UnsavedPolicies, usePolicyNavigation } from "./unsaved-policy";
 import { browserApi } from "@/lib/browser-api";
+import { PreferencesProvider, usePreferences } from "./preferences";
+import { GlobalCommands } from "./global-commands";
+import { Toasts } from "./toasts";
+import { Suspense } from "react";
+import { Breadcrumbs } from "./breadcrumbs";
 export function Shell(props: { identity: Identity; children: ReactNode }) {
   return (
-    <UnsavedPolicies>
-      <ShellContent {...props} />
-    </UnsavedPolicies>
+    <PreferencesProvider>
+      <UnsavedPolicies>
+        <ShellContent {...props} />
+      </UnsavedPolicies>
+    </PreferencesProvider>
   );
 }
 function ShellContent({ identity, children }: { identity: Identity; children: ReactNode }) {
   const leave = usePolicyNavigation();
+  const preferences = usePreferences();
   const path = usePathname();
   const [error, setError] = useState("");
   return (
@@ -56,6 +64,23 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
             >
               Audit log
             </Link>
+            {[
+              "Requests",
+              "Analytics",
+              "Keys",
+              "Models",
+              ...(identity.role === "platform" ? ["Providers"] : []),
+              "Settings",
+            ].map((label) => (
+              <Link
+                key={label}
+                prefetch={false}
+                href={`/${label.toLowerCase()}`}
+                aria-current={path === `/${label.toLowerCase()}` ? "page" : undefined}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
           <div className="sidebar-footer">
             <span className="badge">
@@ -74,9 +99,9 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               Theme
               <select
                 aria-label="Theme"
-                defaultValue="system"
+                value={preferences.value.theme}
                 onChange={(e) =>
-                  document.documentElement.setAttribute("data-theme", e.target.value)
+                  preferences.update({ theme: e.target.value as "system" | "light" | "dark" })
                 }
               >
                 <option value="system">System</option>
@@ -102,7 +127,18 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
         </header>
         <main id="main">
           {error && <p role="alert">{error}</p>}
-          {children}
+          <Breadcrumbs />
+          <GlobalCommands identity={identity} />
+          <Suspense
+            fallback={
+              <div className="skeleton" role="status">
+                Loading…
+              </div>
+            }
+          >
+            {children}
+          </Suspense>
+          <Toasts />
         </main>
         <footer>Private administration · All changes are audited</footer>
       </div>

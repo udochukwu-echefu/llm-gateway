@@ -1,3 +1,7 @@
 export default function Loading() {
-  return <p role="status">Loading gateway data…</p>;
+  return (
+    <p className="skeleton" role="status">
+      Loading gateway data…
+    </p>
+  );
 }

@@ -243,6 +243,7 @@ class PostgresKeyRepository:
         tpm: int | None = None,
         max_concurrency: int | None = None,
         budget: Decimal | None = None,
+        budget_display: str | None = None,
         alert: Decimal | None = None,
         clear: bool = False,
     ) -> None:
@@ -266,6 +267,8 @@ class PostgresKeyRepository:
                 if value is not None:
                     setattr(row, name, value)
 
+            if budget is not None:
+                row.budget_display = budget_display or format(budget, "f")
             details: dict[str, str | int | None] = {}
             for name, value in (
                 ("rpm", rpm),

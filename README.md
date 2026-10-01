@@ -239,11 +239,12 @@ npm run test:e2e
 CONSOLE_SCREENSHOTS=1 npm run test:e2e
 npm run test:break
 npm run test:break:policies
+npm run test:break:console
 # If a local console already uses 3100:
-CONSOLE_TEST_PORT=3110 npm run test:e2e
+CONSOLE_TEST_PORT=3300 npm run test:e2e
 ```
 
-Playwright uses a disposable `console_e2e_<uuid>` Postgres database and Redis DB 13.
+Playwright uses a disposable `console_e2e_<uuid>` Postgres database and Redis DB 15.
 It starts the real gateway/public/admin listeners (ports 18090/18091) and the production
 standalone console (3100, IPv6 loopback browser origin). It deliberately ignores `.env` and inherited gateway config,
 uses a fake pepper/provider key and a provider URL at closed port 1, and never invokes a
@@ -283,16 +284,65 @@ GATEWAY_API_KEY_PEPPER exported, run:
 GATEWAY_DEMO_SEED=1 uv run python scripts/seed_demo.py
 ```
 
-The command refuses without that flag. It creates Demo Co with Search, Support and
-Engineering, two keys per team, limits/budgets and about 30 days of synthetic usage across
-reviewed models, including unpriced and cache-hit receipts. This illustrative history uses
-today's reviewed prices, not historical invoices. It never calls providers,
-needs no provider key, and prints only org/team IDs and names. Generated key secrets are
-discarded; create a new application key in the console if you need to send a request.
-Rerunning reuses orgs/teams/key names and deterministic receipt IDs, preserving edits and
-existing receipts. It refuses an existing Demo Co that was not created by this seeder.
-It appends a new day's synthetic rows on later days rather than deleting history.
-The Playwright screenshot harness runs this same seeder in its disposable database.
+The command refuses without that flag or when the **actual bound database** host is not
+`localhost`, `127.0.0.1`, `::1` or compose's `postgres`. It creates Demo Co, Northwind
+Health and Orbit Labs, six key states per team, and 90 days of synthetic receipts across
+every catalogued model. Orbit has only three days of history. It makes no provider calls.
+History uses today's reviewed prices; it illustrates operations, not historical invoices.
+Northwind's EU-only policy is applied after its illustrative history: historical non-EU
+receipts do not claim to satisfy the current policy. The reviewed catalogue currently has
+no EU model, so its effective model list correctly permits none.
+
+Rerunning preserves policies and receipts, reuses deterministic receipt IDs, and rotates
+the demo platform and Northwind org-admin keys by revoking the previous pair. The new
+pair is written only to ignored `.demo-keys.env`, mode 0600; keys are never printed.
+Set `GATEWAY_DEMO_KEYS_FILE` to choose another ignored local location. Use those values
+locally for sign-in; never paste them into reports or screenshots. Application key secrets
+are discarded. Pre-existing non-demo names are refused. Audit events use the real service
+and verify as a chain; they are not backdated because the chain service has no timestamp
+injection contract. Later days append synthetic receipts rather than deleting history.
+
+| Screen / state | Seeded example |
+|---|---|
+| Overview: over budget | Demo Co / Search, budget set below seeded spend; danger text says requests are refused |
+| Overview: warning / under / unlimited | Support at alert threshold; Orbit / Prototypes well under; Engineering unlimited |
+| Organisations and near-empty state | Demo Co (general SaaS), Northwind Health (EU healthcare), Orbit Labs (three days) |
+| Organisation Overview / teams | Spend, budget use, key count and last activity for every team |
+| Team Limits | Search overrides, Support defaults, Engineering explicit unlimited limits |
+| Team Budget | Search exhausted, Support warning, Engineering unlimited, Orbit under budget |
+| Org / team API keys | App and batch active; expiring within 3 days; expired; revoked; never used |
+| Org / team Policies | Org provider wildcards, Search exact model plus wildcard, Paused sandbox allow nothing |
+| Guardrail actions / residency | Search/Support/Engineering exercise every action; Northwind strict EU; Engineering sg/global |
+| Org / team Cache | Persisted cache policy and successful purge audit events; synthetic cache-hit receipts and savings |
+| Requests / attempt drawer | Three-attempt Groq 502 → Groq retry 502 → DeepSeek 200; stream, error, incomplete, cache and redaction filters |
+| Analytics | 90 days across every provider/model; visible Groq slow day two days ago; missing TTFB/savings remain gaps |
+| Models / aliases | Installed reviewed catalogue, current prices/history/source dates, weights and authoritative effective team policies |
+| Providers | Synthetic recent error/latency aggregates; enabled/key-configured booleans; actual breaker state labelled this replica |
+| Audit / event drawer | Every real service action, including admin creation/revoke, key revoke, policies and purge; verified chain |
+| Settings: Account / Preferences / Platform | Demo platform and Northwind org sign-in; persisted browser preferences; platform-only allowlist |
+| Search / command palette | All three orgs for platform; Northwind's Clinical/Research and keys only for its org admin |
+| Exports / filters / sort / copy | Request and audit receipts, three-decimal export values, safe CSV cells; URL state and public IDs |
+
+Every screen and org/team tab is visited in the named platform and org demo-tour tests.
+Run the suites after the Python database and Redis gates:
+
+```bash
+CONSOLE_TEST_PORT=3300 CONSOLE_SCREENSHOTS=1 npm run test:e2e
+```
+
+The full set is generated locally on demand under
+`docs/images/console/{platform,org}/{light,dark,tablet,phone}/` and is ignored by Git.
+Only the curated top-level `docs/images/console-*.png` used below are committed.
+Use `CONSOLE_CURATED_SCREENSHOTS=1` instead to refresh only those README images.
+Each profile includes every role-visible page and organisation/team tab; the platform
+set also includes Orbit and the paused sandbox. Captures start at the top, blur focus,
+and use the test-only static-sidebar class for long pages. No secret dialogs are captured.
+
+![Requests](docs/images/console-requests.png)
+![Analytics](docs/images/console-analytics.png)
+![Settings](docs/images/console-settings.png)
+![Models dark](docs/images/console-models-dark.png)
+![Requests phone](docs/images/console-requests-phone.png)
 
 Screenshots contain synthetic deployments and public IDs only:
 
@@ -948,3 +998,25 @@ attempts. See ADRs 0016 and 0017 for policy and routing decisions.
 
 Access logs include unrounded `overhead_ms` and verified-key `key_cache` hit/miss
 (null before a key lookup); overhead uses the same observation as Prometheus.
+
+### Readable operations metrics
+
+The console uses one number formatter in tables, charts, tooltips and cards: durations
+below 10 seconds show whole milliseconds (`1,725 ms`), longer durations show one decimal
+in seconds (`50.6 s`), rates show one-decimal percentages (`33.3%`), and token counts
+use thousands separators. Unknown values stay Unknown or chart gaps. The admin API
+rounds durations and percentiles to one decimal in milliseconds, retaining fractional rates.
+
+Analytics legend buttons toggle individual series and rescale the axis to the visible
+values. The latency-only Log scale control spaces powers of ten evenly, with labelled
+ticks; zero durations appear as gaps because logarithms cannot represent zero. The
+table keeps all series available regardless of chart selections.
+
+CSV exports contain ungrouped numbers rounded to three decimal places, including money.
+Money rounding uses exact decimal arithmetic; amounts below $0.0005 export as `0.000`.
+The API and money tooltips retain exact amounts for precision-sensitive work.
+Refresh only the curated README images after the database/Redis gates with:
+
+```bash
+CONSOLE_TEST_PORT=3300 CONSOLE_CURATED_SCREENSHOTS=1 npm run test:e2e
+```

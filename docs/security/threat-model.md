@@ -60,7 +60,6 @@ ratings are qualitative for this early deployment.
 | Benchmark credentials leak into reports/builds | Plausible / medium | CLI output captured; private 0700 directory and 0600 files; git and Docker context ignore state; only synthetic metric output is collected | Docker administrators can inspect generated container credentials; protect the local machine and do not archive `.state` |
 | Profiling permissions reused in production | Plausible / high | Optional separate py-spy image joins only the fake-key replica's PID namespace; network disabled; no locals captured; normal gateways get no extra capabilities | SYS_PTRACE/disabled seccomp are debugging privileges, never a production deployment default |
 
-
 ## Admin console boundary (step 13a)
 
 | Threat | Prevention | Residual risk |
@@ -99,7 +98,7 @@ Database-only compose commands remain usable without the console secret.
 | Purge abuse / availability impact | Exact typed org/team name in UI; API scope checks and successful-purge audit; Redis errors map to 503 | Authorized repeated purges consume Redis work; UI confirmation is not API authorization or a rate limiter; concurrent writers may refill |
 | UI-only checks mistaken for enforcement | Public API intersection/guardrail floors remain authoritative; browser consumes effective results; BFF never expands scope | XSS may perform same-origin actions with the current session; retain CSP, Origin and session defenses |
 | Overview hides unknown accounting or another tenant | API-scoped org inventory; complete pagination; exact decimal sums; explicit unpriced and partial-token labels; org-scope e2e test | Receipts are best effort, requests count attempts, snapshots may change while multiple pages load; overview is not an invoice |
-| Demo seeder used accidentally | GATEWAY_DEMO_SEED=1 opt-in; clearly named synthetic org; refuse pre-existing non-demo org; deterministic IDs and seed lock; print only names/IDs | An operator can deliberately opt into the wrong database; demo key secrets are discarded but hashes/metadata remain; use a local disposable database |
+| Demo seeder used accidentally | GATEWAY_DEMO_SEED=1 opt-in; clearly named synthetic org; refuse pre-existing non-demo org; deterministic IDs and seed lock; print only names/IDs | An operator can deliberately opt into the wrong database; application secrets are discarded; rotated demo admin secrets stay in a mode-0600 ignored local file; use a disposable database |
 
 ## Provider residency (step 14)
 
@@ -109,3 +108,13 @@ in Singapore; NVIDIA's Kimi page states Global. Neither label certifies physical
 processing location on each call. Changing a base URL requires source/region review.
 The admin identity and catalogue endpoints expose the authoritative region list to either admin
 role, but no tenant policies or credentials beyond its existing identity metadata.
+
+## Console completeness (step 15)
+
+| Threat | Prevention | Residual risk |
+|---|---|---|
+| Spreadsheet formula injection | Server CSV generator quotes cells and prefixes =, +, -, @ after optional whitespace/control characters; unit and break tests | Spreadsheet tools may interpret other exotic formats; exports still contain sensitive metadata |
+| Settings disclosure | Platform-only route built from explicit fields; booleans for key presence, host-only URLs; negative secret and full-dump mutation tests | Authorized operators can see deployment topology; server compromise still exposes environment secrets |
+| Cross-org global search | SQL org predicate before name/ID matching and limit; unchanged credential forwarding; role-matrix, HTTP and browser tests | Authorized platform admins intentionally search all orgs; client filtering alone is insufficient |
+| Request metadata IDOR | Scoped list and detail queries, strict filters, tied-timestamp cursor, isolation mutation test | Receipts expose operational activity; retain private-network/database controls |
+| Demo seeding a production DB | Opt-in plus verification of the actual bound database host before I/O; only localhost/127.0.0.1/::1/postgres; mode-0600 ignored rotated demo keys | A local tunnel or deliberately misnamed compose service can reach a remote database; operators must keep the demo on a disposable local stack |

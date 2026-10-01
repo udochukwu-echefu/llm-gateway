@@ -7,9 +7,9 @@ export function DataState({ loading, error }: { loading: boolean; error?: string
     );
   if (loading)
     return (
-      <p role="status" className="notice">
+      <div role="status" className="notice skeleton">
         Loading…
-      </p>
+      </div>
     );
   return null;
 }

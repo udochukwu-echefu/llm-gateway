@@ -1,3 +1,5 @@
+import { formatCount } from "@/lib/number-format";
+import { SortableTable } from "./sortable-table";
 import type { Usage } from "@/lib/contracts";
 import { dailyTokens } from "@/lib/usage-trend";
 import { UsageChart } from "./usage-chart";
@@ -21,7 +23,7 @@ export function DailyUsage({ rows }: { rows: Usage[] }) {
         values={rows.map(dailyTokens)}
         marker="square"
       />
-      <table className="daily-usage-table">
+      <SortableTable name="daily-usage-1" className="daily-usage-table">
         <caption>Daily values in UTC; the text alternative to both charts</caption>
         <thead>
           <tr>
@@ -36,14 +38,14 @@ export function DailyUsage({ rows }: { rows: Usage[] }) {
           {rows.map((row) => (
             <tr key={row.group}>
               <td>{row.group}</td>
-              <td>{row.requests}</td>
-              <td>{row.prompt_tokens ?? "Unknown"}</td>
-              <td>{row.completion_tokens ?? "Unknown"}</td>
-              <td>{dailyTokens(row) ?? "Unknown"}</td>
+              <td>{formatCount(row.requests)}</td>
+              <td>{formatCount(row.prompt_tokens)}</td>
+              <td>{formatCount(row.completion_tokens)}</td>
+              <td>{formatCount(dailyTokens(row))}</td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </SortableTable>
     </>
   );
 }

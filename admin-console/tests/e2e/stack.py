@@ -22,12 +22,13 @@ URL = BASE_URL.rsplit("/", 1)[0] + "/" + DATABASE
 ENV = {
     "PATH": os.environ.get("PATH", ""),
     "GATEWAY_DATABASE_URL": URL,
-    "GATEWAY_REDIS_URL": os.environ.get("CONSOLE_TEST_REDIS_URL", "redis://127.0.0.1:6379/13"),
+    "GATEWAY_REDIS_URL": os.environ.get("CONSOLE_TEST_REDIS_URL", "redis://127.0.0.1:6379/15"),
     "GATEWAY_PROVIDERS__GROQ__API_KEY": "obviously-fake-no-provider-calls",
     "GATEWAY_PROVIDERS__GROQ__BASE_URL": "http://127.0.0.1:1/v1",
     "GATEWAY_API_KEY_PEPPER": "obviously-fake-e2e-pepper-at-least-32-bytes",
     "GATEWAY_CACHE__ENABLED": "false",
     "GATEWAY_DEMO_SEED": "1",
+    "GATEWAY_DEMO_KEYS_FILE": str(STATE.with_name(".demo-keys.e2e.env")),
     "GATEWAY_METRICS__ENABLED": "false",
     "GATEWAY_ADMIN_API__ENABLED": "true",
     "GATEWAY_ADMIN_API__HOST": "127.0.0.1",
@@ -86,6 +87,7 @@ def main() -> None:
         process.wait()
     finally:
         STATE.unlink(missing_ok=True)
+        STATE.with_name(".demo-keys.e2e.env").unlink(missing_ok=True)
         asyncio.run(database(False))
 
 

@@ -2,13 +2,14 @@
 
 from fastapi import APIRouter, Request
 
-from llm_gateway.admin.api.auth import service
+from llm_gateway.admin.api.auth import context, service
 from llm_gateway.admin.api.models import (
     BudgetBody,
     LimitsBody,
 )
 from llm_gateway.admin.service.limits import admin_defaults
 from llm_gateway.limits.configuration import resolve
+from llm_gateway.tenants.models import TeamLimits
 
 router = APIRouter()
 
@@ -47,15 +48,25 @@ async def clear_limits(request: Request, org: str, team: str) -> dict[str, objec
 
 @router.put("/orgs/{org}/teams/{team}/budget")
 async def set_budget(request: Request, org: str, team: str, body: BudgetBody) -> dict[str, object]:
-    await service(request).set_limits(org, team, budget=body.usd, alert=body.alert_at)
+    await service(request).set_limits(
+        org,
+        team,
+        budget=body.usd,
+        budget_display=(await request.json())["usd"],
+        alert=body.alert_at,
+    )
     return {"updated": True, "usd": format(body.usd, "f"), "alert_at": format(body.alert_at, "f")}
 
 
 @router.get("/orgs/{org}/teams/{team}/budget")
 async def get_budget(request: Request, org: str, team: str) -> dict[str, object]:
-    _, overrides = await service(request).team_limits(org, team)
+    team_id, overrides = await service(request).team_limits(org, team)
     effective = resolve(overrides, admin_defaults())
+    async with context(request).sessions() as session:
+        row = await session.get(TeamLimits, team_id)
+        display = row.budget_display if row else None
     return {
+        "display_usd": display,
         "overrides": {
             "usd": format(overrides.monthly_budget_usd, "f")
             if overrides.monthly_budget_usd is not None

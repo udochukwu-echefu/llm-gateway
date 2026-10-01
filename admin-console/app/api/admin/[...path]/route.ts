@@ -8,6 +8,7 @@ import { isCreation, operationSchema } from "@/lib/bff-policy";
 import { policyHeaders, residencySchema, residencySchemaFor } from "@/lib/policy-schemas";
 import type { Catalog } from "@/lib/policy-contracts";
 import { browserResponse } from "@/lib/bff-response";
+import { validatedQuery } from "@/lib/bff-query";
 type Context = {
   params: Promise<{
     path: string[];
@@ -43,8 +44,8 @@ async function forward(request: NextRequest, context: Context) {
   const idempotency = request.headers.get("idempotency-key");
   if (isCreation(request.method, path) && (!idempotency || !/^[0-9a-f-]{36}$/.test(idempotency)))
     return reply({ error: "A submission ID is required." }, 400);
-  const query = filterQuery(request.nextUrl.searchParams);
-  if (query instanceof NextResponse) return query;
+  const query = validatedQuery(path, request.nextUrl.searchParams);
+  if (!query) return reply({ error: "Invalid query." }, 400);
   return forwardAuthenticated(
     request,
     config,
@@ -109,16 +110,6 @@ async function parseSegments(context: Context): Promise<string[] | NextResponse>
   if (segments.some((s) => !s || s === "." || s === ".." || /[/]/.test(s)))
     return reply({ error: "Not found." }, 404);
   return segments;
-}
-
-function filterQuery(params: URLSearchParams): URLSearchParams | NextResponse {
-  const query = new URLSearchParams();
-  for (const [key, value] of params) {
-    if (!["cursor", "page_size", "team", "since", "until", "group_by", "action"].includes(key))
-      return reply({ error: "Invalid query." }, 400);
-    query.append(key, value);
-  }
-  return query;
 }
 
 function rejectsOrigin(request: NextRequest, expected: string) {

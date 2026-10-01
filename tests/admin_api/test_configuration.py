@@ -35,6 +35,7 @@ async def test_limits_and_budget_reads_show_overrides_and_defaults(
     assert limits.json()["overrides"]["rpm"] == limits.json()["effective"]["rpm"] == 7
     assert limits.json()["overrides"]["tpm"] is None
     assert budget.json() == {
+        "display_usd": "1.250000000001",
         "overrides": {"usd": "1.250000000001", "alert_at": "0.500"},
         "effective": {"usd": "1.250000000001", "alert_at": "0.500"},
     }

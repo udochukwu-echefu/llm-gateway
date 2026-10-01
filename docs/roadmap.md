@@ -19,10 +19,10 @@ Each step ends with tests, docs and a working gateway.
 | 12b | Load test report against our targets (SLOs) | ✅ Done: full amended campaign, exact timings, GCRA rolling bound and ten-minute soak |
 | 13a | Admin console: sign-in, organizations/teams, keys, limits/budgets, usage and audit | ✅ Done |
 | 13b | Model policy, guardrails, residency and cache purge console editors | ✅ Done |
-
 | 14 | Z.ai GLM and NVIDIA-hosted Kimi/GLM chat; model-specific rules, queued Kimi polling, per-provider timeouts, account errors; Singapore residency and API region discovery | Implemented; reviewer live NVIDIA queue/GLM Flash evidence recorded; agent live billing checks pending. See docs/tasks/step-14-report.md |
+| 15 | Console requests, analytics, settings, models/provider health, search, CSV, shared controls and complete synthetic demo coverage | Implemented on `feat/step-15-console-completeness`; awaiting review |
 
-Steps 1–13 are complete. The console includes policy editors, cache purge, Overview
+Steps 1–14 are merged. The console includes policy editors, cache purge, Overview
 and helpful empty states; local demos use an opt-in synthetic seeder.
 Completed measurement does not mean every SLO passed.
 See the [report](benchmarks/load-test-report.md) for measured capacity, saturation,

@@ -794,7 +794,6 @@ both actual successful responses per second under that definition and the highes
 eligible stage where every scheduled request was sent. The latter gives stronger
 capacity evidence. Generation coverage is also reported beside SLO capacity.
 
-
 ## Step 13a: the admin web console
 
 ### BFF
@@ -1073,3 +1072,39 @@ including actual nonempty reasoning_content, and replays it in a second request.
 Both calls must finish and retain unpriced receipts. Without a key the check skips;
 ordinary tests mock that same two-round flow and verify the exact forwarded history,
 so a regression is caught without reading the owner's key or contacting NVIDIA.
+
+## Step 15: everyday operations without storing conversations
+
+The Requests screen is a receipt book, not a transcript. It shows the team, key ID,
+model, outcome, time, token counts and exact cost for each provider attempt. Prompts,
+answers and embeddings never enter the book. A shared request ID connects retries and
+fallbacks in a timeline. Filters live in the URL so another authorized operator can open
+the same view. A cursor is a bookmark made from the last timestamp and receipt ID; it
+finds the next page without skipping tied timestamps.
+
+Analytics answers “how slow was the slow tail?” A p95 duration means 95% of recorded
+attempts finished within that duration. PostgreSQL sorts/interpolates the recorded
+measurements with `percentile_cont`. Retries and fallbacks each count as attempts.
+These percentiles include provider waiting and are different from step 12's gateway
+**overhead** measurement. A missing first-byte time or cost stays unknown, shown as a
+gap or “Unknown”, rather than a misleading zero. Hour/day buckets use UTC.
+
+The Settings account section explains the session; preferences stay in this browser.
+Platform configuration is a read-only allowlist: a checklist of safe fields, not a dump
+of the secret-filled settings object. Environment variables describe the deployment,
+so changes go through a deploy with review. Provider circuit-breaker state says “this
+replica” because each copy of the gateway owns its own fuse box in memory.
+
+Key last-use and team activity come from receipt metadata. Catalogue prices retain their
+source/date/history, and usable-team lists come from the API's effective policies.
+Global search scopes its SQL before matching names or public IDs. CSV export streams the
+current filter under an explicit 10,000-row cap. It escapes quotes and prefixes spreadsheet
+formula-looking cells so an exported name cannot execute a formula when opened in Excel.
+Money uses exact decimal/BigInt arithmetic, rounds half up for display, and retains exact
+values in tooltips and exports. Entered budget text is stored beside the numeric budget.
+
+The local-only demo seeder creates three organizations and 90 days of synthetic traffic.
+Northwind's historical records predate its current EU-only policy; today's catalogue has
+no verified EU destination. Its audit events are current because the hash-chain API does
+not accept backdated timestamps. Reruns preserve receipt IDs and existing policies, while
+revoking/replacing the demo admin sign-ins in an ignored permission-restricted file.

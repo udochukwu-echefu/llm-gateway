@@ -1,0 +1,46 @@
+# LOCAL TEST ONLY. InstaCloud runs the appliance image and managed data services instead.
+name: llm-gateway-demo-test
+services:
+  postgres:
+    profiles: [demo-test]
+    image: postgres:17.6
+    environment:
+      POSTGRES_USER: demo_test
+      POSTGRES_PASSWORD: synthetic-local-test-placeholder
+      POSTGRES_DB: demo_test
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U demo_test -d demo_test]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  redis:
+    profiles: [demo-test]
+    image: redis:7.4.5
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  appliance:
+    profiles: [demo-test]
+    build:
+      context: ../..
+      dockerfile: deploy/demo/Dockerfile
+    image: llm-gateway-demo:step16
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgresql://demo_test:synthetic-local-test-placeholder@postgres:5432/demo_test
+      REDIS_URL: redis://redis:6379/0
+      GATEWAY_API_KEY_PEPPER: synthetic-local-test-pepper-at-least-32-bytes
+      GATEWAY_CACHE_ENCRYPTION_KEY: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      ADMIN_CONSOLE_SESSION_SECRET: synthetic-local-test-session-at-least-32-bytes
+      ADMIN_CONSOLE_ORIGIN: http://localhost:${CONSOLE_TEST_PORT:-3300}
+      # The host talks directly to the published console; no proxy exists in this profile.
+      ADMIN_CONSOLE_TRUSTED_PROXY_HOPS: "0"
+    ports: ["127.0.0.1:${CONSOLE_TEST_PORT:-3300}:3000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    stop_grace_period: 25s
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]

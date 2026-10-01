@@ -90,7 +90,7 @@ def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
 )
 async def test_authorization_matrix(admin_harness: AdminHarness, case: Case) -> None:
     if "{request_id}" in case.route:
-        from tests.admin_api.test_requests import add_receipts
+        from tests.admin_api.usage_fixtures import add_receipts
 
         await add_receipts(admin_harness, "fake-matrix-request")
     client = admin_harness.client

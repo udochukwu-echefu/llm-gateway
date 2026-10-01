@@ -3,7 +3,7 @@
 import pytest
 
 from tests.admin_api.conftest import AdminHarness
-from tests.admin_api.test_requests import add_receipts
+from tests.admin_api.usage_fixtures import add_receipts
 
 pytestmark = pytest.mark.db
 

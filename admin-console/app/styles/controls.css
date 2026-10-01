@@ -1,3 +1,7 @@
+@import "./theme-toggle.css";
+@import "./search-input.css";
+@import "./reveal-sheet.css";
+
 button,
 input,
 select,
@@ -142,6 +146,7 @@ label select {
   color: var(--accent);
 }
 dialog {
+  margin: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);

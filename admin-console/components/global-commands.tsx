@@ -58,7 +58,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
   return (
     <>
       <div className="global-tools">
-        <button className="secondary" onClick={() => setOpen(true)}>
+        <button className="secondary search-trigger" onClick={() => setOpen(true)}>
           Search · ⌘/Ctrl K
         </button>
         <button className="secondary" aria-label="Keyboard shortcuts" onClick={() => setHelp(true)}>
@@ -69,12 +69,17 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         <Dialog title="Go to…" onClose={() => setOpen(false)}>
           <label>
             Search pages, organisations, teams and keys
-            <input
-              autoComplete="off"
-              maxLength={128}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+            <span className="search-input-frame">
+              <input
+                className="command-search-input"
+                placeholder="Find a page, organisation, team or key…"
+                autoComplete="off"
+                maxLength={128}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <span className="search-input-icon" aria-hidden="true" />
+            </span>
           </label>
           {error && <p role="alert">{error}</p>}
           <nav aria-label="Search results">

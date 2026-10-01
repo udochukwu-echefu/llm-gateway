@@ -1,0 +1,66 @@
+.global-tools button.search-trigger {
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 3px oklch(0.2 0.01 265 / 0.04),
+    var(--shadow);
+}
+.search-input-frame {
+  display: block;
+  position: relative;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--surface);
+}
+.search-input-frame .command-search-input {
+  margin-top: 0;
+  min-height: 54px;
+  padding: 14px 62px 14px 20px;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: inset 0 2px 4px oklch(0.2 0.01 265 / 0.04);
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
+}
+.search-input-frame:focus-within .command-search-input {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent), transparent 88%);
+}
+.search-input-icon {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  transition:
+    color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+.search-input-icon::after {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  background: currentColor;
+  mask: url("../../public/icons/search.svg") center / contain no-repeat;
+}
+.search-input-frame:focus-within .search-input-icon {
+  color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent), transparent 55%);
+}
+dialog nav[aria-label="Search results"] {
+  margin-block: 18px;
+  max-height: min(50dvh, 420px);
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-input-frame .command-search-input,
+  .search-input-icon {
+    transition: none;
+  }
+}

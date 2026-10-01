@@ -13,6 +13,7 @@ import { Toasts } from "./toasts";
 import { Suspense } from "react";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ReadOnlyProvider } from "./read-only";
+import { ThemeToggle } from "./theme-toggle";
 export function Shell(props: { identity: Identity; children: ReactNode }) {
   return (
     <ReadOnlyProvider viewer={props.identity.role === "viewer"}>
@@ -141,6 +142,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           <span className="header-context">Gateway operations</span>
           <GlobalCommands identity={identity} />
           <div className="actions">
+            <ThemeToggle />
             <label className="theme-label">
               Theme
               <select

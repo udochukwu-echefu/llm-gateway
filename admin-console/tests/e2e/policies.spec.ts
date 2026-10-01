@@ -262,8 +262,8 @@ test("every policy write and cache purge appears in the audit log", async ({
     "clear-residency",
     "cache-purge",
   ]) {
-    await page.getByLabel("Action", { exact: true }).fill(action);
-    await page.getByText("Filter events", { exact: true }).click();
+    await page.getByLabel("Action", { exact: true }).selectOption(action);
+    await page.getByText("Apply filters", { exact: true }).click();
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
 });

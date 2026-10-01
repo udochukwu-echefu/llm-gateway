@@ -8,6 +8,7 @@ export async function responseScanner(page: Page) {
   const failures: string[] = [];
   const received = new Set<Request>();
   const pending: Promise<void>[] = [];
+  const captures: Promise<void>[] = [];
   page.on("response", (response) => {
     received.add(response.request());
     if (records.has(response.request())) return;
@@ -31,27 +32,40 @@ export async function responseScanner(page: Page) {
   });
   // Capture complete bytes before fulfillment: browser navigations otherwise evict
   // old response bodies from Chromium's protocol cache. No response is exempted.
-  await page.route("**/*", async (route) => {
-    try {
-      const upstream = await route.fetch({ maxRedirects: 0 });
-      const body = await upstream.body();
-      const record = {
-        url: route.request().url(),
-        method: route.request().method(),
-        body: body.toString("utf8"),
-        headers: JSON.stringify(upstream.headersArray()),
-      };
-      records.set(route.request(), record);
-      await route.fulfill({ response: upstream, body });
-    } catch {
-      failures.push(route.request().url());
-      await route.abort();
-    }
+  await page.route("**/*", (route) => {
+    const capture = (async () => {
+      try {
+        const upstream = await route.fetch({ maxRedirects: 0 });
+        const body = await upstream.body();
+        const record = {
+          url: route.request().url(),
+          method: route.request().method(),
+          body: body.toString("utf8"),
+          headers: JSON.stringify(upstream.headersArray()),
+        };
+        records.set(route.request(), record);
+        await route.fulfill({ response: upstream, body });
+      } catch {
+        failures.push(route.request().url());
+        await route.abort();
+      }
+    })();
+    captures.push(capture);
+    return capture;
   });
   return {
     async verify(adminKeys: string[], tenantKeys: string[], permittedKey?: string) {
-      await page.waitForLoadState("networkidle");
-      await Promise.all(pending);
+      // A retained App Router navigation can never become "networkidle" even with no
+      // requests in flight. Drain captured bytes and flush response events instead.
+      let completedCaptures = -1,
+        completedBodies = -1;
+      while (completedCaptures !== captures.length || completedBodies !== pending.length) {
+        completedCaptures = captures.length;
+        completedBodies = pending.length;
+        await Promise.all(captures);
+        await Promise.all(pending);
+        await page.evaluate(() => undefined);
+      }
       expect(failures.length, "Every browser response must be inspected").toBe(0);
       // Captured requests cancelled before a response are also scanned below.
       for (const request of received)

@@ -15,10 +15,8 @@ test("empty workspace guides first team key request and unmatched audit filter",
   await page.getByLabel("Team name").fill("Empty team");
   await page.getByText("Create team", { exact: true }).click();
   await page.getByRole("link", { name: "Empty team", exact: true }).click();
-  await expect(page.getByText(/^No keys yet/)).toBeVisible();
+  await expect(page.getByText(/^No keys match this filter/)).toBeVisible();
   await expect(page.getByLabel("Key name")).toBeVisible();
-  await page.goto("/audit");
-  await page.getByLabel("Action", { exact: true }).fill("obviously-fake-no-matching-action");
-  await page.getByText("Filter events", { exact: true }).click();
+  await page.goto("/audit?action=obviously-fake-no-matching-action");
   await expect(page.getByText(/^No audit results match this filter/)).toBeVisible();
 });

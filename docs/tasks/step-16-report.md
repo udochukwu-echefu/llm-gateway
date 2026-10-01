@@ -1,7 +1,8 @@
 # Step 16 review report
 
 Branch: `feat/step-16-public-demo-mode`. Portable-appliance amendment supersedes the
-original VPS/Caddy sections. **Not deployed, pushed or merged. Awaiting owner review.**
+original VPS/Caddy sections. **Owner approved. Not deployed or pushed.** See the final
+review verification below for friendly identities, fresh-image checks and merge gates.
 
 ## Built
 
@@ -257,3 +258,60 @@ was slow (651 seconds) but completed. Download/build time is not cold-start time
 - [Locked mutation controls](../images/console-public-demo-read-only-controls.png)
 
 The final response includes `git log --oneline main..HEAD`, including the report commit.
+
+## Final owner review verification (2026-10-01)
+
+The owner approved Step 16 after independent appliance/security verification. Commit
+`ebe160e` adds friendly demo display names, wrapping sidebar names with full-value titles,
+identity/request-count tests and unchanged boot-ID metadata for rotation. Commit `5e60c8c`
+adds the image revision label and pre-start freshness check, with eight mocked regression
+cases. A missing, unlabelled or mismatched image rebuilds with the current Git commit;
+dirty checkouts are stamped `-dirty` and always rebuild. Failed builds or wrong labels
+stop before container startup with a manual build instruction. The startup safety bound
+is now 30 minutes to allow dependency downloads; there are no new dependencies.
+
+The first identity-test attempt reused a consumed Response, and the first freshness-test
+attempt omitted the default export required by Vitest's built-in-module interop. Both
+test mocks were corrected; the final gates below all passed. The earlier 120-second
+shell build timeout was not treated as evidence about an unbuilt image. Docker server
+29.8.0 was available for the fresh-image rebuilds and browser runs.
+
+Curated refresh on `5e60c8c`: **6 passed (1.7m)**, **680 responses**, zero leaks and no
+permitted responses. All four images were regenerated and visually inspected. The login
+image is byte-for-byte unchanged; the other three images were committed in `ae3477a`.
+They show friendly platform/Northwind identities, correct wrapping and rendered disabled
+mutation controls. The screenshot paths above remain unchanged.
+
+Final gate run on `ae3477a` (Node 24.15.0):
+
+```text
+uv run ruff check .: All checks passed!
+uv run ruff format --check .: 436 files already formatted
+uv run pyright: 0 errors, 0 warnings, 0 informations
+uv run pytest -q: 1400 passed, 341 skipped, 40 deselected in 30.52s
+GATEWAY_TEST_DATABASE_URL=... uv run pytest -q -m db:
+275 passed, 11 skipped, 1495 deselected in 67.55s (0:01:07)
+GATEWAY_TEST_DATABASE_URL=... GATEWAY_TEST_REDIS_URL=redis://127.0.0.1:6379/15 uv run pytest -q -m redis:
+66 passed, 1715 deselected in 54.33s
+npm run format:check: All matched files use Prettier code style!
+npm run lint: eslint . (exit 0)
+npm run typecheck: tsc --noEmit (exit 0)
+npm test: Test Files 26 passed (26); Tests 133 passed (133)
+npm run build: Generating static pages using 11 workers (16/16); exit 0
+CONSOLE_TEST_PORT=3300 npm run test:e2e: 28 passed (1.4m)
+CONSOLE_TEST_PORT=3300 npm run test:e2e:demo: 6 passed (39.3s)
+```
+
+DB and Redis gates ran sequentially with disposable databases/Redis DB 15 after starting
+only the existing Postgres/Redis services, before the final e2e runs. The owner database
+was not seeded or migrated. All 34 e2e names are the same as listed above. Normal e2e
+scanned **2,834 responses**, with exactly one permitted creation response and zero leaks;
+demo e2e scanned **679**, with none permitted and zero leaks. Combined final runs:
+**3,513 responses**, one permitted creation response, zero leaks.
+
+The demo harness rebuilt the image for `ae3477a` and verified its label before startup;
+no older tagged image was accepted. Each demo run removed only its disposable profile's
+containers/network. No platform deployment, publication, push, guide-branch change or
+protected-worktree change was made. Previous platform verification limits still apply.
+All requested local merge gates passed; the owner-authorized merge uses `--no-ff` and
+the exact requested message, with no trailers.

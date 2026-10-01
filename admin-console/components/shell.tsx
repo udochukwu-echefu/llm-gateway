@@ -29,85 +29,110 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
   const preferences = usePreferences();
   const path = usePathname();
   const [error, setError] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
   return (
-    <div className="console">
+    <div className={`console${collapsed ? " console-collapsed" : ""}`}>
       <a href="#main" className="skip">
         Skip to content
       </a>
-      <aside>
-        <div className="sidebar-content">
-          <Link prefetch={false} className="brand" href="/overview">
-            <span className="brand-mark" aria-hidden="true" />
-            LLM Gateway
-            <span className="brand-sub">Admin console</span>
-          </Link>
-          <div className="scope-label">
-            <small>Workspace scope</small>
-            {identity.organization?.name ?? "All organisations"}
-          </div>
-          <p className="nav-label">WORKSPACE</p>
-          <nav className="main-nav" aria-label="Main navigation">
-            <Link
-              prefetch={false}
-              aria-current={path === "/overview" ? "page" : undefined}
-              href="/overview"
-            >
-              <span className="nav-icon nav-icon-overview" aria-hidden="true" />
-              Overview
-            </Link>
-            <Link
-              prefetch={false}
-              aria-current={path.startsWith("/orgs") ? "page" : undefined}
-              href={
-                identity.organization
-                  ? `/orgs/${encodeURIComponent(identity.organization.name)}`
-                  : "/orgs"
-              }
-            >
-              <span className="nav-icon nav-icon-organisations" aria-hidden="true" />
-              Organisations
-            </Link>
-            <Link
-              prefetch={false}
-              aria-current={path === "/audit" ? "page" : undefined}
-              href="/audit"
-            >
-              <span className="nav-icon nav-icon-audit" aria-hidden="true" />
-              Audit log
-            </Link>
-            {[
-              "Requests",
-              "Analytics",
-              "Keys",
-              "Models",
-              ...(!identity.organization ? ["Providers"] : []),
-              "Settings",
-            ].map((label) => (
+      <aside id="gateway-sidebar" aria-label="Gateway sidebar">
+        <div className="sidebar-panel">
+          <div className="sidebar-content">
+            <div className="sidebar-menu-header">
               <Link
-                key={label}
                 prefetch={false}
-                href={`/${label.toLowerCase()}`}
-                aria-current={path === `/${label.toLowerCase()}` ? "page" : undefined}
+                className="sidebar-brand"
+                href="/overview"
+                aria-label="LLM Gateway Admin console"
+                title={collapsed ? "LLM Gateway" : undefined}
               >
-                <span className={`nav-icon nav-icon-${label.toLowerCase()}`} aria-hidden="true" />
-                {label}
+                <span className="sidebar-mark" aria-hidden="true" />
+                <span className="sidebar-link-text">Menu</span>
               </Link>
-            ))}
-          </nav>
-          <div className="sidebar-footer">
-            <span className="badge">
-              {identity.role === "viewer"
-                ? identity.organization
-                  ? "Organisation viewer"
-                  : "Platform viewer"
-                : identity.role === "platform"
-                  ? "Platform admin"
-                  : "Organisation admin"}
-            </span>
-            <p className="identity-name" title={identity.name}>
-              {identity.name}
-            </p>
-            <small>Key ID · {identity.key_id}</small>
+              <button
+                type="button"
+                className="sidebar-toggle"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-expanded={!collapsed}
+                aria-controls="gateway-sidebar"
+                onClick={() => setCollapsed((value) => !value)}
+              >
+                <span className="sidebar-toggle-icon" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="scope-label">
+              <small>Workspace scope</small>
+              {identity.organization?.name ?? "All organisations"}
+            </div>
+            <p className="nav-label">WORKSPACE</p>
+            <nav className="main-nav" aria-label="Main navigation">
+              <Link
+                prefetch={false}
+                aria-current={path === "/overview" ? "page" : undefined}
+                href="/overview"
+                title={collapsed ? "Overview" : undefined}
+              >
+                <span className="nav-icon nav-icon-overview" aria-hidden="true" />
+                <span className="sidebar-link-text">Overview</span>
+              </Link>
+              <Link
+                prefetch={false}
+                aria-current={path.startsWith("/orgs") ? "page" : undefined}
+                title={collapsed ? "Organisations" : undefined}
+                href={
+                  identity.organization
+                    ? `/orgs/${encodeURIComponent(identity.organization.name)}`
+                    : "/orgs"
+                }
+              >
+                <span className="nav-icon nav-icon-organisations" aria-hidden="true" />
+                <span className="sidebar-link-text">Organisations</span>
+              </Link>
+              <Link
+                prefetch={false}
+                aria-current={path === "/audit" ? "page" : undefined}
+                href="/audit"
+                title={collapsed ? "Audit log" : undefined}
+              >
+                <span className="nav-icon nav-icon-audit" aria-hidden="true" />
+                <span className="sidebar-link-text">Audit log</span>
+              </Link>
+              {[
+                "Requests",
+                "Analytics",
+                "Keys",
+                "Models",
+                ...(!identity.organization ? ["Providers"] : []),
+                "Settings",
+              ].map((label) => (
+                <Link
+                  key={label}
+                  title={collapsed ? label : undefined}
+                  prefetch={false}
+                  href={`/${label.toLowerCase()}`}
+                  aria-current={path === `/${label.toLowerCase()}` ? "page" : undefined}
+                >
+                  <span className={`nav-icon nav-icon-${label.toLowerCase()}`} aria-hidden="true" />
+                  <span className="sidebar-link-text">{label}</span>
+                </Link>
+              ))}
+            </nav>
+            <div className="sidebar-footer">
+              <span className="badge">
+                {identity.role === "viewer"
+                  ? identity.organization
+                    ? "Organisation viewer"
+                    : "Platform viewer"
+                  : identity.role === "platform"
+                    ? "Platform admin"
+                    : "Organisation admin"}
+              </span>
+              <p className="identity-name" title={identity.name}>
+                {identity.name}
+              </p>
+              <small>Key ID · {identity.key_id}</small>
+            </div>
           </div>
         </div>
       </aside>

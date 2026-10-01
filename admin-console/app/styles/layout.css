@@ -1,23 +1,9 @@
 @import "./login.css";
+@import "./sidebar.css";
 
 .console {
   display: flex;
   min-height: 100dvh;
-}
-.console > aside {
-  width: 240px;
-  flex-shrink: 0;
-  border-right: 1px solid var(--line);
-  background: var(--rail);
-}
-.sidebar-content {
-  padding: 28px 16px 20px;
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  overflow-y: auto;
 }
 .brand {
   display: grid;
@@ -54,95 +40,6 @@
   letter-spacing: 0.1px;
   color: var(--muted);
   margin-top: 3px;
-}
-.scope-label {
-  margin: 0 8px 28px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  border-radius: var(--radius);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-.scope-label small {
-  display: block;
-  font-size: 10px;
-  margin-bottom: 3px;
-}
-.console .main-nav a {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  border-radius: 7px;
-  padding: 10px 12px;
-  margin-bottom: 3px;
-  text-decoration: none;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-.console .main-nav a[aria-current] {
-  background: var(--nav);
-  color: var(--accent);
-  font-weight: 650;
-}
-.main-nav a[href="/requests"],
-.main-nav a[href="/settings"] {
-  margin-top: 17px;
-}
-.nav-icon {
-  display: inline-block;
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  background: currentColor;
-  mask: var(--icon) center / contain no-repeat;
-}
-.nav-icon-overview {
-  --icon: url("../../public/icons/overview.svg");
-}
-.nav-icon-organisations {
-  --icon: url("../../public/icons/organisations.svg");
-}
-.nav-icon-audit {
-  --icon: url("../../public/icons/audit.svg");
-}
-.nav-icon-requests {
-  --icon: url("../../public/icons/requests.svg");
-}
-.nav-icon-analytics {
-  --icon: url("../../public/icons/analytics.svg");
-}
-.nav-icon-keys {
-  --icon: url("../../public/icons/keys.svg");
-}
-.nav-icon-models {
-  --icon: url("../../public/icons/models.svg");
-}
-.nav-icon-providers {
-  --icon: url("../../public/icons/providers.svg");
-}
-.nav-icon-settings {
-  --icon: url("../../public/icons/settings.svg");
-}
-.sidebar-footer {
-  margin-top: auto;
-  border-top: 1px solid var(--line);
-  padding: 18px 8px 0;
-}
-.sidebar-footer p {
-  margin: 10px 0 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.sidebar-footer .identity-name {
-  overflow-wrap: anywhere;
-}
-.sidebar-footer > small {
-  font-family: var(--font-data);
-  font-size: 10px;
-  overflow-wrap: anywhere;
-  display: block;
 }
 .workspace {
   min-width: 0;
@@ -246,20 +143,7 @@
 .skip:focus {
   top: 10px;
 }
-@media (hover: hover) and (pointer: fine) {
-  .main-nav a:hover {
-    background: var(--surface);
-    color: var(--text);
-  }
-  .main-nav a[aria-current]:hover {
-    background: var(--nav);
-    color: var(--accent);
-  }
-}
 @media (max-width: 1180px) {
-  .console > aside {
-    width: 210px;
-  }
   .workspace > header {
     padding-inline: 24px;
     gap: 12px;
@@ -274,43 +158,6 @@
 @media (max-width: 760px) {
   .console {
     display: block;
-  }
-  .console > aside {
-    width: 100%;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .sidebar-content {
-    position: static;
-    height: auto;
-    padding: 18px 16px 12px;
-    overflow: visible;
-  }
-  .sidebar-content .brand {
-    margin: 0 0 18px;
-    width: 200px;
-  }
-  .main-nav {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .console .main-nav a {
-    padding: 8px 10px;
-    font-size: 12px;
-    margin: 0;
-    gap: 7px;
-  }
-  .main-nav .nav-icon {
-    width: 15px;
-    height: 15px;
-  }
-  .nav-label,
-  .sidebar-footer {
-    display: none;
-  }
-  .scope-label {
-    margin: 0 0 16px;
   }
   .workspace > header {
     padding: 12px 16px;

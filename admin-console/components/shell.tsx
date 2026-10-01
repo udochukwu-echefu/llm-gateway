@@ -14,6 +14,7 @@ import { Suspense } from "react";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ReadOnlyProvider } from "./read-only";
 import { ThemeToggle } from "./theme-toggle";
+import { SparkleButton } from "./sparkle-button";
 export function Shell(props: { identity: Identity; children: ReactNode }) {
   return (
     <ReadOnlyProvider viewer={props.identity.role === "viewer"}>
@@ -143,8 +144,8 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           <GlobalCommands identity={identity} />
           <div className="actions">
             <ThemeToggle />
-            <button
-              className="secondary"
+            <SparkleButton
+              text="Sign out"
               onClick={async () => {
                 if (!leave()) return;
                 try {
@@ -154,9 +155,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                   setError((e as Error).message);
                 }
               }}
-            >
-              Sign out
-            </button>
+            />
           </div>
         </header>
         <main id="main">

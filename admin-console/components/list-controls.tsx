@@ -8,15 +8,7 @@ export interface FilterField {
   type?: string;
   options?: string[];
 }
-export function FilterBar({
-  fields,
-  children,
-  submitButton,
-}: {
-  fields: FilterField[];
-  children?: ReactNode;
-  submitButton?: ReactNode;
-}) {
+export function FilterBar({ fields, children }: { fields: FilterField[]; children?: ReactNode }) {
   const { params, set } = useListQuery();
   return (
     <>
@@ -67,7 +59,7 @@ export function FilterBar({
             )}
           </label>
         ))}
-        {submitButton ?? <button>Apply filters</button>}
+        <button>Apply filters</button>
         {children}
       </form>
       <div className="filter-chips">

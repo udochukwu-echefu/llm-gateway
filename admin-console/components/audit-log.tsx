@@ -11,7 +11,6 @@ import { CopyId } from "./copy-id";
 import { Dialog, SheetCloseButton } from "./dialog";
 import { auditActions } from "@/lib/audit-actions";
 import { DataState } from "./data-state";
-import { SparkleButton } from "./sparkle-button";
 export function AuditLog({ platform }: { platform: boolean }) {
   const { params } = useListQuery();
   const [detail, setDetail] = useState<AuditEvent>();
@@ -70,7 +69,6 @@ export function AuditLog({ platform }: { platform: boolean }) {
       <section className="panel">
         <h2>Events</h2>
         <FilterBar
-          submitButton={<SparkleButton text="Apply filters" />}
           fields={[
             { name: "action", label: "Action", options: auditActions },
             { name: "actor", label: "Actor" },

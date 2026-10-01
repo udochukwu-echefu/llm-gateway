@@ -152,6 +152,7 @@ def _start_children(
                 "PATH": env.get("PATH", ""),
                 "PYTHONPATH": "/app",
                 "DEMO_TENANT_KEY": keys["DEMO_TENANT_KEY"],
+                "DEMO_TRAFFIC_WINDOW_S": env["DEMO_TRAFFIC_WINDOW_S"],
             },
         )
     )

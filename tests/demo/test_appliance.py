@@ -59,6 +59,62 @@ def test_managed_postgres_binding_translates_sslmode() -> None:
     )
 
 
+def test_appliance_fixed_idle_intervals_override_short_inherited_timers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = appliance_environment(
+        {
+            **demo_environment(),
+            "GATEWAY_LIMITS__BUDGET_RECONCILE_INTERVAL_S": "1",
+            "GATEWAY_USAGE_FLUSH_INTERVAL_S": "1",
+            "GATEWAY_USAGE_BATCH_SIZE": "500",
+            "GATEWAY_TRACING__OTLP_ENDPOINT": "https://fake.invalid",
+            "NEXT_TELEMETRY_DISABLED": "0",
+        }
+    )
+    intervals = {
+        "GATEWAY_LIMITS__BUDGET_RECONCILE_INTERVAL_S": "3600",
+        "GATEWAY_USAGE_FLUSH_INTERVAL_S": "3600",
+    }
+    assert {name: value for name, value in env.items() if name.endswith("_INTERVAL_S")} == intervals
+    assert all(int(value) >= 1800 for value in intervals.values())
+    assert env["DEMO_TRAFFIC_WINDOW_S"] == "600"
+    assert env["GATEWAY_USAGE_BATCH_SIZE"] == "1"
+    assert env["NEXT_TELEMETRY_DISABLED"] == "1"
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    settings = Settings(_env_file=None)  # pyright: ignore[reportCallIssue]  # runtime env config
+
+    assert settings.limits.budget_reconcile_interval_s == 3600
+    assert settings.usage_flush_interval_s == 3600
+    assert settings.usage_batch_size == 1
+    assert settings.tracing.otlp_endpoint is None
+
+
+def test_appliance_preserves_configurable_traffic_window() -> None:
+    env = appliance_environment({**demo_environment(), "DEMO_TRAFFIC_WINDOW_S": "120"})
+
+    assert env["DEMO_TRAFFIC_WINDOW_S"] == "120"
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "1.5", "synthetic-secret"])
+def test_appliance_rejects_invalid_traffic_window_without_echoing_it(value: str) -> None:
+    with pytest.raises(ValueError, match="Demo traffic window must be a positive integer") as error:
+        appliance_environment({**demo_environment(), "DEMO_TRAFFIC_WINDOW_S": value})
+
+    assert value not in str(error.value)
+
+
+def test_only_successfully_completed_traffic_child_may_exit() -> None:
+    traffic = Mock(poll=Mock(return_value=0))
+    console = Mock(poll=Mock(return_value=None))
+
+    ensure_alive([("traffic", traffic), ("console", console)])
+    traffic.poll.return_value = 1
+    with pytest.raises(RuntimeError, match="child exited: traffic"):
+        ensure_alive([("traffic", traffic), ("console", console)])
+
+
 def test_boot_keys_use_only_private_pipe_never_stdout_or_disk(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:

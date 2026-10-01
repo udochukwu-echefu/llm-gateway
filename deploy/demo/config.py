@@ -24,6 +24,12 @@ def appliance_environment(source: dict[str, str] | None = None) -> dict[str, str
             raise ValueError("Bind a valid REDIS_URL to the appliance.")
         _validate_origin(env.get("ADMIN_CONSOLE_ORIGIN", ""))
         _reject_unsafe_overrides(env)
+        try:
+            window_s = int(env.get("DEMO_TRAFFIC_WINDOW_S", "600"))
+            if window_s <= 0:
+                raise ValueError
+        except ValueError:
+            raise ValueError("Demo traffic window must be a positive integer.") from None
     except ValueError as exc:
         # Only fixed messages above may cross this boundary, never URL parsing errors.
         if str(exc).startswith(("PORT ", "GATEWAY_", "ADMIN_", "Bind ", "Demo ")):
@@ -39,6 +45,7 @@ def appliance_environment(source: dict[str, str] | None = None) -> dict[str, str
         or name in {"GATEWAY_API_KEY_PEPPER", "GATEWAY_CACHE_ENCRYPTION_KEY"}
     }
     env.update(_fixed_environment(database, env["REDIS_URL"], port))
+    env["DEMO_TRAFFIC_WINDOW_S"] = str(window_s)
     return env
 
 
@@ -117,6 +124,10 @@ def _fixed_environment(database: str, redis: str, port: int) -> dict[str, str]:
         "GATEWAY_TRACING": '{"otlp_endpoint":null}',
         "GATEWAY_SECRETS__BACKEND": "env",
         "GATEWAY_LIMITS__FAIL_MODE": "closed",
+        "GATEWAY_LIMITS__BUDGET_RECONCILE_INTERVAL_S": "3600",
+        # A single receipt flushes immediately; empty queues wait without short wakeups.
+        "GATEWAY_USAGE_BATCH_SIZE": "1",
+        "GATEWAY_USAGE_FLUSH_INTERVAL_S": "3600",
         "NEXT_TELEMETRY_DISABLED": "1",
         "ADMIN_API_URL": "http://127.0.0.1:18091",
         "PYTHONPATH": "/app",

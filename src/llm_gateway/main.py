@@ -8,7 +8,7 @@ from opentelemetry.trace import TracerProvider
 from prometheus_client import CollectorRegistry
 from pydantic import SecretStr
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from llm_gateway import __version__
@@ -33,6 +33,7 @@ from llm_gateway.observability.tracing import Telemetry, make_provider
 from llm_gateway.providers.pools import provider_pools
 from llm_gateway.resilience.service import ResilienceService
 from llm_gateway.secrets import EnvSecretStore, FileSecretStore, SecretStore
+from llm_gateway.storage_connections import database_engine, redis_connection
 from llm_gateway.tenants.auth import authenticate
 from llm_gateway.tenants.cache import VerifiedKeyCache
 from llm_gateway.tenants.repository import KeyRepository, PostgresKeyRepository
@@ -105,7 +106,7 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         engine = None
         if key_repository is None:
-            engine = create_async_engine(database_url.get_secret_value(), pool_pre_ping=True)
+            engine = database_engine(database_url.get_secret_value(), demo=settings.demo_deployment)
             repository: KeyRepository = PostgresKeyRepository(
                 async_sessionmaker(engine, expire_on_commit=False)
             )
@@ -121,10 +122,10 @@ def create_app(
         if limits is None:
             if redis_url is None:
                 raise RuntimeError("Redis URL was not resolved")
-            redis_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType]  # redis-py types **kwargs as Unknown
+            redis_client = redis_connection(
                 redis_url.get_secret_value(),
-                socket_timeout=settings.limits.redis_timeout_s,
-                socket_connect_timeout=settings.limits.redis_timeout_s,
+                settings.limits.redis_timeout_s,
+                demo=settings.demo_deployment,
             )
             limits = LimitService(
                 redis_client,

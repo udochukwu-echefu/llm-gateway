@@ -29,6 +29,10 @@ async def main() -> None:
         ).splitlines()
     )
     revocable = await admin.create_admin_key("Fake revocable operator", "org", org.name)
+    viewer = await admin.create_admin_key("Public platform viewer", "viewer", None)
+    org_viewer = await admin.create_admin_key(
+        "Public Northwind viewer", "viewer", "Northwind Health"
+    )
     async with sessions.begin() as session:
         for _ in range(26):
             await append_event(
@@ -42,6 +46,8 @@ async def main() -> None:
             "demoOrg": demo_values["DEMO_ORG_ADMIN_KEY"],
             "orgKey": org_key,
             "revocable": revocable,
+            "viewer": viewer,
+            "orgViewer": org_viewer,
             "org": org.name,
             "other": "Other workspace",
         },

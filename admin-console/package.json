@@ -15,6 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:demo": "playwright test -c playwright.demo.config.ts",
+    "test:break:demo": "node scripts/break-demo-checks.mjs",
     "test:break": "node scripts/break-checks.mjs",
     "test:break:policies": "node scripts/break-policy-checks.mjs",
     "test:break:console": "node scripts/break-console-checks.mjs"

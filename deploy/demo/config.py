@@ -61,9 +61,7 @@ def _validate_secrets(env: dict[str, str]) -> None:
         if len(env.get(name, "").encode()) < 32:
             raise ValueError(f"{name} must have at least 32 bytes.")
     try:
-        decoded = base64.b64decode(
-            env.get("GATEWAY_CACHE_ENCRYPTION_KEY", ""), altchars=b"-_", validate=True
-        )
+        decoded = base64.b64decode(env.get("GATEWAY_CACHE_ENCRYPTION_KEY", ""), validate=True)
         if len(decoded) != 32:
             raise ValueError
     except (ValueError, binascii.Error):

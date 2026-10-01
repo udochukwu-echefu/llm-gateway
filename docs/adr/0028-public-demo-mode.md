@@ -38,7 +38,8 @@ The stdlib supervisor validates config, waits at most 30 seconds for dependencie
 Alembic under an advisory lock, then appends only days after the latest synthetic day.
 Seeder sign-in keys are skipped; managed remote DB seeding needs both explicit demo flags
 and disabled sign-in-file output. Generic/local seeding still rejects remote databases.
-Boot helpers discard stdout/stderr and send keys through a checked anonymous pipe.
+Boot helpers send keys through a checked anonymous pipe; their redacted diagnostics are
+forwarded by the supervisor (see ADR 0029).
 Each boot creates platform/Northwind viewers and a Support tenant key with a boot-ID name;
 plaintext lives only in memory and relevant child environments. Revoke only appliance keys
 older than 24 hours, not fresh overlapping boot keys. Exactly one steady-state instance is

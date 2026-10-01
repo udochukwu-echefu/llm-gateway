@@ -1181,3 +1181,26 @@ before starting containers. Missing or mismatched images are rebuilt and the new
 checked again. Uncommitted edits are marked `-dirty` and always force a build, because two
 different sets of edits can have the same commit. Build failures stop the suite with a
 clear manual build command instead of testing old binaries and reporting a false pass.
+
+### Step 16b: learn from the first live deployment
+
+The owner deployed the appliance successfully on 2026-10-01. The cache key must use
+**standard base64**, a way to write binary bytes as text using letters, digits, `+` and `/`.
+The URL-safe variant uses different characters and was rejected by the gateway. Generated
+secrets now pass the actual gateway startup checks and console session schema in a test;
+the appliance's early check also requires the same alphabet.
+
+Each child now sends its output through the supervisor, with its name on every line.
+**Redaction** replaces key-shaped text and database/Redis URL credentials with a mask
+before printing. This is an extra filter: the gateway must still log only metadata, never
+conversations or secrets. Reader threads drain both pipes while the child runs, preventing
+full pipes from blocking it. After a crash, the parent waits briefly for final diagnostics
+before reporting the exit; shutdown remains bounded if a descendant holds a pipe open.
+Boot keys still travel through a separate private memory pipe, never the log pipes.
+
+The deployment helper refuses uncommitted changes and uses `git archive HEAD`: a snapshot
+of the current commit, without ignored files or local agent tooling. It copies the appliance
+Dockerfile within that snapshot, then passes the temporary directory to InstaCloud's build
+and source deployment commands. The owner can review exactly which commit will ship, and
+the temporary context is removed on success or failure. A platform URL is the first browser
+Origin; a later custom-domain switch replaces it because the console accepts one at a time.

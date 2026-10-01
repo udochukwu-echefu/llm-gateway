@@ -1,4 +1,4 @@
-"""Stdlib process supervision: no child output, bounded readiness and ordered shutdown."""
+"""Stdlib process supervision: redacted child output, bounded readiness and ordered shutdown."""
 
 import os
 import signal
@@ -9,24 +9,36 @@ import urllib.request
 from collections.abc import Callable
 from contextlib import suppress
 
+from deploy.demo.output import drain_output, forward_output
+
 Child = tuple[str, subprocess.Popen[bytes]]
 
 
-def launch(name: str, args: list[str], env: dict[str, str], *, cwd: str = "/app") -> Child:
+def launch(
+    name: str,
+    args: list[str],
+    env: dict[str, str],
+    *,
+    cwd: str = "/app",
+    pass_fds: tuple[int, ...] = (),
+) -> Child:
     process = subprocess.Popen(  # noqa: S603 -- fixed appliance commands
         args,
         env=env,
         cwd=cwd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        pass_fds=pass_fds,
         start_new_session=True,
     )
+    forward_output(name, process)
     return name, process
 
 
 def ensure_alive(children: list[Child]) -> None:
     for name, process in children:
         if process.poll() is not None:
+            drain_output(process)
             raise RuntimeError(f"Appliance child exited: {name}.")
 
 
@@ -53,6 +65,7 @@ def shutdown(children: list[Child], timeout: float = 20) -> None:
     grace = {"traffic": 1, "console": 4, "gateway": 12, "fake-provider": 2}
     for name, process in sorted(children, key=lambda child: priorities[child[0]]):
         if process.poll() is not None:
+            drain_output(process, timeout=max(0, min(2, deadline - time.monotonic())))
             continue
         _signal_group(process.pid, signal.SIGTERM)
         try:
@@ -60,6 +73,8 @@ def shutdown(children: list[Child], timeout: float = 20) -> None:
         except subprocess.TimeoutExpired:
             _signal_group(process.pid, signal.SIGKILL)
             process.wait(timeout=max(0.1, min(1, deadline - time.monotonic())))
+
+        drain_output(process, timeout=max(0, min(2, deadline - time.monotonic())))
 
 
 def _signal_group(pid: int, signum: int) -> None:

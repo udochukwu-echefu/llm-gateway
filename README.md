@@ -277,7 +277,9 @@ CI runs formatting, lint, typing, unit/component tests, build and the real-stack
 
 ### Live demo
 
-Live URL: **not deployed yet** (`https://demo.example.invalid` placeholder).
+[Explore the live demo](https://prod-main-appliance-ca05b3-00hcr9bqd1b.compute.instacloud-edge.com).
+It is read-only, contains synthetic data and uses the fake provider. It sleeps when idle,
+so the first visit can take a few seconds.
 The public tour offers platform-wide and Northwind Health read-only Explore sign-ins,
 with friendly “Demo visitor” identities rather than internal boot-key names.
 Viewer permissions are enforced by the gateway, not merely disabled buttons. Demo keys

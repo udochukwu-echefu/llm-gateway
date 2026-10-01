@@ -278,7 +278,8 @@ CI runs formatting, lint, typing, unit/component tests, build and the real-stack
 ### Live demo
 
 Live URL: **not deployed yet** (`https://demo.example.invalid` placeholder).
-The public tour offers platform-wide and Northwind Health read-only Explore sign-ins.
+The public tour offers platform-wide and Northwind Health read-only Explore sign-ins,
+with friendly “Demo visitor” identities rather than internal boot-key names.
 Viewer permissions are enforced by the gateway, not merely disabled buttons. Demo keys
 stay server-side; sessions last two hours with a thirty-minute idle limit. CSV and search
 remain usable. No trackers, real customer data or paid model calls are included.

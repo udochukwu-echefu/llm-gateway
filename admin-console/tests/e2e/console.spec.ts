@@ -3,6 +3,16 @@ import { abusiveLogin } from "./attacks";
 
 test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await signIn(page, credentials.platform);
+  const identityName = page.locator(".sidebar-footer .identity-name");
+  const fullName = await identityName.textContent();
+  expect(fullName!.length).toBeGreaterThan(80);
+  await expect(identityName).toHaveAttribute("title", fullName!);
+  expect(
+    await identityName.evaluate((element) => ({
+      wrap: getComputedStyle(element).overflowWrap,
+      fits: element.scrollWidth <= element.clientWidth,
+    })),
+  ).toEqual({ wrap: "anywhere", fits: true });
   await page.goto("/orgs");
   await expect(page.getByRole("link", { name: credentials.org, exact: true })).toBeVisible();
   await screenshot(page, "organisations");

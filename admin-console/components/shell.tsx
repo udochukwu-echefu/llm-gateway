@@ -95,7 +95,9 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                   ? "Platform admin"
                   : "Organisation admin"}
             </span>
-            <p>{identity.name}</p>
+            <p className="identity-name" title={identity.name}>
+              {identity.name}
+            </p>
             <small>Key ID · {identity.key_id}</small>
           </div>
         </div>

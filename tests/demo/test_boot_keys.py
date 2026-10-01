@@ -62,6 +62,10 @@ async def test_boot_keys_revoke_only_appliance_keys_older_than_24_hours(
                 )
             ).all()
             assert len(viewers) == 2
+            assert {row.name for row in viewers} == {
+                BOOT_KEY_PREFIX + "current:platform",
+                BOOT_KEY_PREFIX + "current:northwind",
+            }
             assert all(row.role == "viewer" for row in viewers)
             assert {row.organization_id is None for row in viewers} == {True, False}
         assert current.keys() == {"DEMO_VIEWER_KEY", "DEMO_ORG_VIEWER_KEY", "DEMO_TENANT_KEY"}

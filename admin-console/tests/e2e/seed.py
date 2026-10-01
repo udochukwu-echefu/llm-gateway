@@ -20,7 +20,9 @@ async def main() -> None:
     org = await admin.authorize_org("Demo Co")
     await admin.create_org("Other workspace")
     await admin.create_team("Other workspace", "Private team")
-    platform = await admin.create_admin_key("Fake platform operator", "platform", None)
+    platform = await admin.create_admin_key(
+        "Fake platform operator " + "LongNameWithoutSpaces" * 4, "platform", None
+    )
     org_key = await admin.create_admin_key("Fake org operator", "org", org.name)
     demo_values = dict(
         line.split("=", 1)

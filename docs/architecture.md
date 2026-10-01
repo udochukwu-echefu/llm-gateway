@@ -1162,3 +1162,13 @@ illustrate accounting without model charges; an exact URL guard rejects real pro
 Managed Postgres is credential-reachable, not an isolated private database: only synthetic
 metadata and hashed badges belong there. See ADR 0028 and [the deployment runbook](deployment-demo.md)
 for accepted demo risks, cold-start measurements and operator procedures.
+
+### Step 16 review: friendly visitor identities
+
+The database's key name is an internal label used to identify each boot for rotation.
+The console's **display name** is the label a visitor sees, not an authorization field.
+In demo mode, viewer identities show “Demo visitor · Platform viewer” or
+“Demo visitor · Northwind Health viewer” on sign-in, session refresh and Settings.
+The key ID, role and organization scope remain unchanged, and boot-key rotation still
+uses the original internal names. Ordinary identities retain their names. All sidebar
+names wrap, even without spaces, and expose the full display name in a native tooltip.

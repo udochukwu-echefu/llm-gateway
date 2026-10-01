@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const key = parsed.data.as === "platform" ? config.DEMO_VIEWER_KEY : config.DEMO_ORG_VIEWER_KEY;
   if (!key) return reply({ error: "Not found." }, 404);
   try {
-    const identity = await fetchIdentity(config.ADMIN_API_URL, key);
+    const identity = await fetchIdentity(config.ADMIN_API_URL, key, true);
     requireDemoViewer(identity, parsed.data.as);
     (await readSession()).destroy();
     const session = await readSession();

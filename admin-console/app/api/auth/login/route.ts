@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter a valid admin API key." }, { status: 400 });
   }
   try {
-    const identity = await fetchIdentity(config.ADMIN_API_URL, parsed.data.key);
+    const identity = await fetchIdentity(config.ADMIN_API_URL, parsed.data.key, config.DEMO_MODE);
     (await readSession()).destroy();
     const session = await readSession();
     Object.assign(session, {

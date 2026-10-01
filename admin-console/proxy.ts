@@ -20,7 +20,11 @@ export async function proxy(request: NextRequest) {
       (await proxySession(request, response, config.ADMIN_CONSOLE_SESSION_SECRET)).destroy();
     } else {
       try {
-        const identity = await fetchIdentity(config.ADMIN_API_URL, session.adminKey!);
+        const identity = await fetchIdentity(
+          config.ADMIN_API_URL,
+          session.adminKey!,
+          config.DEMO_MODE,
+        );
         headers.set("x-console-identity", JSON.stringify(identity));
         response = NextResponse.next({ request: { headers } });
         await refreshProxySession(request, response, config.ADMIN_CONSOLE_SESSION_SECRET, identity);

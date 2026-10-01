@@ -94,17 +94,19 @@ test("startup refuses a platform-admin demo key and wrong viewer scope", async (
     { role: "viewer", organization: { id: "fake", name: "Northwind Health" } },
     {},
   ]) {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(identity)));
+    const fetcher = vi.fn().mockImplementation(async () => Response.json(identity));
+    vi.stubGlobal("fetch", fetcher);
     await expect(
       checkDemoKeys({ ...mocks.config, DEMO_ORG_VIEWER_KEY: undefined }),
     ).rejects.toThrow("Demo startup refused");
+    expect(fetcher).toHaveBeenCalledTimes(1);
   }
 });
 test("startup checks both demo scopes and refuses outages without credential text", async () => {
   const fetcher = vi
     .fn()
-    .mockResolvedValueOnce(Response.json({ role: "viewer", organization: null }))
-    .mockResolvedValueOnce(
+    .mockImplementationOnce(async () => Response.json({ role: "viewer", organization: null }))
+    .mockImplementationOnce(async () =>
       Response.json({ role: "viewer", organization: { id: "fake", name: "Northwind Health" } }),
     );
   vi.stubGlobal("fetch", fetcher);
@@ -131,7 +133,12 @@ test("demo sign-in uses a server-side key and returns only identity", async () =
   const response = await demo(request());
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ identity: mocks.session.identity });
-  expect(mocks.identity).toHaveBeenCalledWith("http://fake.test", mocks.config.DEMO_VIEWER_KEY);
+  expect(mocks.identity).toHaveBeenCalledWith(
+    "http://fake.test",
+    mocks.config.DEMO_VIEWER_KEY,
+    true,
+  );
+  expect(mocks.identity).toHaveBeenCalledTimes(1);
   expect(mocks.session.demo).toBe(true);
   expect(mocks.session.save).toHaveBeenCalledOnce();
 });

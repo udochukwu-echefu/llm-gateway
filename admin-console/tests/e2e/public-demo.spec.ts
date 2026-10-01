@@ -17,6 +17,17 @@ async function explore(page: Page, scope: "platform" | "org") {
       exact: true,
     }),
   ).toBeVisible();
+  const identityName = page.locator(".sidebar-footer .identity-name");
+  const friendlyName =
+    scope === "platform"
+      ? "Demo visitor · Platform viewer"
+      : "Demo visitor · Northwind Health viewer";
+  await expect(identityName).toHaveText(friendlyName);
+  await expect(identityName).toHaveAttribute("title", friendlyName);
+  await expect(page.locator(".sidebar-footer")).not.toContainText("Appliance demo boot");
+  expect(await identityName.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
   await expect(
     page.getByText(
       "Read-only demo. Changes are disabled; this is a live gateway with synthetic data.",

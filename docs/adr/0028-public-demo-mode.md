@@ -44,6 +44,11 @@ plaintext lives only in memory and relevant child environments. Revoke only appl
 older than 24 hours, not fresh overlapping boot keys. Exactly one steady-state instance is
 required. History, revoked key metadata and audit events grow; retention remains an operator task.
 
+The console projects demo viewers to friendly visitor display names without changing
+their key ID, role or organization scope. Internal boot-ID key names remain unchanged
+for rotation and auditing; they are not the visitor's display name. All sidebar identity
+names wrap within the sidebar, with their complete display value available via title.
+
 Create compute with `--no-always-on`: it sleeps after five router-idle minutes and a request
 cold-starts it in a few seconds ([operations docs](https://github.com/InsForge/instacloud-skills/blob/main/insta/references/operate.md)).
 No cron: top-up happens on wake. The traffic child sends three initial requests, then a

@@ -321,7 +321,7 @@ injection contract. Later days append synthetic receipts rather than deleting hi
 | Audit / event drawer | Every real service action, including admin creation/revoke, key revoke, policies and purge; verified chain |
 | Settings: Account / Preferences / Platform | Demo platform and Northwind org sign-in; persisted browser preferences; platform-only allowlist |
 | Search / command palette | All three orgs for platform; Northwind's Clinical/Research and keys only for its org admin |
-| Exports / filters / sort / copy | Request and audit receipts, exact decimal values, safe CSV cells; URL state and public IDs |
+| Exports / filters / sort / copy | Request and audit receipts, three-decimal export values, safe CSV cells; URL state and public IDs |
 
 Every screen and org/team tab is visited in the named platform and org demo-tour tests.
 Run the suites after the Python database and Redis gates:
@@ -998,3 +998,25 @@ attempts. See ADRs 0016 and 0017 for policy and routing decisions.
 
 Access logs include unrounded `overhead_ms` and verified-key `key_cache` hit/miss
 (null before a key lookup); overhead uses the same observation as Prometheus.
+
+### Readable operations metrics
+
+The console uses one number formatter in tables, charts, tooltips and cards: durations
+below 10 seconds show whole milliseconds (`1,725 ms`), longer durations show one decimal
+in seconds (`50.6 s`), rates show one-decimal percentages (`33.3%`), and token counts
+use thousands separators. Unknown values stay Unknown or chart gaps. The admin API
+rounds durations and percentiles to one decimal in milliseconds, retaining fractional rates.
+
+Analytics legend buttons toggle individual series and rescale the axis to the visible
+values. The latency-only Log scale control spaces powers of ten evenly, with labelled
+ticks; zero durations appear as gaps because logarithms cannot represent zero. The
+table keeps all series available regardless of chart selections.
+
+CSV exports contain ungrouped numbers rounded to three decimal places, including money.
+Money rounding uses exact decimal arithmetic; amounts below $0.0005 export as `0.000`.
+The API and money tooltips retain exact amounts for precision-sensitive work.
+Refresh only the curated README images after the database/Redis gates with:
+
+```bash
+CONSOLE_TEST_PORT=3300 CONSOLE_CURATED_SCREENSHOTS=1 npm run test:e2e
+```

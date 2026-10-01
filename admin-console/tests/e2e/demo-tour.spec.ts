@@ -4,15 +4,30 @@ import { resolve } from "node:path";
 import type { Page } from "@playwright/test";
 async function capture(page: Page, role: string, profile: string, name: string, fullPage = true) {
   await expect(page.locator("main .skeleton")).toHaveCount(0);
-  if (process.env.CONSOLE_SCREENSHOTS !== "1") return;
-  const directory = resolve(`../docs/images/console/${role}/${profile}`);
+  const fullTour = process.env.CONSOLE_SCREENSHOTS === "1";
+  const curated: Record<string, string> = {
+    "platform/light/requests": "requests",
+    "platform/light/analytics": "analytics",
+    "platform/light/settings": "settings",
+    "platform/dark/models": "models-dark",
+    "org/phone/requests": "requests-phone",
+  };
+  const selected = curated[`${role}/${profile}/${name}`];
+  const curatedOnly = process.env.CONSOLE_CURATED_SCREENSHOTS === "1";
+  if (!fullTour && !(curatedOnly && selected)) return;
+  const directory = resolve(
+    fullTour ? `../docs/images/console/${role}/${profile}` : "../docs/images",
+  );
   mkdirSync(directory, { recursive: true });
   await page.evaluate(() => {
     window.scrollTo(0, 0);
     (document.activeElement as HTMLElement)?.blur();
     document.documentElement.classList.add("screenshot-capture");
   });
-  await page.screenshot({ path: resolve(directory, `${name}.png`), fullPage });
+  await page.screenshot({
+    path: resolve(directory, fullTour ? `${name}.png` : `console-${selected}.png`),
+    fullPage,
+  });
   await page.evaluate(() => document.documentElement.classList.remove("screenshot-capture"));
 }
 for (const role of ["platform", "org"] as const) {
@@ -22,7 +37,7 @@ for (const role of ["platform", "org"] as const) {
     const org = role === "platform" ? "Demo Co" : "Northwind Health";
     const team = role === "platform" ? "Search" : "Clinical";
     const profiles =
-      process.env.CONSOLE_SCREENSHOTS === "1"
+      process.env.CONSOLE_SCREENSHOTS === "1" || process.env.CONSOLE_CURATED_SCREENSHOTS === "1"
         ? [
             { name: "light", width: 1440, height: 1050, theme: "light" },
             { name: "dark", width: 1440, height: 1050, theme: "dark" },

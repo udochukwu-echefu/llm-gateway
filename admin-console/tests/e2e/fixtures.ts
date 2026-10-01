@@ -121,7 +121,8 @@ export async function signIn(page: Page, key: string) {
 }
 
 export async function screenshot(page: Page, name: string) {
-  if (process.env.CONSOLE_SCREENSHOTS !== "1") return;
+  if (process.env.CONSOLE_SCREENSHOTS !== "1" && process.env.CONSOLE_CURATED_SCREENSHOTS !== "1")
+    return;
   const images = resolve("../docs/images");
   mkdirSync(images, { recursive: true });
   await page.evaluate(() => {

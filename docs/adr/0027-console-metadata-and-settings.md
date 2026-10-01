@@ -32,8 +32,8 @@ Every BFF query has an operation-specific strict schema. Search scopes orgs, tea
 in SQL before limiting results; client filtering is an additional guard. The credential
 and all gateway calls remain server-only. CSV exports use the same credential redaction,
 stream pages under a 10,000-row cap, quote every cell, escape quotes, and prefix potential
-spreadsheet formulas with an apostrophe, including whitespace-prefixed formulas. Money
-exports keep exact decimal strings. UI arithmetic uses BigInt; half-up display rounding
+spreadsheet formulas with an apostrophe, including whitespace-prefixed formulas. Numeric exports round to three decimal places; money rounding uses exact decimal
+arithmetic. API responses and UI money tooltips retain exact decimal strings. UI arithmetic uses BigInt; half-up display rounding
 shows two decimals or up to four significant digits below one cent. Exact values are in
 tooltips. A nullable budget display column preserves the administrator's original input
 alongside its numeric accounting value.
@@ -67,4 +67,13 @@ refusal applies to known priced costs; unpriced destinations need model restrict
   are different from billing summaries and stable billing pagination.
 - Serialize Settings and redact afterward: rejected because new fields can leak by default.
 - Edit environment settings through the console: rejected in favour of reviewed deploys.
-- Float money or unsafe CSV formulas: rejected because display and exports must be exact/safe.
+- Float money or unsafe CSV formulas: rejected because accounting must remain exact and exports safe.
+
+## Review amendment: latency comparison
+
+Use native legend buttons with aria-pressed to select visible series and compute the axis
+from that selection. Offer base-10 log scaling only for latency. The lower bound is the decade at or below
+the smallest positive visible value, up to 1 ms. Zero timings are gaps. Positive sub-millisecond values stay within the plot
+and their axis ticks retain enough precision to avoid a misleading zero label. Tick labels
+include duration units. The table remains the complete alternative. Use local generated tours and curated README images to bound Git
+growth; retain the cleanup backup branch until review approval.

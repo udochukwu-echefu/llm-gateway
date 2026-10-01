@@ -1101,10 +1101,27 @@ Global search scopes its SQL before matching names or public IDs. CSV export str
 current filter under an explicit 10,000-row cap. It escapes quotes and prefixes spreadsheet
 formula-looking cells so an exported name cannot execute a formula when opened in Excel.
 Money uses exact decimal/BigInt arithmetic, rounds half up for display, and retains exact
-values in tooltips and exports. Entered budget text is stored beside the numeric budget.
+values in tooltips and the API. Entered budget text is stored beside the numeric budget.
 
 The local-only demo seeder creates three organizations and 90 days of synthetic traffic.
 Northwind's historical records predate its current EU-only policy; today's catalogue has
 no verified EU destination. Its audit events are current because the hash-chain API does
 not accept backdated timestamps. Reruns preserve receipt IDs and existing policies, while
 revoking/replacing the demo admin sign-ins in an ignored permission-restricted file.
+
+### Step 15 review: readable numbers and latency comparisons
+
+Database interpolation can produce `1724.9999999999998` even when a time is effectively
+1,725 milliseconds. API readouts round timings to one decimal without changing stored
+receipts; rates remain fractions for API consumers. One console formatting module gives
+each number its unit: whole milliseconds below ten seconds, one-decimal seconds above,
+percentage rates, and grouped token counts. Missing measurements remain unknown.
+CSV rounds numeric cells to three decimals without grouping. Money rounds from its exact
+decimal representation, not a float; the API still supplies exact amounts.
+
+Chart legend buttons let an operator hide a slow provider and compare the remaining ones
+against a newly sized axis. A logarithmic axis means equal vertical distances represent
+equal ratios (1 ms, 10 ms, 100 ms), which keeps fast and slow providers visible together.
+It is available only for latency, labels every tick, and leaves zero timings as gaps.
+The table always includes all providers. Generated full screenshot tours are local and
+ignored; only README-linked images are versioned, preventing each tour from growing Git.

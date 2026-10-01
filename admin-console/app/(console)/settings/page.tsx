@@ -10,6 +10,7 @@ export default async function Page() {
       identity={session.identity!}
       issuedAt={session.issuedAt!}
       lastSeen={session.lastSeen!}
+      demo={session.demo === true}
     />
   );
 }

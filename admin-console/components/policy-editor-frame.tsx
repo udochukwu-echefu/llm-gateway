@@ -1,6 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { PolicyConfirmation } from "./policy-confirmation";
+import { useReadOnly, ReadOnlyNotice, READ_ONLY_REASON } from "./read-only";
 export function PolicyEditorFrame({
   title,
   level,
@@ -32,8 +33,10 @@ export function PolicyEditorFrame({
   valid?: boolean;
   children: ReactNode;
 }) {
+  const readOnly = useReadOnly();
   const [confirmation, setConfirmation] = useState<{ clear: boolean; consequence: string }>();
   function submit(clear: boolean) {
+    if (readOnly) return;
     const consequence = clear
       ? `Remove the override for ${level}? Inherited restrictions and built-in defaults still apply.`
       : danger;
@@ -44,7 +47,9 @@ export function PolicyEditorFrame({
     <section className="panel policy-editor" aria-label={title}>
       <div className="section-heading">
         <h2>{title}</h2>
-        <span className="badge">Editing {level}</span>
+        <span className="badge">
+          {readOnly ? "Viewing" : "Editing"} {level}
+        </span>
       </div>
       <p className="muted">{explanation}</p>
       {conflict && (
@@ -62,7 +67,8 @@ export function PolicyEditorFrame({
       )}
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
-      <fieldset disabled={busy}>
+      <ReadOnlyNotice />
+      <fieldset disabled={busy || readOnly}>
         <legend className="sr-only">{title} settings</legend>
         {children}
       </fieldset>
@@ -77,9 +83,10 @@ export function PolicyEditorFrame({
         </div>
       )}
       <div className="actions">
-        {changes.length > 0 && (
+        {(changes.length > 0 || readOnly) && (
           <button
-            disabled={busy || conflict || needsReload || !valid}
+            disabled={busy || conflict || needsReload || !valid || readOnly}
+            title={readOnly ? READ_ONLY_REASON : undefined}
             onClick={() => submit(false)}
           >
             Save {title.toLowerCase()}
@@ -87,7 +94,8 @@ export function PolicyEditorFrame({
         )}
         <button
           className="secondary"
-          disabled={busy || conflict || needsReload}
+          disabled={busy || conflict || needsReload || readOnly}
+          title={readOnly ? READ_ONLY_REASON : undefined}
           onClick={() => submit(true)}
         >
           Remove override

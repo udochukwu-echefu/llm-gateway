@@ -18,6 +18,7 @@ RUN addgroup -S -g 1001 console && adduser -S -u 1001 -G console console
 COPY --from=builder --chown=console:console /app/.next/standalone ./
 COPY --from=builder --chown=console:console /app/.next/static ./.next/static
 COPY --from=builder --chown=console:console /app/lib/config-schema.mjs ./lib/config-schema.mjs
+COPY --from=builder --chown=console:console /app/lib/demo-role.mjs ./lib/demo-role.mjs
 COPY --from=builder --chown=console:console /app/scripts/bootstrap.mjs /app/scripts/docker-start.mjs /app/scripts/client-address.mjs /app/scripts/request-address.mjs ./scripts/
 COPY --from=dependencies --chown=console:console /app/node_modules/zod ./node_modules/zod
 USER console

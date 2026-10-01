@@ -17,10 +17,12 @@ def usage_rows(
     catalog: Catalog,
     keys: dict[uuid.UUID, list[str]],
     now: datetime,
+    *,
+    days: int | None = None,
 ) -> list[UsageRecord]:
     rows: list[UsageRecord] = []
     start = now.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    days = 3 if org.name == "Orbit Labs" else 90
+    days = days if days is not None else 3 if org.name == "Orbit Labs" else 90
     for day in range(days):
         for team in teams:
             if team.name == "Paused sandbox":

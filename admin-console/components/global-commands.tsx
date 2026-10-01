@@ -78,7 +78,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
           </label>
           {error && <p role="alert">{error}</p>}
           <nav aria-label="Search results">
-            {[...commandPages, ...(identity.role === "platform" ? ["Providers"] : [])]
+            {[...commandPages, ...(!identity.organization ? ["Providers"] : [])]
               .filter((page) => page.toLowerCase().includes(query.toLowerCase()))
               .map((page) => (
                 <Link

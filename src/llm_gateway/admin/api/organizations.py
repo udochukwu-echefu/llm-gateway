@@ -43,7 +43,7 @@ async def list_orgs(
     rows = await admin.list_orgs(cursor, page_size + 1)
     async with context(request).sessions() as session:
         count_query = select(func.count()).select_from(Organization)
-        if admin.role == "org":
+        if admin.organization_id is not None:
             count_query = count_query.where(Organization.id == admin.organization_id)
         total = await session.scalar(count_query)
     result = page(

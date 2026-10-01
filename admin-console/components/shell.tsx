@@ -12,13 +12,16 @@ import { GlobalCommands } from "./global-commands";
 import { Toasts } from "./toasts";
 import { Suspense } from "react";
 import { Breadcrumbs } from "./breadcrumbs";
+import { ReadOnlyProvider } from "./read-only";
 export function Shell(props: { identity: Identity; children: ReactNode }) {
   return (
-    <PreferencesProvider>
-      <UnsavedPolicies>
-        <ShellContent {...props} />
-      </UnsavedPolicies>
-    </PreferencesProvider>
+    <ReadOnlyProvider viewer={props.identity.role === "viewer"}>
+      <PreferencesProvider>
+        <UnsavedPolicies>
+          <ShellContent {...props} />
+        </UnsavedPolicies>
+      </PreferencesProvider>
+    </ReadOnlyProvider>
   );
 }
 function ShellContent({ identity, children }: { identity: Identity; children: ReactNode }) {
@@ -50,7 +53,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               prefetch={false}
               aria-current={path.startsWith("/orgs") ? "page" : undefined}
               href={
-                identity.role === "org" && identity.organization
+                identity.organization
                   ? `/orgs/${encodeURIComponent(identity.organization.name)}`
                   : "/orgs"
               }
@@ -69,7 +72,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               "Analytics",
               "Keys",
               "Models",
-              ...(identity.role === "platform" ? ["Providers"] : []),
+              ...(!identity.organization ? ["Providers"] : []),
               "Settings",
             ].map((label) => (
               <Link
@@ -84,9 +87,17 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           </nav>
           <div className="sidebar-footer">
             <span className="badge">
-              {identity.role === "platform" ? "Platform admin" : "Organisation admin"}
+              {identity.role === "viewer"
+                ? identity.organization
+                  ? "Organisation viewer"
+                  : "Platform viewer"
+                : identity.role === "platform"
+                  ? "Platform admin"
+                  : "Organisation admin"}
             </span>
-            <p>{identity.name}</p>
+            <p className="identity-name" title={identity.name}>
+              {identity.name}
+            </p>
             <small>Key ID · {identity.key_id}</small>
           </div>
         </div>
@@ -126,6 +137,11 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           </div>
         </header>
         <main id="main">
+          {identity.role === "viewer" && (
+            <p className="demo-banner" role="status">
+              Read-only demo. Changes are disabled; this is a live gateway with synthetic data.
+            </p>
+          )}
           {error && <p role="alert">{error}</p>}
           <Breadcrumbs />
           <GlobalCommands identity={identity} />

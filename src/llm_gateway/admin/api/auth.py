@@ -34,7 +34,7 @@ class AdminContext:
 @dataclass(frozen=True)
 class AdminPrincipal:
     key_id: str
-    role: Literal["platform", "org"]
+    role: Literal["platform", "org", "viewer"]
     organization_id: uuid.UUID | None
     name: str
 
@@ -65,10 +65,17 @@ async def authenticate(request: Request) -> None:
         await _reject(ctx.limits, ip)
     request.state.admin_principal = AdminPrincipal(
         record.key_id,
-        cast(Literal["platform", "org"], record.role),
+        cast(Literal["platform", "org", "viewer"], record.role),
         record.organization_id,
         record.name,
     )
+    if record.role == "viewer" and request.method not in {"GET", "HEAD", "OPTIONS"}:
+        raise GatewayError(
+            403,
+            "Read-only administrators cannot make changes.",
+            type="invalid_request_error",
+            code="read_only_admin",
+        )
 
 
 def service(request: Request) -> AdminService:

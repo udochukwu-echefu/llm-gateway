@@ -9,6 +9,8 @@ interface Credentials {
   demoOrg: string;
   orgKey: string;
   revocable: string;
+  viewer: string;
+  orgViewer: string;
   org: string;
   other: string;
 }
@@ -31,6 +33,22 @@ interface Fixtures {
 
 export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
   credentials: async ({}, provide) => {
+    if (process.env.DEMO_APPLIANCE_E2E === "1") {
+      // Actual boot keys never leave the appliance. The scanner also rejects all key patterns.
+      const placeholder = "unissued-appliance-test-placeholder";
+      await provide({
+        platform: placeholder,
+        demoPlatform: placeholder,
+        demoOrg: placeholder,
+        orgKey: placeholder,
+        revocable: placeholder,
+        viewer: placeholder,
+        orgViewer: placeholder,
+        org: "Demo Co",
+        other: "Northwind Health",
+      });
+      return;
+    }
     const state = readFileSync(resolve("tests/e2e/.state.json"), "utf8");
     await provide(JSON.parse(state));
   },
@@ -85,6 +103,8 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
           credentials.revocable,
           credentials.demoPlatform,
           credentials.demoOrg,
+          credentials.viewer,
+          credentials.orgViewer,
         ],
         leaks.tenantKeys,
         leaks.permitted.get(info.testId),
@@ -99,6 +119,8 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
             credentials.revocable,
             credentials.demoPlatform,
             credentials.demoOrg,
+            credentials.viewer,
+            credentials.orgViewer,
           ],
           leaks.tenantKeys,
         );

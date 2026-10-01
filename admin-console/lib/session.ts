@@ -6,6 +6,6 @@ import { sessionOptions, type SessionData } from "./session-policy";
 export async function readSession() {
   return getIronSession<SessionData>(
     await cookies(),
-    sessionOptions(readConfig().ADMIN_CONSOLE_SESSION_SECRET),
+    sessionOptions(readConfig().ADMIN_CONSOLE_SESSION_SECRET, readConfig().DEMO_MODE),
   );
 }

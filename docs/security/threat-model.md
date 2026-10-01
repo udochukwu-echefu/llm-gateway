@@ -1,4 +1,4 @@
-# Gateway threat model (through step 14 providers)
+# Gateway threat model (through step 16 public demo)
 
 The tenant is an organization; a team owns each virtual key. This protects provider
 credits from unauthenticated traffic, not from an abusive holder of a valid key. Risk
@@ -118,3 +118,22 @@ role, but no tenant policies or credentials beyond its existing identity metadat
 | Cross-org global search | SQL org predicate before name/ID matching and limit; unchanged credential forwarding; role-matrix, HTTP and browser tests | Authorized platform admins intentionally search all orgs; client filtering alone is insufficient |
 | Request metadata IDOR | Scoped list and detail queries, strict filters, tied-timestamp cursor, isolation mutation test | Receipts expose operational activity; retain private-network/database controls |
 | Demo seeding a production DB | Opt-in plus verification of the actual bound database host before I/O; only localhost/127.0.0.1/::1/postgres; mode-0600 ignored rotated demo keys | A local tunnel or deliberately misnamed compose service can reach a remote database; operators must keep the demo on a disposable local stack |
+
+## Public synthetic appliance (step 16)
+
+| Threat | Prevention | Residual risk |
+|---|---|---|
+| Public visitor vandalises shared data | Centrally enforced viewer role denies unsafe methods before handlers/audit/idempotency; BFF defense and disabled explained controls | Future endpoints must join the viewer matrix; UI alone is not a lock |
+| Published login credential / accidental platform key | Server-only Explore login; startup and sign-in check role/scope; response scans; two-hour/30-minute demo sessions | Encrypted cookies are bearer tokens; process compromise can read keys |
+| Public admin door through managed web-service URL | One container; only console 0.0.0.0:3000; admin/public gateway/metrics/fake bind 127.0.0.1; no Caddy | Host/platform administrators can reach loopback and inspect process environments |
+| Boot credential leaks into stdout/disk | Per-boot keys passed via checked anonymous pipe and relevant child environments; discarded child output; no sign-in seeder files | Python memory is not securely erased; crash dumps/root access remain sensitive |
+| Rotation breaks overlapping rollout | Only named appliance keys older than 24 h revoked; exactly one steady-state instance | Old keys persist until a later boot; no continuous expiry worker; multi-instance operation unsupported |
+| Cost abuse / real provider traffic | Fake-only exact startup URL allowlist rechecked after secret store; synthetic key placeholders; tiny localhost traffic | Managed compute/database reads still incur hosting cost; network egress is not claimed blocked |
+| Scraping synthetic organization/usage metadata | Data is intentionally public synthetic fiction; no prompts/completions in usage storage | CSV/search allow efficient scraping; no confidentiality promise for demo metadata |
+| Denial of service / cold-start storm | Bounded sessions, socket-derived sign-in throttle, bounded boot/readiness; fail-closed Redis; one instance | Throttle is per process and resets; reads/audit verification consume DB/CPU; platform controls require verification |
+| Forged X-Forwarded-For | Trusted hops defaults zero until platform topology is verified | Router clients may share one quota; do not assume an undocumented chain is trustworthy |
+| Managed Postgres accessible with credentials | Strong platform-generated password, binding retains TLS where supplied, only synthetic data/HMAC hashes, pepper separate | Not a private network; stolen DB credentials expose metadata/hash material; accepted demo risk, not production |
+| Lazy refresh mistakenly seeds a real remote database | Remote seeding requires demo deployment + explicit remote opt-in + disabled seeder key-file output; provenance check | An operator can deliberately misbind services; isolate demo project and never use production data |
+| Scale-to-zero stale history / unavailable first request | Top up only missing days on wake; bounded migration lock; localhost traffic cannot keep router awake | Cold start adds seconds; no cron/HA; history/audit/old-key rows grow without retention |
+
+See [ADR 0028](../adr/0028-public-demo-mode.md) and [deployment runbook](../deployment-demo.md).

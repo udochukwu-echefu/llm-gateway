@@ -210,3 +210,25 @@ async def test_callable_seeder_refuses_remote_bound_engine_before_io(
             await seed_demo(sessions, TEST_PEPPER.encode())
     finally:
         await engine.dispose()
+
+
+@pytest.mark.db
+async def test_demo_seed_flag_skips_signin_key_creation_and_rotation(
+    migrated_database: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("GATEWAY_DEMO_SEED", "1")
+    monkeypatch.setenv("GATEWAY_DEMO_SEED_SIGNIN_KEYS", "0")
+    output = tmp_path / "must-not-create.env"
+    monkeypatch.setenv("GATEWAY_DEMO_KEYS_FILE", str(output))
+    engine = create_async_engine(migrated_database)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with sessions() as session:
+            before = await session.scalar(select(func.count()).select_from(AdminKey))
+        await seed_demo(sessions, TEST_PEPPER.encode())
+        async with sessions() as session:
+            after = await session.scalar(select(func.count()).select_from(AdminKey))
+        assert before == after
+        assert not output.exists()
+    finally:
+        await engine.dispose()

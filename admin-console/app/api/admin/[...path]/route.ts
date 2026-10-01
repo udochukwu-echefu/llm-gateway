@@ -28,6 +28,8 @@ async function forward(request: NextRequest, context: Context) {
     session.destroy();
     return reply({ error: "Please sign in again." }, 401);
   }
+  if (session.identity?.role === "viewer" && request.method !== "GET")
+    return reply({ error: "Read-only demo. Changes are disabled.", code: "read_only_admin" }, 403);
   let body: unknown;
   if (schema) {
     const input: unknown = await request.json().catch(() => null);

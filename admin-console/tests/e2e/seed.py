@@ -20,7 +20,9 @@ async def main() -> None:
     org = await admin.authorize_org("Demo Co")
     await admin.create_org("Other workspace")
     await admin.create_team("Other workspace", "Private team")
-    platform = await admin.create_admin_key("Fake platform operator", "platform", None)
+    platform = await admin.create_admin_key(
+        "Fake platform operator " + "LongNameWithoutSpaces" * 4, "platform", None
+    )
     org_key = await admin.create_admin_key("Fake org operator", "org", org.name)
     demo_values = dict(
         line.split("=", 1)
@@ -29,6 +31,10 @@ async def main() -> None:
         ).splitlines()
     )
     revocable = await admin.create_admin_key("Fake revocable operator", "org", org.name)
+    viewer = await admin.create_admin_key("Public platform viewer", "viewer", None)
+    org_viewer = await admin.create_admin_key(
+        "Public Northwind viewer", "viewer", "Northwind Health"
+    )
     async with sessions.begin() as session:
         for _ in range(26):
             await append_event(
@@ -42,6 +48,8 @@ async def main() -> None:
             "demoOrg": demo_values["DEMO_ORG_ADMIN_KEY"],
             "orgKey": org_key,
             "revocable": revocable,
+            "viewer": viewer,
+            "orgViewer": org_viewer,
             "org": org.name,
             "other": "Other workspace",
         },

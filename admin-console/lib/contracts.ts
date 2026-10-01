@@ -1,7 +1,7 @@
 export interface Identity {
   key_id: string;
   name: string;
-  role: "platform" | "org";
+  role: "platform" | "org" | "viewer";
   organization: {
     id: string;
     name: string;

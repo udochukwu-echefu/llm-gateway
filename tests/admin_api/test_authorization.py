@@ -1,6 +1,7 @@
 """One route inventory and role matrix for every private endpoint."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 import pytest
 
@@ -17,47 +18,48 @@ class Case:
     platform_only: bool = False
     scoped: bool = True
     conditional: bool = False
+    viewer: Literal["read", "deny"] | None = None
 
 
 CASES = [
-    Case("GET", "/me", scoped=False),
-    Case("GET", "/catalog", scoped=False),
-    Case("GET", "/search?q=fake", scoped=False),
-    Case("GET", "/settings", platform_only=True, scoped=False),
-    Case("GET", "/providers", platform_only=True, scoped=False),
-    Case("GET", "/orgs/{org}/requests"),
-    Case("GET", "/orgs/{org}/requests/{request_id}"),
-    Case("GET", "/orgs/{org}/analytics"),
-    Case("POST", "/orgs", {"name": "created"}, True, False),
-    Case("GET", "/orgs", scoped=False),
-    Case("POST", "/orgs/{org}/teams", {"name": "new-team"}),
-    Case("GET", "/orgs/{org}/teams"),
-    Case("POST", "/orgs/{org}/teams/{team}/keys", {"name": "new-key"}),
-    Case("GET", "/orgs/{org}/keys"),
-    Case("POST", "/keys/{key_id}/revoke"),
-    Case("PUT", "/orgs/{org}/teams/{team}/limits", {"rpm": 7}),
-    Case("GET", "/orgs/{org}/teams/{team}/limits"),
-    Case("DELETE", "/orgs/{org}/teams/{team}/limits"),
-    Case("PUT", "/orgs/{org}/teams/{team}/budget", {"usd": "1.250000000001"}),
-    Case("GET", "/orgs/{org}/teams/{team}/budget"),
-    Case("PUT", "/orgs/{org}/model-policy", {"allow": []}),
-    Case("GET", "/orgs/{org}/model-policy"),
-    Case("DELETE", "/orgs/{org}/model-policy"),
-    Case("PUT", "/orgs/{org}/guardrails", {"actions": []}),
-    Case("GET", "/orgs/{org}/guardrails"),
-    Case("DELETE", "/orgs/{org}/guardrails"),
-    Case("PUT", "/orgs/{org}/residency", {"regions": []}),
-    Case("GET", "/orgs/{org}/residency"),
-    Case("DELETE", "/orgs/{org}/residency"),
-    Case("GET", "/orgs/{org}/usage"),
-    Case("POST", "/orgs/{org}/cache/purge"),
-    Case("GET", "/audit", scoped=False),
-    Case("GET", "/audit/verify", platform_only=True, scoped=False),
+    Case("GET", "/me", scoped=False, viewer="read"),
+    Case("GET", "/catalog", scoped=False, viewer="read"),
+    Case("GET", "/search?q=fake", scoped=False, viewer="read"),
+    Case("GET", "/settings", platform_only=True, scoped=False, viewer="read"),
+    Case("GET", "/providers", platform_only=True, scoped=False, viewer="read"),
+    Case("GET", "/orgs/{org}/requests", viewer="read"),
+    Case("GET", "/orgs/{org}/requests/{request_id}", viewer="read"),
+    Case("GET", "/orgs/{org}/analytics", viewer="read"),
+    Case("POST", "/orgs", {"name": "created"}, True, False, viewer="deny"),
+    Case("GET", "/orgs", scoped=False, viewer="read"),
+    Case("POST", "/orgs/{org}/teams", {"name": "new-team"}, viewer="deny"),
+    Case("GET", "/orgs/{org}/teams", viewer="read"),
+    Case("POST", "/orgs/{org}/teams/{team}/keys", {"name": "new-key"}, viewer="deny"),
+    Case("GET", "/orgs/{org}/keys", viewer="read"),
+    Case("POST", "/keys/{key_id}/revoke", viewer="deny"),
+    Case("PUT", "/orgs/{org}/teams/{team}/limits", {"rpm": 7}, viewer="deny"),
+    Case("GET", "/orgs/{org}/teams/{team}/limits", viewer="read"),
+    Case("DELETE", "/orgs/{org}/teams/{team}/limits", viewer="deny"),
+    Case("PUT", "/orgs/{org}/teams/{team}/budget", {"usd": "1.250000000001"}, viewer="deny"),
+    Case("GET", "/orgs/{org}/teams/{team}/budget", viewer="read"),
+    Case("PUT", "/orgs/{org}/model-policy", {"allow": []}, viewer="deny"),
+    Case("GET", "/orgs/{org}/model-policy", viewer="read"),
+    Case("DELETE", "/orgs/{org}/model-policy", viewer="deny"),
+    Case("PUT", "/orgs/{org}/guardrails", {"actions": []}, viewer="deny"),
+    Case("GET", "/orgs/{org}/guardrails", viewer="read"),
+    Case("DELETE", "/orgs/{org}/guardrails", viewer="deny"),
+    Case("PUT", "/orgs/{org}/residency", {"regions": []}, viewer="deny"),
+    Case("GET", "/orgs/{org}/residency", viewer="read"),
+    Case("DELETE", "/orgs/{org}/residency", viewer="deny"),
+    Case("GET", "/orgs/{org}/usage", viewer="read"),
+    Case("POST", "/orgs/{org}/cache/purge", viewer="deny"),
+    Case("GET", "/audit", scoped=False, viewer="read"),
+    Case("GET", "/audit/verify", platform_only=True, scoped=False, viewer="read"),
 ]
 
 CASES.extend(
     [
-        Case(case.method, case.route, case.body, conditional=True)
+        Case(case.method, case.route, case.body, conditional=True, viewer=case.viewer)
         for case in CASES
         if case.method in ("PUT", "DELETE")
         and case.route.endswith(("model-policy", "guardrails", "residency"))
@@ -81,6 +83,7 @@ def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
         for method in operations
     }
     assert registered == {(case.method, case.route.split("?")[0]) for case in CASES}
+    assert all(case.viewer in {"read", "deny"} for case in CASES)
 
 
 @pytest.mark.parametrize(
@@ -127,3 +130,48 @@ async def test_authorization_matrix(admin_harness: AdminHarness, case: Case) -> 
     if other is not None:
         assert other.status_code == 404
     assert missing.status_code == 401
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: f"{case.method} {case.route}")
+@pytest.mark.parametrize("scoped", [False, True], ids=["platform-viewer", "org-viewer"])
+async def test_viewer_authorization_matrix(
+    admin_harness: AdminHarness, case: Case, scoped: bool
+) -> None:
+    from sqlalchemy import text
+
+    if "{request_id}" in case.route:
+        from tests.admin_api.usage_fixtures import add_receipts
+
+        await add_receipts(admin_harness, "fake-matrix-request")
+    key = admin_harness.org_viewer_key if scoped else admin_harness.viewer_key
+    headers = admin_harness.headers(key)
+    headers["Idempotency-Key"] = "viewer-must-not-create-a-record"
+    headers["If-Match"] = '"' + "0" * 64 + '"'
+    # Hash all mutable admin state, including audit and replay rows, without exposing secrets.
+    query = text("""
+        SELECT md5(string_agg(value, '' ORDER BY value)) FROM (
+            SELECT row_to_json(t)::text AS value FROM organizations t UNION ALL
+            SELECT row_to_json(t)::text FROM teams t UNION ALL
+            SELECT row_to_json(t)::text FROM api_keys t UNION ALL
+            SELECT row_to_json(t)::text FROM admin_keys t UNION ALL
+            SELECT row_to_json(t)::text FROM team_limits t UNION ALL
+            SELECT row_to_json(t)::text FROM audit_events t UNION ALL
+            SELECT row_to_json(t)::text FROM admin_idempotency t
+        ) state
+    """)
+    async with admin_harness.sessions() as session:
+        before = await session.scalar(query)
+    response = await admin_harness.client.request(
+        case.method, path(case, admin_harness), json=case.body, headers=headers
+    )
+    expected = 403 if case.viewer == "deny" or (scoped and case.platform_only) else 200
+    assert response.status_code == expected
+    if case.viewer == "deny":
+        assert response.json()["error"]["code"] == "read_only_admin"
+    async with admin_harness.sessions() as session:
+        assert await session.scalar(query) == before
+    if scoped and case.scoped and case.viewer == "read":
+        other = await admin_harness.client.get(
+            path(case, admin_harness, other=True), headers=headers
+        )
+        assert other.status_code == 404

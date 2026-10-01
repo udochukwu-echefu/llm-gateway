@@ -8,6 +8,11 @@ import { AdminApiError } from "@/lib/admin-client";
 import { loginThrottle } from "@/lib/login-throttle";
 export async function POST(request: Request) {
   const config = readConfig();
+  if (config.DEMO_MODE && !config.DEMO_ALLOW_KEY_SIGN_IN)
+    return NextResponse.json(
+      { error: "Not found." },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
+    );
   if (!hasSameOrigin(request, config.ADMIN_CONSOLE_ORIGIN))
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
   const client = request.headers.get("x-console-client-address") ?? "unknown";
@@ -30,12 +35,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter a valid admin API key." }, { status: 400 });
   }
   try {
-    const identity = await fetchIdentity(config.ADMIN_API_URL, parsed.data.key);
+    const identity = await fetchIdentity(config.ADMIN_API_URL, parsed.data.key, config.DEMO_MODE);
     (await readSession()).destroy();
     const session = await readSession();
     Object.assign(session, {
       adminKey: parsed.data.key,
       identity,
+      demo: config.DEMO_MODE,
       issuedAt: Date.now(),
       lastSeen: Date.now(),
     });

@@ -5,12 +5,14 @@ import { browserApi } from "@/lib/browser-api";
 import { useResource } from "./use-resource";
 import { DataState } from "./data-state";
 import { MutationForm } from "./mutation-form";
+import { useReadOnly, READ_ONLY_REASON } from "./read-only";
 const names: Record<LimitName, string> = {
   rpm: "Requests per minute",
   tpm: "Tokens per minute",
   max_concurrency: "Max concurrency",
 };
 export function TeamLimits({ base }: { base: string }) {
+  const readOnly = useReadOnly();
   const limits = useResource<Limits>(`/api/admin${base}/limits`);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -71,7 +73,8 @@ export function TeamLimits({ base }: { base: string }) {
           />
           <button
             className="secondary"
-            disabled={busy}
+            disabled={busy || readOnly}
+            title={readOnly ? READ_ONLY_REASON : undefined}
             onClick={async () => {
               setBusy(true);
               setError("");

@@ -13,7 +13,7 @@ const cases = [
   {
     name: "e callable seeder local check removed",
     file: "scripts/seed_demo.py",
-    before: "    require_local_sessions(sessions)",
+    before: "    require_local_sessions(sessions, allow_remote_demo=remote)",
     after: "    # Deliberate break: omitted local bound-engine check.",
     test: "tests/test_demo_seed.py::test_callable_seeder_refuses_remote_bound_engine_before_io",
   },
@@ -36,7 +36,7 @@ const cases = [
     name: "d command search all-org scope",
     file: "src/llm_gateway/admin/api/search.py",
     before:
-      'scope = [] if admin.role == "platform" else [Organization.id == admin.organization_id]',
+      "scope = [] if admin.organization_id is None else [Organization.id == admin.organization_id]",
     after: "scope = []",
     test: "tests/admin_api/test_search.py::test_search_is_scoped_before_matching_names_and_ids",
   },

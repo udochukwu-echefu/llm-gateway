@@ -1125,3 +1125,59 @@ equal ratios (1 ms, 10 ms, 100 ms), which keeps fast and slow providers visible 
 It is available only for latency, labels every tick, and leaves zero timings as gaps.
 The table always includes all providers. Generated full screenshot tours are local and
 ignored; only README-linked images are versioned, preventing each tour from growing Git.
+
+## Step 16: a public tour with locked controls
+
+A viewer has a badge that opens read-only doors. Its organization ID decides whether it
+can see one workspace or all of them. The admin API checks the badge centrally and refuses
+changes before handlers run. An org-scoped viewer still gets “not found” for other orgs.
+The console disables change controls with an explanation, but the API is the lock, not
+the button. Exports and search are reads and remain usable.
+
+“Explore” sends only a choice of scope to the console server. The server checks its private
+viewer badge, stores it in the existing encrypted session and returns public identity.
+The badge never appears in HTML, scripts or JSON. Startup refuses a normal administrator
+badge, so a configuration mistake cannot turn the tour into public management access.
+Demo sessions last at most two hours, with the existing thirty-minute idle limit.
+
+A **demo appliance** packages the console, gateway and fake provider in one portable
+container. InstaCloud documents no private web-service network: publishing separate
+services would give the management door a public URL. Instead, only the console listens
+outside the container; the API, admin API, metrics and fake provider listen on loopback
+(an address reachable only inside that container). The platform terminates HTTPS.
+
+A **supervisor** is a small parent process that starts children, notices a crash and shuts
+them down in order. It waits for the data services, migrates under a Postgres advisory
+lock (one boot renovates the schema at a time), and appends missing synthetic days. It
+issues new viewer/traffic badges on every boot; plaintext travels through an anonymous
+memory pipe and child environments, never files or output. Only badges older than 24 hours
+are revoked, so two briefly overlapping deployments do not invalidate each other.
+Run exactly one instance; this demo rotation is not a production identity system.
+
+**Scale-to-zero** suspends the container after five idle minutes. A visitor wakes it;
+missing days are filled lazily on wake, so there is no cron job keeping it awake. An
+internal traffic loop sends a small burst, then about one request per minute while awake.
+Loopback traffic never touches the platform router. Its fake answers and token counts
+illustrate accounting without model charges; an exact URL guard rejects real providers.
+Managed Postgres is credential-reachable, not an isolated private database: only synthetic
+metadata and hashed badges belong there. See ADR 0028 and [the deployment runbook](deployment-demo.md)
+for accepted demo risks, cold-start measurements and operator procedures.
+
+### Step 16 review: friendly visitor identities
+
+The database's key name is an internal label used to identify each boot for rotation.
+The console's **display name** is the label a visitor sees, not an authorization field.
+In demo mode, viewer identities show “Demo visitor · Platform viewer” or
+“Demo visitor · Northwind Health viewer” on sign-in, session refresh and Settings.
+The key ID, role and organization scope remain unchanged, and boot-key rotation still
+uses the original internal names. Ordinary identities retain their names. All sidebar
+names wrap, even without spaces, and expose the full display name in a native tooltip.
+
+### Step 16 review: tests must run the current appliance
+
+An image tag is a reusable nickname, not proof of which code it contains. The demo test
+harness checks a **revision label** (a build-time metadata value containing the Git commit)
+before starting containers. Missing or mismatched images are rebuilt and the new label is
+checked again. Uncommitted edits are marked `-dirty` and always force a build, because two
+different sets of edits can have the same commit. Build failures stop the suite with a
+clear manual build command instead of testing old binaries and reporting a false pass.

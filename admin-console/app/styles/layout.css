@@ -75,6 +75,10 @@ nav a[aria-current] {
   margin: 12px 0 4px;
 }
 
+.sidebar-footer .identity-name {
+  overflow-wrap: anywhere;
+}
+
 .workspace {
   min-width: 0;
   flex: 1;

@@ -5,6 +5,7 @@ const origin = `http://[::1]:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  testIgnore: "**/public-demo.spec.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -39,6 +40,7 @@ export default defineConfig({
         ADMIN_CONSOLE_SESSION_SECRET: "obviously-fake-e2e-session-secret-at-least-32-bytes",
         NEXT_TELEMETRY_DISABLED: "1",
         ADMIN_CONSOLE_TRUSTED_PROXY_HOPS: "0",
+        DEMO_MODE: "false",
       },
     },
   ],

@@ -275,6 +275,61 @@ Redis outage behavior is covered at the HTTP/component layers, avoiding stopping
 shared Redis used by local tests and other development work.
 CI runs formatting, lint, typing, unit/component tests, build and the real-stack Chromium suite.
 
+### Live demo
+
+Live URL: **not deployed yet** (`https://demo.example.invalid` placeholder).
+The public tour offers platform-wide and Northwind Health read-only Explore sign-ins,
+with friendly “Demo visitor” identities rather than internal boot-key names.
+Viewer permissions are enforced by the gateway, not merely disabled buttons. Demo keys
+stay server-side; sessions last two hours with a thirty-minute idle limit. CSV and search
+remain usable. No trackers, real customer data or paid model calls are included.
+
+The portable non-root appliance packages console, gateway and fake provider behind one
+public console port for InstaCloud scale-to-zero. Per-boot viewer/traffic keys stay in
+memory; missing synthetic days are appended on wake. Run exactly one instance.
+See [deployment, DNS, rotation and Docker fallback](docs/deployment-demo.md) and
+[ADR 0028](docs/adr/0028-public-demo-mode.md). Existing synthetic screenshots below show
+the product; below are the public Explore sign-in and locked viewer controls.
+
+![Public demo sign-in](docs/images/console-public-demo-login.png)
+![Platform viewer](docs/images/console-public-demo-platform.png)
+![Read-only controls](docs/images/console-public-demo-read-only-controls.png)
+
+For a separately hosted console, `DEMO_MODE` defaults to `false`. Setting it to `true`
+requires server-only `DEMO_VIEWER_KEY` (platform-wide viewer); optional
+`DEMO_ORG_VIEWER_KEY` must be a Northwind Health scoped viewer. Startup and every Explore
+sign-in check those roles/scopes. `DEMO_ALLOW_KEY_SIGN_IN` defaults to `false`; enable it
+explicitly only if the owner needs ordinary key sign-in alongside the tour. Public demo
+sessions have the shorter lifetime regardless of which sign-in route is used. Never put
+these settings in `NEXT_PUBLIC_*`, client props or public Compose secrets. The appliance
+generates both viewer keys in memory; it does not need these key settings in its env file.
+
+#### Demo appliance tests and screenshots
+
+From `admin-console/`, after the Python database/Redis suites:
+
+```bash
+CONSOLE_TEST_PORT=3300 npm run test:e2e:demo
+CONSOLE_TEST_PORT=3300 CONSOLE_CURATED_SCREENSHOTS=1 npm run test:e2e:demo
+```
+
+The harness compares the image's `org.opencontainers.image.revision` label with
+`git rev-parse HEAD` before starting the disposable demo stack. Missing, unlabelled or
+mismatched images are rebuilt automatically with `DEMO_SOURCE_REVISION` set to that commit.
+Uncommitted tracked/untracked files add `-dirty`; dirty checkouts always rebuild, since
+different edits can share that stamp. It never silently runs a stale tagged image.
+Build failures (including missing offline dependencies) stop with a manual build command;
+allow up to 30 minutes for build/startup. For a clean checkout, prebuild from the repository root:
+
+```bash
+docker compose -f deploy/demo/compose.yaml --profile demo-test build --build-arg DEMO_SOURCE_REVISION="$(git rev-parse HEAD)" appliance
+```
+
+Docker must be running. This profile publishes only console on loopback 3300, creates
+isolated Postgres/Redis and removes only its own disposable resources on shutdown.
+The curated screenshot command refreshes all four `docs/images/console-public-demo-*.png`
+images; inspect the rendered states before committing them.
+
 ### Synthetic local demo data
 
 With your **local** database migrated and GATEWAY_DATABASE_URL and a 32-byte

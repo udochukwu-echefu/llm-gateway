@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+!.env.demo.example
+deploy/demo/.secrets/
+demo-runtime.env
 
 # Python
 __pycache__/

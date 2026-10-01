@@ -61,9 +61,11 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                 <span className="sidebar-toggle-icon" aria-hidden="true" />
               </button>
             </div>
-            <div className="scope-label">
-              <small>Workspace scope</small>
-              {identity.organization?.name ?? "All organisations"}
+            <div className="sidebar-scope">
+              <div className="scope-label">
+                <small>Workspace scope</small>
+                {identity.organization?.name ?? "All organisations"}
+              </div>
             </div>
             <p className="nav-label">WORKSPACE</p>
             <nav className="main-nav" aria-label="Main navigation">
@@ -119,16 +121,18 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               ))}
             </nav>
             <div className="sidebar-footer">
-              <span className="badge">
-                {identity.role === "viewer"
-                  ? identity.organization
-                    ? "Organisation viewer"
-                    : "Platform viewer"
-                  : identity.role === "platform"
-                    ? "Platform admin"
-                    : "Organisation admin"}
-              </span>
-              <small>Key ID · {identity.key_id}</small>
+              <div className="sidebar-footer-content">
+                <span className="badge">
+                  {identity.role === "viewer"
+                    ? identity.organization
+                      ? "Organisation viewer"
+                      : "Platform viewer"
+                    : identity.role === "platform"
+                      ? "Platform admin"
+                      : "Organisation admin"}
+                </span>
+                <small>Key ID · {identity.key_id}</small>
+              </div>
             </div>
           </div>
         </div>

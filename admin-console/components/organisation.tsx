@@ -8,9 +8,10 @@ import { MutationForm } from "./mutation-form";
 import { UsageOverview } from "./usage-overview";
 import { Policies } from "./policies";
 import { CachePurge } from "./cache-purge";
+import { TeamsInventory } from "./teams-inventory";
 import { usePolicyNavigation } from "./unsaved-policy";
 export function Organisation({ org }: { org: string }) {
-  const [cursor, setCursor] = useState("");
+  const cursor = "";
   const [tab, setTab] = useState("overview");
   const leave = usePolicyNavigation();
   const [version, setVersion] = useState(0);
@@ -65,55 +66,7 @@ export function Organisation({ org }: { org: string }) {
                     setVersion((v) => v + 1);
                   }}
                 />
-                {teams.data.data.length ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Team</th>
-                        <th>Created</th>
-                        <th>Team ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {teams.data.data.map((team) => (
-                        <tr key={team.id}>
-                          <td>
-                            <Link
-                              prefetch={false}
-                              href={`${base}/teams/${encodeURIComponent(team.name)}`}
-                            >
-                              {team.name}
-                            </Link>
-                          </td>
-                          <td>{team.created_at?.slice(0, 10)}</td>
-                          <td>
-                            <code>{team.id}</code>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p className="empty">
-                    Create your first team using the form above. A team groups application keys,
-                    policies and budgets.
-                  </p>
-                )}
-                <div className="actions">
-                  {cursor && (
-                    <button className="secondary" onClick={() => setCursor("")}>
-                      First page
-                    </button>
-                  )}
-                  {teams.data.next_cursor && (
-                    <button
-                      className="secondary"
-                      onClick={() => setCursor(String(teams.data!.next_cursor))}
-                    >
-                      Next teams
-                    </button>
-                  )}
-                </div>
+                <TeamsInventory key={version} base={base} />
               </section>
               <UsageOverview key={version} org={org} />
             </>

@@ -1,6 +1,8 @@
+import { MoneyValue } from "./money-value";
+import { SortableTable } from "./sortable-table";
 import Link from "next/link";
 import type { loadOverview } from "@/lib/overview-data";
-import { budgetPercent, money, pico } from "@/lib/money";
+import { budgetPercent, pico } from "@/lib/money";
 export function OverviewBudgets({
   rows,
 }: {
@@ -10,7 +12,7 @@ export function OverviewBudgets({
     <section className="panel">
       <h2>Teams closest to their budget</h2>
       {rows.length ? (
-        <table>
+        <SortableTable name="overview-budgets-1">
           <thead>
             <tr>
               <th>Team / organisation</th>
@@ -25,6 +27,10 @@ export function OverviewBudgets({
               const reached =
                 spend !== null &&
                 pico(spend) * 10n ** 12n >= pico(budget.effective.usd) * threshold;
+              const over =
+                spend !== null &&
+                pico(budget.effective.usd) > 0n &&
+                pico(spend) >= pico(budget.effective.usd);
               return (
                 <tr key={team.id}>
                   <td>
@@ -37,8 +43,16 @@ export function OverviewBudgets({
                     <small>{org.name}</small>
                   </td>
                   <td>
-                    {money(spend)} / {money(budget.effective.usd)}
+                    <span
+                      title={`Exact spend: ${spend ?? "unknown"}; budget: ${budget.effective.usd}`}
+                    >
+                      <MoneyValue value={spend} /> /{" "}
+                      <span title={`Exact budget: ${budget.effective.usd}`}>
+                        ${budget.display_usd ?? budget.effective.usd}
+                      </span>
+                    </span>
                     <progress
+                      className={over ? "danger" : reached ? "warning" : ""}
                       max="100"
                       aria-label={`${team.name} budget used`}
                       value={spend === null ? 0 : budgetPercent(spend, budget.effective.usd)}
@@ -48,16 +62,22 @@ export function OverviewBudgets({
                     )}
                   </td>
                   <td>
-                    <span className={reached ? "badge warning" : "badge"}>
-                      {spend === null ? "Unknown spend" : reached ? "Above" : "Below"} alert
-                      threshold · {Number((threshold * 100n) / 10n ** 12n)}%
+                    <span className={over ? "badge danger" : reached ? "badge warning" : "badge"}>
+                      {spend === null
+                        ? "Unknown spend"
+                        : over
+                          ? "Over budget · Requests are being refused"
+                          : reached
+                            ? "Above alert threshold"
+                            : "Below alert threshold"}{" "}
+                      · {Number((threshold * 100n) / 10n ** 12n)}%
                     </span>
                   </td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </SortableTable>
       ) : (
         <p className="empty">No team budgets yet. Set a monthly budget on a team’s Budget tab.</p>
       )}

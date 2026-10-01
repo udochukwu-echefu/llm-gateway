@@ -4,10 +4,12 @@ export function Dialog({
   title,
   onClose,
   children,
+  drawer = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  drawer?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -45,6 +47,7 @@ export function Dialog({
   }
   return (
     <dialog
+      className={drawer ? "detail-drawer" : undefined}
       ref={ref}
       tabIndex={-1}
       onKeyDown={containFocus}

@@ -1,22 +1,34 @@
 "use client";
 import { useState } from "react";
-import type { AuditEvent, Page } from "@/lib/contracts";
+import type { AuditEvent } from "@/lib/contracts";
 import { browserApi } from "@/lib/browser-api";
-import { useResource } from "./use-resource";
+import { usePagedResource } from "./use-paged-resource";
+import { useListQuery } from "./use-list-query";
+import { listSort } from "@/lib/list-query";
+import { FilterBar, SortHeading, PageCount } from "./list-controls";
+import { RecordTime } from "./record-time";
+import { CopyId } from "./copy-id";
+import { Dialog } from "./dialog";
+import { auditActions } from "@/lib/audit-actions";
 import { DataState } from "./data-state";
 export function AuditLog({ platform }: { platform: boolean }) {
-  const [filters, setFilters] = useState({ action: "", since: "" });
-  const [cursor, setCursor] = useState("");
+  const { params } = useListQuery();
+  const [detail, setDetail] = useState<AuditEvent>();
   const [verification, setVerification] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const query = new URLSearchParams({
-    page_size: "25",
-    ...(filters.action && { action: filters.action }),
-    ...(filters.since && { since: filters.since }),
-    ...(cursor && { cursor }),
-  });
-  const events = useResource<Page<AuditEvent>>(`/api/admin/audit?${query}`);
+  const query = new URLSearchParams(
+    Array.from(params).filter(([key]) =>
+      ["action", "actor", "target_type", "since", "until"].includes(key),
+    ),
+  );
+  query.set("page_size", "25");
+  const events = usePagedResource<AuditEvent>(`/api/admin/audit?${query}`);
+  const rows = listSort(
+    events.data,
+    (params.get("sort") ?? "occurred_at") as keyof AuditEvent,
+    params.get("direction") ?? "desc",
+  );
   return (
     <>
       <div className="page-heading">
@@ -56,84 +68,82 @@ export function AuditLog({ platform }: { platform: boolean }) {
       </div>
       <section className="panel">
         <h2>Events</h2>
-        <form
-          className="mutation-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const form = new FormData(e.currentTarget);
-            setFilters({
-              action: String(form.get("action") ?? ""),
-              since: String(form.get("since") ?? ""),
-            });
-            setCursor("");
-          }}
-        >
-          <label>
-            Action
-            <input name="action" placeholder="e.g. create-team" />
-          </label>
-          <label>
-            From date (UTC)
-            <input name="since" type="date" />
-          </label>
-          <button>Filter events</button>
-        </form>
+        <FilterBar
+          fields={[
+            { name: "action", label: "Action", options: auditActions },
+            { name: "actor", label: "Actor" },
+            {
+              name: "target_type",
+              label: "Target type",
+              options: ["organization", "team", "key", "admin-key"],
+            },
+            { name: "since", label: "From date (UTC)", type: "date" },
+            { name: "until", label: "To date (UTC)", type: "date" },
+          ]}
+        />
+        <a className="button secondary" href={`/api/export/audit?${query}`}>
+          Export CSV (up to 10,000 events)
+        </a>
         <p role="status">{verification}</p>
         {error && <p role="alert">{error}</p>}
         <DataState {...events} />
-        {events.data &&
-          (events.data.data.length ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Time (UTC)</th>
-                  <th>Actor</th>
-                  <th>Action</th>
-                  <th>Target</th>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <SortHeading field="occurred_at">Time</SortHeading>
+                <SortHeading field="actor">Actor</SortHeading>
+                <SortHeading field="action">Action</SortHeading>
+                <SortHeading field="target_id">Target</SortHeading>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((event) => (
+                <tr key={event.id}>
+                  <td>
+                    <RecordTime value={event.occurred_at} />
+                  </td>
+                  <td>{event.actor}</td>
+                  <td>{event.action}</td>
+                  <td>
+                    {event.target_type}
+                    <br />
+                    <CopyId value={event.target_id} />
+                  </td>
+                  <td>
+                    <button className="secondary" onClick={() => setDetail(event)}>
+                      Event {event.id}
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {events.data.data.map((event) => (
-                  <tr key={event.id}>
-                    <td>
-                      <time dateTime={event.occurred_at}>
-                        {event.occurred_at.slice(0, 19).replace("T", " ")}
-                      </time>
-                    </td>
-                    <td>
-                      <code>{event.actor}</code>
-                    </td>
-                    <td>{event.action}</td>
-                    <td>
-                      {event.target_type}
-                      <br />
-                      <code>{event.target_id}</code>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="empty">
-              No audit results match this filter. Try another action or date, or clear the fields
-              and filter again.
-            </p>
-          ))}
-        <div className="actions">
-          {cursor && (
-            <button className="secondary" onClick={() => setCursor("")}>
-              First page
-            </button>
-          )}
-          {events.data?.next_cursor && (
-            <button
-              className="secondary"
-              onClick={() => setCursor(String(events.data!.next_cursor))}
-            >
-              Next events
-            </button>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
+        {!events.loading && !rows.length && (
+          <p className="empty">
+            No audit results match this filter. Try another action or date, or clear the fields and
+            filter again.
+          </p>
+        )}
+        <PageCount
+          shown={rows.length}
+          total={events.total}
+          more={!!events.cursor}
+          onMore={events.more}
+        />
+        {detail && (
+          <Dialog drawer title={`Audit event ${detail.id}`} onClose={() => setDetail(undefined)}>
+            <p>
+              {detail.action} by {detail.actor}
+            </p>
+            <RecordTime value={detail.occurred_at} />
+            <CopyId value={detail.target_id} />
+            <pre>{JSON.stringify(detail.details ?? {}, null, 2)}</pre>
+            <button onClick={() => setDetail(undefined)}>Close</button>
+          </Dialog>
+        )}
       </section>
     </>
   );

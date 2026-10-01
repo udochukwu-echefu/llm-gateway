@@ -1,8 +1,10 @@
 "use client";
+import { budgetState, budgetLabels } from "@/lib/budget-state";
 import type { Budget, Usage } from "@/lib/contracts";
+import { MoneyValue } from "./money-value";
 import { currentMonth, allPages } from "@/lib/usage-data";
 import { useEffect, useState } from "react";
-import { money, pico, budgetPercent } from "@/lib/money";
+import { pico, budgetPercent } from "@/lib/money";
 import { useResource } from "./use-resource";
 import { DataState } from "./data-state";
 import { MutationForm } from "./mutation-form";
@@ -46,15 +48,45 @@ export function TeamBudget({
           <div className="budget-summary">
             <p className="eyebrow">PRICED SPEND · CURRENT UTC MONTH</p>
             <p className="spend">
-              {money(spend)}{" "}
+              <MoneyValue value={spend} />{" "}
               <span className="muted">
                 /{" "}
-                {pico(budget.data.effective.usd) === 0n
-                  ? "Unlimited"
-                  : money(budget.data.effective.usd)}
+                {pico(budget.data.effective.usd) === 0n ? (
+                  "Unlimited"
+                ) : (
+                  <span title={budget.data.effective.usd}>
+                    ${budget.data.display_usd ?? budget.data.effective.usd}
+                  </span>
+                )}
               </span>
             </p>
+            <p
+              className={
+                budgetState(spend, budget.data.effective.usd, budget.data.effective.alert_at) ===
+                "over"
+                  ? "danger"
+                  : "warning"
+              }
+            >
+              {
+                budgetLabels[
+                  budgetState(spend, budget.data.effective.usd, budget.data.effective.alert_at)
+                ]
+              }
+            </p>
             <progress
+              className={
+                budgetState(spend, budget.data.effective.usd, budget.data.effective.alert_at) ===
+                "over"
+                  ? "danger"
+                  : budgetState(
+                        spend,
+                        budget.data.effective.usd,
+                        budget.data.effective.alert_at,
+                      ) === "warning"
+                    ? "warning"
+                    : ""
+              }
               max="100"
               value={spend !== null ? budgetPercent(spend, budget.data.effective.usd) : 0}
               aria-label="Monthly budget used"
@@ -80,7 +112,7 @@ export function TeamBudget({
                 name: "usd",
                 label: "Monthly budget (USD)",
                 type: "decimal",
-                value: budget.data.effective.usd,
+                value: budget.data.display_usd ?? budget.data.effective.usd,
                 hint: "0 means unlimited. Use a decimal string, up to 12 places.",
               },
               {

@@ -34,7 +34,18 @@ export function OverviewCards({ summary }: { summary: ReturnType<typeof summariz
       {cards.map(([id, label, value, note]) => (
         <div className="summary-card" key={id}>
           <dt>{label}</dt>
-          <dd data-testid={`summary-${id}`}>{value}</dd>
+          <dd
+            title={
+              id === "spend"
+                ? (summary.spend ?? "Unknown")
+                : id === "savings"
+                  ? (summary.savings ?? "Unknown")
+                  : undefined
+            }
+            data-testid={`summary-${id}`}
+          >
+            {value}
+          </dd>
           <p className="muted">{note}</p>
         </div>
       ))}

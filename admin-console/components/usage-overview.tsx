@@ -1,7 +1,9 @@
 "use client";
+import { MoneyValue } from "./money-value";
+import { SortableTable } from "./sortable-table";
 import { useEffect, useState } from "react";
 import { loadUsage, currentMonth } from "@/lib/usage-data";
-import { budgetPercent, pico, compareMoney, money } from "@/lib/money";
+import { budgetPercent, pico, compareMoney } from "@/lib/money";
 import { UsageEmpty } from "./usage-empty";
 import { DailyUsage } from "./daily-usage";
 import { DataState } from "./data-state";
@@ -37,7 +39,7 @@ export function UsageOverview({ org }: { org: string }) {
         <>
           <h3>Spend by team</h3>
           {data.budgets.length ? (
-            <table>
+            <SortableTable name="usage-overview-1">
               <thead>
                 <tr>
                   <th>Team</th>
@@ -54,10 +56,14 @@ export function UsageOverview({ org }: { org: string }) {
                     <tr key={team.id}>
                       <td>{team.name}</td>
                       <td>
-                        {money(spend)} /{" "}
-                        {pico(budget.effective.usd) === 0n
-                          ? "Unlimited"
-                          : money(budget.effective.usd)}
+                        <MoneyValue value={spend} /> /{" "}
+                        {pico(budget.effective.usd) === 0n ? (
+                          "Unlimited"
+                        ) : (
+                          <span title={budget.effective.usd}>
+                            ${budget.display_usd ?? budget.effective.usd}
+                          </span>
+                        )}
                         <progress
                           aria-label={`${team.name} budget used`}
                           max="100"
@@ -72,13 +78,14 @@ export function UsageOverview({ org }: { org: string }) {
                           )}
                       </td>
                       <td>
-                        {row ? money(row.saved_usd) : money("0")} · {row?.cache_hits ?? 0} hits
+                        <MoneyValue value={row ? row.saved_usd : "0"} /> · {row?.cache_hits ?? 0}{" "}
+                        hits
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
+            </SortableTable>
           ) : (
             <p className="empty">No teams to report yet.</p>
           )}
@@ -86,7 +93,7 @@ export function UsageOverview({ org }: { org: string }) {
             <div>
               <h3>Top models by priced spend</h3>
               {data.byModel.length ? (
-                <table>
+                <SortableTable name="usage-overview-2">
                   <thead>
                     <tr>
                       <th>Model</th>
@@ -103,7 +110,7 @@ export function UsageOverview({ org }: { org: string }) {
                           <td>{r.group}</td>
                           <td>{r.requests}</td>
                           <td>
-                            {money(r.cost_usd)}
+                            <MoneyValue value={r.cost_usd} />
                             {r.usage_missing + r.stream_incomplete > 0 && (
                               <span className="warning"> + unpriced</span>
                             )}
@@ -111,7 +118,7 @@ export function UsageOverview({ org }: { org: string }) {
                         </tr>
                       ))}
                   </tbody>
-                </table>
+                </SortableTable>
               ) : (
                 <p className="empty">No model usage this month.</p>
               )}

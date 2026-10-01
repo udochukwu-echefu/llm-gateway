@@ -19,8 +19,10 @@ export function ThemeToggle() {
   const dark =
     preferences.value.theme === "dark" || (preferences.value.theme === "system" && systemDark);
   const transition = useRef<ViewTransition | null>(null);
+  const animation = useRef<Animation | null>(null);
   useEffect(
     () => () => {
+      animation.current?.cancel();
       transition.current?.skipTransition();
       document.documentElement.classList.remove("theme-reveal");
     },
@@ -28,24 +30,50 @@ export function ThemeToggle() {
   );
 
   function toggle(event: React.MouseEvent<HTMLButtonElement>) {
+    if (transition.current) return;
     const update = () => flushSync(() => preferences.update({ theme: dark ? "light" : "dark" }));
-    transition.current?.skipTransition();
     if (
       !document.startViewTransition ||
-      event.detail === 0 ||
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     ) {
+      update();
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const radius = Math.ceil(
+      Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)) * 1.02,
+    );
+    document.documentElement.classList.add("theme-reveal");
+    let current: ViewTransition;
+    try {
+      current = document.startViewTransition(update);
+    } catch {
       document.documentElement.classList.remove("theme-reveal");
       update();
       return;
     }
-    document.documentElement.classList.add("theme-reveal");
-    const current = document.startViewTransition(update);
     transition.current = current;
+    void current.ready
+      .then(() => {
+        animation.current = document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+          {
+            duration: 450,
+            easing: "ease-in-out",
+            fill: "forwards",
+            pseudoElement: "::view-transition-new(root)",
+          },
+        );
+      })
+      .catch(() => current.skipTransition());
     void current.finished
       .catch(() => {})
       .finally(() => {
         if (transition.current !== current) return;
+        animation.current?.cancel();
+        animation.current = null;
         transition.current = null;
         document.documentElement.classList.remove("theme-reveal");
       });
@@ -60,8 +88,13 @@ export function ThemeToggle() {
       disabled={!preferences.ready}
       onClick={toggle}
     >
-      <span className="theme-toggle-sun" aria-hidden="true" />
-      <span className="theme-toggle-moon" aria-hidden="true" />
+      <span className="theme-toggle-gloss" aria-hidden="true" />
+      <span
+        className={
+          dark ? "theme-toggle-icon theme-toggle-sun" : "theme-toggle-icon theme-toggle-moon"
+        }
+        aria-hidden="true"
+      />
     </button>
   );
 }

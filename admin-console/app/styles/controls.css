@@ -13,8 +13,8 @@ button,
 .button {
   cursor: pointer;
   border: 1px solid transparent;
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--action);
+  color: var(--action-text);
   padding: 8px 14px;
   border-radius: var(--radius);
   font-weight: 600;
@@ -230,7 +230,7 @@ dialog nav a small {
 @media (hover: hover) and (pointer: fine) {
   button:hover:not(:disabled),
   .button:hover {
-    background: color-mix(in oklch, var(--accent), var(--text) 12%);
+    background: color-mix(in oklch, var(--action), var(--action-text) 12%);
   }
   button.secondary:hover:not(:disabled),
   .button.secondary:hover,

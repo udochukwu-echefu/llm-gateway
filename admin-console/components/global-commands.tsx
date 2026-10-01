@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Dialog } from "./dialog";
+import { SearchInput } from "./search-input";
 import type { Identity } from "@/lib/contracts";
 import type { SearchResult } from "@/lib/console-contracts";
 import { commandPages, resultUrl, scopedResults } from "@/lib/command-search";
@@ -12,6 +13,8 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
     [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]),
     [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const resultNav = useRef<HTMLElement>(null);
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -36,8 +39,10 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
     const timer = setTimeout(async () => {
       if (!query.trim()) {
         setResults([]);
+        setBusy(false);
         return;
       }
+      setBusy(true);
       try {
         const response = await browserApi<{ data: SearchResult[] }>(
           `/api/admin/search?q=${encodeURIComponent(query)}`,
@@ -48,6 +53,8 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         }
       } catch (error) {
         if (active) setError((error as Error).message);
+      } finally {
+        if (active) setBusy(false);
       }
     }, 200);
     return () => {
@@ -67,22 +74,14 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
       </div>
       {open && (
         <Dialog dismissOnBackdrop title="Go to…" onClose={() => setOpen(false)}>
-          <label>
-            Search pages, organisations, teams and keys
-            <span className="search-input-frame">
-              <input
-                className="command-search-input"
-                placeholder="Find a page, organisation, team or key…"
-                autoComplete="off"
-                maxLength={128}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <span className="search-input-icon" aria-hidden="true" />
-            </span>
-          </label>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            busy={busy}
+            onSubmit={() => resultNav.current?.querySelector<HTMLAnchorElement>("a")?.focus()}
+          />
           {error && <p role="alert">{error}</p>}
-          <nav aria-label="Search results">
+          <nav ref={resultNav} aria-label="Search results">
             {[...commandPages, ...(!identity.organization ? ["Providers"] : [])]
               .filter((page) => page.toLowerCase().includes(query.toLowerCase()))
               .map((page) => (

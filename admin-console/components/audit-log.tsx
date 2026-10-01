@@ -8,7 +8,7 @@ import { listSort } from "@/lib/list-query";
 import { FilterBar, SortHeading, PageCount } from "./list-controls";
 import { RecordTime } from "./record-time";
 import { CopyId } from "./copy-id";
-import { Dialog } from "./dialog";
+import { Dialog, SheetCloseButton } from "./dialog";
 import { auditActions } from "@/lib/audit-actions";
 import { DataState } from "./data-state";
 export function AuditLog({ platform }: { platform: boolean }) {
@@ -162,9 +162,7 @@ export function AuditLog({ platform }: { platform: boolean }) {
               <pre className="sheet-code">{JSON.stringify(detail.details ?? {}, null, 2)}</pre>
             </section>
             <div className="sheet-footer">
-              <button className="secondary" onClick={() => setDetail(undefined)}>
-                Close
-              </button>
+              <SheetCloseButton />
             </div>
           </Dialog>
         )}

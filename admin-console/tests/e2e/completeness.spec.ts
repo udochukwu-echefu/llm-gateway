@@ -17,8 +17,12 @@ test("requests-log filtering URL chips and complete attempt detail drawer", asyn
   await expect(page.getByRole("heading", { name: "Attempt 2: groq 502" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Attempt 3: deepseek 200" })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.locator(".request-table tbody tr").first().getByRole("cell").nth(2).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const selectedRow = page.locator(".request-table tbody tr").first();
+  const selectedId = await selectedRow.getByRole("button", { name: /^demo-/ }).innerText();
+  await selectedRow.getByRole("cell").nth(2).click();
   await expect(page.getByRole("dialog", { name: "Request attempt timeline" })).toBeVisible();
+  await expect(page.locator(".sheet-summary .copy-id")).toContainText(selectedId);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -183,11 +187,33 @@ test("command palette page navigation and API-enforced organisation scoping", as
 
   await page.getByRole("button", { name: "Search · ⌘/Ctrl K" }).click();
   await expect(page.getByRole("dialog", { name: "Go to…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
+  await expect(page.locator(".search-orb")).toBeVisible();
+  await expect(page.locator(".search-voice-band")).toBeVisible();
+  await expect(page.locator(".search-voice[style]")).toHaveCount(0);
   await page.mouse.click(4, 4);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.keyboard.press("Control+k");
   await page.getByLabel("Search pages, organisations, teams and keys").fill("Northwind");
-  await expect(page.getByRole("link", { name: /Northwind Health/ }).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: /Northwind Health/ })
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: /Northwind Health/ })
+      .first(),
+  ).toBeFocused();
+  await page.getByLabel("Search pages, organisations, teams and keys").focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.keyboard.press("Control+k");
+  await expect(page.getByLabel("Search pages, organisations, teams and keys")).toHaveValue("");
   await page.keyboard.press("Escape");
   await signIn(page, credentials.demoOrg);
   await page.keyboard.press("Control+k");

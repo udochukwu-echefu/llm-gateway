@@ -2,7 +2,7 @@
 import { formatDuration, formatCount } from "@/lib/number-format";
 import { useResource } from "./use-resource";
 import { DataState } from "./data-state";
-import { Dialog } from "./dialog";
+import { Dialog, SheetCloseButton } from "./dialog";
 import { CopyId } from "./copy-id";
 import { RecordTime } from "./record-time";
 import { MoneyValue } from "./money-value";
@@ -87,9 +87,7 @@ export function RequestDetail({
         ))}
       </ol>
       <div className="sheet-footer">
-        <button className="secondary" onClick={onClose}>
-          Close
-        </button>
+        <SheetCloseButton />
       </div>
     </Dialog>
   );

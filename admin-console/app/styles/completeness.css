@@ -266,9 +266,9 @@ dd pre {
   color: var(--muted);
 }
 .workspace > main .demo-banner {
-  background: var(--nav);
-  color: var(--accent);
-  border: 1px solid color-mix(in oklch, var(--accent), transparent 75%);
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--line);
   font-size: 12px;
   border-radius: var(--radius);
   padding: 11px 14px;

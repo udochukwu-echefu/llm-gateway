@@ -24,8 +24,10 @@ export function Settings({
   const [error, setError] = useState("");
   return (
     <>
-      <h1>Settings</h1>
-      <section className="panel">
+      <div className="screen-heading">
+        <h1>Settings</h1>
+      </div>
+      <section className="panel settings-panel">
         <h2>Account</h2>
         <dl>
           <dt>Name</dt>
@@ -68,7 +70,7 @@ export function Settings({
         </button>
         {error && <p role="alert">{error}</p>}
       </section>
-      <section className="panel">
+      <section className="panel settings-panel">
         <h2>Preferences</h2>
         <p>Saved only in this browser.</p>
         <div className="filter-bar">
@@ -132,7 +134,7 @@ export function Settings({
 function PlatformSettings() {
   const resource = useResource<Record<string, unknown>>("/api/admin/settings");
   return (
-    <section className="panel">
+    <section className="panel settings-panel">
       <h2>Platform</h2>
       <p>
         Read-only effective configuration. Settings come from environment variables and change

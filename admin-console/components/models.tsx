@@ -67,11 +67,13 @@ export function Models() {
   const shown = Number(params.get("shown") ?? 25);
   return (
     <>
-      <h1>Models</h1>
-      <p>
-        Reviewed catalogue. Host identifies who receives the request; maker identifies who built the
-        model. Prices are USD per million tokens.
-      </p>
+      <div className="screen-heading">
+        <h1>Models</h1>
+        <p>
+          Reviewed catalogue. Host identifies who receives the request; maker identifies who built
+          the model. Prices are USD per million tokens.
+        </p>
+      </div>
       <OrgScope {...scope} />
       <section className="panel">
         <FilterBar

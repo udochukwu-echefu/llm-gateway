@@ -37,16 +37,22 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
       <aside>
         <div className="sidebar-content">
           <Link prefetch={false} className="brand" href="/overview">
-            <span className="brand-mark">g</span>gateway
-            <span className="brand-sub">ADMIN CONSOLE</span>
+            <span className="brand-mark" aria-hidden="true" />
+            LLM Gateway
+            <span className="brand-sub">Admin console</span>
           </Link>
+          <div className="scope-label">
+            <small>Workspace scope</small>
+            {identity.organization?.name ?? "All organisations"}
+          </div>
           <p className="nav-label">WORKSPACE</p>
-          <nav aria-label="Main navigation">
+          <nav className="main-nav" aria-label="Main navigation">
             <Link
               prefetch={false}
               aria-current={path === "/overview" ? "page" : undefined}
               href="/overview"
             >
+              <span className="nav-icon nav-icon-overview" aria-hidden="true" />
               Overview
             </Link>
             <Link
@@ -58,6 +64,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                   : "/orgs"
               }
             >
+              <span className="nav-icon nav-icon-organisations" aria-hidden="true" />
               Organisations
             </Link>
             <Link
@@ -65,6 +72,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               aria-current={path === "/audit" ? "page" : undefined}
               href="/audit"
             >
+              <span className="nav-icon nav-icon-audit" aria-hidden="true" />
               Audit log
             </Link>
             {[
@@ -81,6 +89,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                 href={`/${label.toLowerCase()}`}
                 aria-current={path === `/${label.toLowerCase()}` ? "page" : undefined}
               >
+                <span className={`nav-icon nav-icon-${label.toLowerCase()}`} aria-hidden="true" />
                 {label}
               </Link>
             ))}
@@ -104,7 +113,8 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
       </aside>
       <div className="workspace">
         <header>
-          <span className="muted">Gateway operations</span>
+          <span className="header-context">Gateway operations</span>
+          <GlobalCommands identity={identity} />
           <div className="actions">
             <label className="theme-label">
               Theme
@@ -144,7 +154,6 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           )}
           {error && <p role="alert">{error}</p>}
           <Breadcrumbs />
-          <GlobalCommands identity={identity} />
           <Suspense
             fallback={
               <div className="skeleton" role="status">

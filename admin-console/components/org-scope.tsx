@@ -26,7 +26,7 @@ export function useOrgScope() {
 export function OrgScope({ org, orgs }: ReturnType<typeof useOrgScope>) {
   const { set } = useListQuery();
   return (
-    <>
+    <div className="scope-toolbar">
       <DataState {...orgs} />
       <label>
         Organisation
@@ -45,6 +45,6 @@ export function OrgScope({ org, orgs }: ReturnType<typeof useOrgScope>) {
           ))}
         </select>
       </label>
-    </>
+    </div>
   );
 }

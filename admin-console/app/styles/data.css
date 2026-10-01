@@ -4,127 +4,188 @@ table {
   text-align: left;
   margin: 16px 0;
   min-width: 480px;
+  font-variant-numeric: tabular-nums;
 }
-
 th {
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
   color: var(--muted);
-  font-weight: 600;
-  padding: 12px;
-  border-bottom: 1px solid var(--line);
+  font-weight: 550;
+  padding: 11px 12px;
+  border-block: 1px solid var(--line);
+  background: var(--surface);
   white-space: nowrap;
 }
-
-td {
-  padding: 16px 12px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-  font-size: 13px;
+th:first-child {
+  border-radius: 6px 0 0 6px;
 }
-
+th:last-child {
+  border-radius: 0 6px 6px 0;
+}
+td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  font-size: 12px;
+}
+td:first-child {
+  color: var(--text);
+  font-weight: 500;
+}
+td small {
+  display: block;
+  line-height: 1.6;
+  margin-top: 4px;
+  font-size: 11px;
+}
+td code {
+  font-size: 11px;
+}
+td > a {
+  text-decoration: none;
+  font-weight: 550;
+}
 tbody tr:last-child td {
   border-bottom: 0;
 }
-
-tbody tr:hover {
-  background: var(--bg);
-}
-
 .badge {
-  display: inline-block;
-  background: var(--nav);
-  color: var(--accent);
-  border: 1px solid var(--line);
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid color-mix(in oklch, var(--success), transparent 78%);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 10px;
   font-weight: 600;
+  white-space: nowrap;
 }
-
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: color-mix(in oklch, var(--danger), transparent 78%);
+}
+.badge.warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: color-mix(in oklch, var(--warning), transparent 78%);
+}
+.sidebar-footer .badge {
+  background: var(--panel);
+  color: var(--muted);
+  border-color: var(--line);
+}
 .empty,
 .notice {
-  padding: 28px 8px;
+  padding: 28px 16px;
   color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
 }
-
+.empty {
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: left;
+}
+.notice.error {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid color-mix(in oklch, var(--danger), transparent 70%);
+  border-radius: var(--radius);
+  padding: 16px;
+}
 progress {
   display: block;
   width: 100%;
-  height: 7px;
+  height: 6px;
   accent-color: var(--accent);
-  margin-top: 10px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 6px;
+  overflow: hidden;
 }
-
 .usage-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 28px;
 }
-
 .usage-grid > div {
   min-width: 0;
   overflow: auto;
 }
-
 .usage-grid table {
   min-width: 380px;
 }
-
 .usage-chart {
-  margin: 24px 0;
+  margin: 24px 0 8px;
 }
 .usage-chart figcaption {
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+  margin-bottom: 10px;
 }
 .usage-chart svg {
   width: 100%;
   height: auto;
+  overflow: visible;
 }
 .chart-label {
-  fill: var(--text);
+  fill: var(--muted);
+  font-family: var(--font-ui);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .chart-axis {
-  stroke: var(--muted);
+  stroke: var(--line);
 }
 .chart-grid {
-  stroke: var(--line);
+  stroke: var(--line-soft);
+  stroke-dasharray: 3 4;
 }
 .chart-line {
   fill: none;
   stroke: var(--accent);
   stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 .chart-point {
-  fill: var(--accent);
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 1.5;
 }
 caption {
   color: var(--muted);
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
+  padding: 12px 0;
 }
-
 .spend {
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
 }
-
 .spend span {
   font-size: 20px;
 }
-
 .budget-summary {
   max-width: 650px;
   padding: 24px 0;
 }
-
 .daily-usage-table td:first-child {
   white-space: nowrap;
 }
-
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) and (pointer: fine) {
+  tbody tr:hover {
+    background: var(--bg);
+  }
+}
 @media (max-width: 1100px) {
   .usage-grid {
     grid-template-columns: 1fr;

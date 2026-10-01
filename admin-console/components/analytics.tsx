@@ -15,11 +15,13 @@ export function Analytics() {
   const { params, set } = useListQuery();
   return (
     <>
-      <h1>Analytics</h1>
-      <p>
-        Performance and reliability over recorded attempts, including retries and fallbacks. These
-        percentiles do not measure gateway overhead.
-      </p>
+      <div className="screen-heading">
+        <h1>Analytics</h1>
+        <p>
+          Performance and reliability over recorded attempts, including retries and fallbacks. These
+          percentiles do not measure gateway overhead.
+        </p>
+      </div>
       <OrgScope {...scope} />
       <div className="quick-ranges">
         {[7, 30, 90].map((days) => (
@@ -75,7 +77,7 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
   );
   const limit = Number(params.get("shown") ?? 50);
   return (
-    <section className="panel">
+    <section className="panel analytics-panel">
       <DataState {...resource} />
       {resource.data && (
         <>

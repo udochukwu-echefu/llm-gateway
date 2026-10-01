@@ -1,71 +1,116 @@
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
-
 h1,
 h2,
 h3,
 p {
   margin-top: 0;
 }
-
 h1 {
-  font-size: 32px;
-  letter-spacing: -1px;
-  line-height: 1.2;
-  margin-bottom: 12px;
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -1.1px;
+  line-height: 1.25;
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
 }
-
 h2 {
-  font-size: 19px;
-  font-weight: 600;
-  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.25px;
+  margin-bottom: 18px;
 }
-
 h3 {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
   margin: 28px 0 12px;
 }
-
+p {
+  margin-bottom: 16px;
+}
 a {
   color: var(--accent);
   text-underline-offset: 4px;
 }
-
 :focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
-
 small,
 .muted {
   color: var(--muted);
 }
-
 small {
+  font-size: 12px;
   font-weight: 400;
 }
-
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+code,
+pre,
+kbd {
+  font-family: var(--font-data);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-
+code {
+  font-variant-numeric: tabular-nums;
+}
 .error {
   color: var(--danger);
 }
-
 .warning {
   color: var(--warning);
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 24px 0;
+}
+dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+dd {
+  margin: 4px 0 20px;
+  overflow-wrap: anywhere;
+}
+.screen-heading {
+  margin: 4px 0 28px;
+}
+.screen-heading p {
+  max-width: 75ch;
+  margin-bottom: 0;
+  color: var(--muted);
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+details[open] > summary {
+  margin-bottom: 12px;
+}
+summary::marker {
+  color: var(--muted);
+}
+::selection {
+  background: var(--nav);
+  color: var(--text);
+}
+@media (max-width: 760px) {
+  h1 {
+    font-size: 26px;
+  }
+  .screen-heading {
+    margin-bottom: 24px;
+  }
 }

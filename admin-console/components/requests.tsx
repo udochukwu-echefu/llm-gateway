@@ -59,8 +59,10 @@ export function Requests() {
   query.set("page_size", "50");
   return (
     <>
-      <h1>Requests</h1>
-      <p className="muted">Prompts and responses are never stored. This log is metadata only.</p>
+      <div className="screen-heading">
+        <h1>Requests</h1>
+        <p className="muted">Prompts and responses are never stored. This log is metadata only.</p>
+      </div>
       <OrgScope {...scope} />
       <div className="quick-ranges" aria-label="Quick ranges">
         {[

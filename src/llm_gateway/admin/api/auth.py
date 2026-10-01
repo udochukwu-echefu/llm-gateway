@@ -1,7 +1,8 @@
 """Authenticate private admin keys independently of tenant credentials."""
 
 import uuid
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, NoReturn, cast
 
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from llm_gateway.admin.service.service import AdminService
+from llm_gateway.config import Settings
 from llm_gateway.errors import GatewayError
 from llm_gateway.limits.service import LimitService
 from llm_gateway.tenants.auth import client_ip
@@ -25,6 +27,8 @@ class AdminContext:
     limits: LimitService | None
     redis: Redis | None
     trusted_proxy_hops: int = 0
+    settings: Settings | None = None
+    breaker_states: Callable[[], dict[str, str]] = field(default=lambda: {})
 
 
 @dataclass(frozen=True)

@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any, Literal
 
 from redis.asyncio import Redis
-from sqlalchemy import String, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from llm_gateway.audit.chain import append_event, first_broken
@@ -40,7 +40,7 @@ class AdminService:
         self.sessions = sessions
         self.pepper = pepper
         self.actor = actor
-        self.role = role
+        self.role: Literal["platform", "org"] = role
         self.organization_id = organization_id
         self.usage_repository = usage_repository or PostgresUsageRepository(sessions)
         self.tenants = PostgresKeyRepository(sessions, actor)
@@ -175,6 +175,7 @@ class AdminService:
         tpm: int | None = None,
         max_concurrency: int | None = None,
         budget: Decimal | None = None,
+        budget_display: str | None = None,
         alert: Decimal | None = None,
         clear: bool = False,
     ) -> None:
@@ -187,6 +188,7 @@ class AdminService:
             tpm=tpm,
             max_concurrency=max_concurrency,
             budget=budget,
+            budget_display=budget_display,
             alert=alert,
             clear=clear,
         )
@@ -248,38 +250,44 @@ class AdminService:
         return await purge(self.tenants, client, org, team)
 
     async def list_audit(
-        self, since: date | None, action: str | None, cursor: int | None, limit: int
+        self,
+        since: date | None,
+        action: str | None,
+        cursor: int | None,
+        limit: int,
+        until: date | None = None,
+        actor: str | None = None,
+        target_type: str | None = None,
     ) -> list[AuditEvent]:
+        from llm_gateway.admin.service.audit_query import audit_query
+
+        query = audit_query(
+            self.role, self.organization_id, since, until, action, actor, target_type
+        )
+        if cursor is not None:
+            query = query.where(AuditEvent.id > cursor)
         async with self.sessions() as session:
-            query = select(AuditEvent)
-            if self.role == "org":
-                key_ids = (
-                    select(ApiKey.key_id)
-                    .join(Team)
-                    .where(Team.organization_id == self.organization_id)
-                )
-                query = query.where(
-                    or_(
-                        (AuditEvent.target_type == "organization")
-                        & (AuditEvent.target_id == str(self.organization_id)),
-                        (AuditEvent.target_type == "team")
-                        & AuditEvent.target_id.in_(
-                            select(Team.id.cast(String)).where(
-                                Team.organization_id == self.organization_id
-                            )
-                        ),
-                        (AuditEvent.target_type == "key") & AuditEvent.target_id.in_(key_ids),
-                    )
-                )
-            if since is not None:
-                query = query.where(
-                    AuditEvent.occurred_at >= datetime.combine(since, datetime.min.time(), UTC)
-                )
-            if action is not None:
-                query = query.where(AuditEvent.action == action)
-            if cursor is not None:
-                query = query.where(AuditEvent.id > cursor)
             return list((await session.scalars(query.order_by(AuditEvent.id).limit(limit))).all())
+
+    async def audit_count(
+        self,
+        since: date | None,
+        until: date | None,
+        action: str | None,
+        actor: str | None,
+        target_type: str | None,
+    ) -> int:
+        from sqlalchemy import func
+
+        from llm_gateway.admin.service.audit_query import audit_query
+
+        query = audit_query(
+            self.role, self.organization_id, since, until, action, actor, target_type
+        )
+        async with self.sessions() as session:
+            return int(
+                await session.scalar(select(func.count()).select_from(query.subquery())) or 0
+            )
 
     async def verify_audit(self) -> tuple[int, int | None]:
         self.require_platform()

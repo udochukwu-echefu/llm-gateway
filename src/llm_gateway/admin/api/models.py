@@ -23,7 +23,7 @@ class LimitsBody(RequestModel):
 
 
 def decimal_string(value: object) -> Decimal:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or len(value) > 32:
         raise ValueError("Money must be a decimal string")
     try:
         return Decimal(value)

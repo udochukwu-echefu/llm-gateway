@@ -186,6 +186,17 @@ def create_app(
                             limits,
                             redis_client,
                             settings.trusted_proxy_hops,
+                            settings,
+                            lambda: (
+                                {
+                                    name: breaker.state
+                                    for name, breaker in (
+                                        app.state.gateway.resilience.breakers.items()
+                                    )
+                                }
+                                if hasattr(app.state, "gateway")
+                                else {}
+                            ),
                         )
                     )
                     await stack.enter_async_context(admin_server(settings.admin_api, admin_app))

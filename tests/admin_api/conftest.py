@@ -6,12 +6,14 @@ from typing import cast
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic import SecretStr
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from llm_gateway.admin.api.app import create_admin_app
 from llm_gateway.admin.api.auth import AdminContext
 from llm_gateway.admin.service.service import AdminService
+from llm_gateway.config import CacheSettings, ProviderSettings, ProvidersSettings, Settings
 from tests.conftest import TEST_PEPPER
 
 
@@ -56,7 +58,19 @@ async def admin_harness(migrated_database: str) -> AsyncIterator[AdminHarness]:
     platform_key = await bootstrap.create_admin_key("fake-platform", "platform", None)
     org_key = await bootstrap.create_admin_key("fake-org", "org", org)
     app = create_admin_app(
-        AdminContext(sessions, TEST_PEPPER.encode(), None, cast(Redis, EmptyCache()))
+        AdminContext(
+            sessions,
+            TEST_PEPPER.encode(),
+            None,
+            cast(Redis, EmptyCache()),
+            # Construct fake settings without reading a developer's .env.
+            settings=Settings.model_construct(
+                providers=ProvidersSettings(
+                    groq=ProviderSettings(api_key=SecretStr("obviously-fake-platform-fixture"))
+                ),
+                cache=CacheSettings(enabled=False),
+            ),
+        )
     )
     try:
         async with httpx.AsyncClient(

@@ -3,10 +3,22 @@
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from llm_gateway.admin.api import catalog, identity, limits, organizations, policies, reports
+from llm_gateway.admin.api import (
+    analytics,
+    catalog,
+    identity,
+    limits,
+    organizations,
+    platform,
+    policies,
+    reports,
+    requests,
+    search,
+)
 from llm_gateway.admin.api.auth import AdminContext, authenticate
 from llm_gateway.errors import (
     GatewayError,
@@ -20,7 +32,18 @@ def create_admin_app(context: AdminContext) -> FastAPI:
     app = FastAPI(title="LLM Gateway Admin", version="1")
     app.state.admin_context = context
     router = APIRouter(prefix="/admin/v1", dependencies=[Depends(authenticate)])
-    for module in (catalog, identity, limits, organizations, policies, reports):
+    for module in (
+        analytics,
+        catalog,
+        identity,
+        limits,
+        organizations,
+        platform,
+        policies,
+        reports,
+        requests,
+        search,
+    ):
         router.include_router(module.router)
     app.include_router(router)
     app.add_exception_handler(GatewayError, gateway_error_handler)
@@ -28,6 +51,7 @@ def create_admin_app(context: AdminContext) -> FastAPI:
     app.add_exception_handler(ValueError, _value_error)
     app.add_exception_handler(PermissionError, _permission_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(ValidationError, _validation_error)
     app.add_exception_handler(IntegrityError, _integrity_error)
     app.add_exception_handler(Exception, _unexpected_error)
     return app

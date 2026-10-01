@@ -22,6 +22,12 @@ class Case:
 CASES = [
     Case("GET", "/me", scoped=False),
     Case("GET", "/catalog", scoped=False),
+    Case("GET", "/search?q=fake", scoped=False),
+    Case("GET", "/settings", platform_only=True, scoped=False),
+    Case("GET", "/providers", platform_only=True, scoped=False),
+    Case("GET", "/orgs/{org}/requests"),
+    Case("GET", "/orgs/{org}/requests/{request_id}"),
+    Case("GET", "/orgs/{org}/analytics"),
     Case("POST", "/orgs", {"name": "created"}, True, False),
     Case("GET", "/orgs", scoped=False),
     Case("POST", "/orgs/{org}/teams", {"name": "new-team"}),
@@ -62,7 +68,9 @@ CASES.extend(
 def path(case: Case, harness: AdminHarness, *, other: bool = False) -> str:
     org = harness.other if other else harness.org
     key = harness.other_team_key if other else harness.team_key
-    return "/admin/v1" + case.route.format(org=org, team="team", key_id=key.split("_")[1])
+    return "/admin/v1" + case.route.format(
+        org=org, team="team", key_id=key.split("_")[1], request_id="fake-matrix-request"
+    )
 
 
 def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
@@ -72,7 +80,7 @@ def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
         for route, operations in app.openapi()["paths"].items()
         for method in operations
     }
-    assert registered == {(case.method, case.route) for case in CASES}
+    assert registered == {(case.method, case.route.split("?")[0]) for case in CASES}
 
 
 @pytest.mark.parametrize(
@@ -81,6 +89,10 @@ def test_matrix_covers_every_admin_route(admin_harness: AdminHarness) -> None:
     ids=lambda case: f"{case.method} {case.route}" + (" If-Match" if case.conditional else ""),
 )
 async def test_authorization_matrix(admin_harness: AdminHarness, case: Case) -> None:
+    if "{request_id}" in case.route:
+        from tests.admin_api.test_requests import add_receipts
+
+        await add_receipts(admin_harness, "fake-matrix-request")
     client = admin_harness.client
     own = path(case, admin_harness)
     headers = admin_harness.headers(admin_harness.platform_key)

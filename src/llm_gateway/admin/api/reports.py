@@ -64,12 +64,31 @@ async def audit(
     request: Request,
     since: date | None = None,
     action: str | None = None,
+    until: date | None = None,
+    actor: str | None = None,
+    target_type: str | None = None,
     cursor: int | None = None,
     page_size: int = Query(50, ge=1, le=500),
 ) -> dict[str, object]:
-    events = await service(request).list_audit(since, action, cursor, page_size + 1)
+    if set(request.query_params) - {
+        "since",
+        "until",
+        "actor",
+        "target_type",
+        "action",
+        "cursor",
+        "page_size",
+    }:
+        raise ValueError("Unknown audit filter")
+    if since is not None and until is not None and since > until:
+        raise ValueError("since must be before until")
+    events = await service(request).list_audit(
+        since, action, cursor, page_size + 1, until, actor, target_type
+    )
     visible = events[:page_size]
+    total = await service(request).audit_count(since, until, action, actor, target_type)
     return {
+        "total": total,
         "data": [
             {
                 "id": event.id,

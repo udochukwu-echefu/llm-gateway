@@ -23,6 +23,22 @@ async def get_catalog() -> dict[str, object]:
                 "region": entry.region,
                 "endpoints": ["chat" if entry.kind == "chat" else "embeddings"],
                 "priced": (period := entry.at(now)) is not None and not period.unpriced,
+                "maker": entry.model.split("/")[0]
+                if "/" in entry.model
+                else {
+                    "zai": "Z.ai",
+                    "gemini": "Google",
+                    "deepseek": "DeepSeek",
+                    "openai": "OpenAI",
+                }.get(entry.provider, "Unknown"),
+                "prices": [item.model_dump(mode="json") for item in entry.periods],
+                "effective_price": period.model_dump(mode="json") if period else None,
+                "region_source_url": str(entry.region_source_url)
+                if entry.region_source_url
+                else None,
+                "region_checked_on": entry.region_checked_on.isoformat()
+                if entry.region_checked_on
+                else None,
             }
             for entry in catalog.models
         ],

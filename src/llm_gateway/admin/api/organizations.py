@@ -3,12 +3,17 @@
 import uuid
 
 from fastapi import APIRouter, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from llm_gateway.admin.api.auth import service
+from llm_gateway.admin.api.auth import context, service
 from llm_gateway.admin.api.idempotency import creation
 from llm_gateway.admin.api.models import KeyBody, NameBody
+from llm_gateway.admin.request_filters import query_values
+from llm_gateway.admin.service.key_inventory import KeyFilters, key_page
+from llm_gateway.admin.service.team_inventory import team_page
 from llm_gateway.errors import GatewayError
+from llm_gateway.tenants.models import Organization
 
 router = APIRouter()
 
@@ -34,14 +39,23 @@ async def create_org(request: Request, body: NameBody) -> dict[str, object]:
 async def list_orgs(
     request: Request, cursor: uuid.UUID | None = None, page_size: int = Query(50, ge=1, le=500)
 ) -> dict[str, object]:
-    rows = await service(request).list_orgs(cursor, page_size + 1)
-    return page(
+    admin = service(request)
+    rows = await admin.list_orgs(cursor, page_size + 1)
+    async with context(request).sessions() as session:
+        count_query = select(func.count()).select_from(Organization)
+        if admin.role == "org":
+            count_query = count_query.where(Organization.id == admin.organization_id)
+        total = await session.scalar(count_query)
+    result = page(
         [
             {"id": str(row.id), "name": row.name, "created_at": row.created_at.isoformat()}
             for row in rows
         ],
         page_size,
     )
+
+    result["total"] = total
+    return result
 
 
 @router.post("/orgs/{org}/teams")
@@ -63,18 +77,8 @@ async def list_teams(
     page_size: int = Query(50, ge=1, le=500),
 ) -> dict[str, object]:
     rows = await service(request).list_teams(org, cursor, page_size + 1)
-    return page(
-        [
-            {
-                "id": str(row.id),
-                "organization_id": str(row.organization_id),
-                "name": row.name,
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in rows
-        ],
-        page_size,
-    )
+    organization = await service(request).authorize_org(org)
+    return await team_page(context(request).sessions, organization.id, rows, page_size)
 
 
 @router.post("/orgs/{org}/teams/{team}/keys")
@@ -96,22 +100,10 @@ async def list_keys(
     cursor: uuid.UUID | None = None,
     page_size: int = Query(50, ge=1, le=500),
 ) -> dict[str, object]:
-    rows = await service(request).list_keys(org, team, cursor, page_size + 1)
-    return page(
-        [
-            {
-                "id": str(row.id),
-                "key_id": row.key_id,
-                "name": row.name,
-                "team_id": str(row.team_id),
-                "created_at": row.created_at.isoformat(),
-                "expires_at": row.expires_at.isoformat() if row.expires_at else None,
-                "revoked_at": row.revoked_at.isoformat() if row.revoked_at else None,
-            }
-            for row in rows
-        ],
-        page_size,
-    )
+    organization = await service(request).authorize_org(org)
+    filters = KeyFilters.model_validate(query_values(request))
+    async with context(request).sessions() as session:
+        return await key_page(session, organization.id, filters)
 
 
 @router.post("/keys/{key_id}/revoke")

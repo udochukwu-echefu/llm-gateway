@@ -25,6 +25,10 @@ then be the last thing before launch.
 
 ## Decisions already made (binding; object in your report if you disagree)
 
+**Owner amendment, 2026-10-01:** sections 5 and 6 below are superseded by the
+[portable appliance amendment](#portable-appliance-amendment-owner-decision-2026-10-01).
+The original text remains for decision history, not as an active requirement.
+
 ### 1. A read-only `viewer` admin role, enforced by the API
 
 - New admin role **`viewer`**, platform-wide (`organization_id` NULL) or scoped to one
@@ -199,3 +203,50 @@ that), and pushing to GitHub (done separately after a secret-history check).
 - The no-leak count, the break checks and the tests that caught them, the viewer matrix
   summary, the compose config validation output, open decisions, and
   `git log --oneline main..HEAD`.
+
+## Portable appliance amendment (owner decision, 2026-10-01)
+
+The public demo runs on InstaCloud as **one portable demo appliance container**, with
+managed Postgres and private Redis. The platform documents no private network between
+web services, which each receive public URLs; cron can call only public HTTPS endpoints.
+Console-to-admin traffic therefore stays inside the same container. No Caddy or daily
+refresh service is included. All viewer, demo sign-in and read-only console requirements
+above remain binding; the fake-provider guard now targets the appliance's loopback fake
+provider, not a separate Compose service.
+
+- `deploy/demo/Dockerfile`: multi-stage, non-root, version-pinned bases; supports publishing
+  linux/amd64 and linux/arm64. Console standalone build, gateway venv and fake provider
+  share one image. Only console binds `0.0.0.0`, reads injected `PORT`, and matches EXPOSE.
+- A small stdlib-only Python supervisor validates config, waits for Postgres/Redis with a
+  bounded timeout, runs migrations under an advisory lock, and appends missing synthetic
+  days through today (idempotent, fast, no seeder sign-in keys).
+- Fake provider, public gateway API, admin API and metrics bind **127.0.0.1 only**.
+- Each boot issues platform and Northwind viewer keys and a tenant key named with a boot
+  ID. Keys remain in memory and child environments only, never files/stdout/logs. Revoke
+  appliance viewer/tenant keys older than 24 h, allowing brief deployment overlap safely.
+- Start console, then a small synthetic traffic burst followed by roughly one request per
+  minute while awake. Localhost traffic does not keep the router awake.
+- Any child exit fails the container. SIGTERM shuts down console, gateway (flush usage),
+  then fake provider, within a bounded time. Deployment uses **exactly one instance**.
+- Replace demo Compose with a **local test profile**: appliance/Postgres/Redis; publish
+  only console on loopback. Use it for demo-mode e2e. Never use the owner's database or
+  ports; console e2e uses 3300.
+- Measure image size, whole-appliance steady memory (target <=1 GB), and cold container
+  start to first HTTP 200 against warm Postgres (target <=10 s). Report image/network
+  blockers precisely rather than inventing results.
+- `docs/deployment-demo.md`: install/login CLI, create project, add postgres/redis, generate
+  secrets locally without printing and set them, explicitly bind service credentials,
+  deploy with `--no-always-on` and one instance, custom domain and owner-managed DNS,
+  verify/update/rollback/take-down. Cite official InstaCloud docs for every command; label
+  unverified commands. Include a short same-image Docker-host fallback.
+- ADR 0028/threat model: one container due to no documented private networking, in-memory
+  per-boot keys, credential-reachable managed Postgres (synthetic data and hashed keys,
+  strong password; acceptable demo risk, not production), cold starts, no cron and lazy
+  wake-time refresh.
+- Replace break check (e): admin binds 0.0.0.0 inside appliance, caught by a test. Add
+  (f): boot key written to stdout **or disk**, caught by tests.
+
+Reference evidence: InsForge/instacloud-skills, `insta/references/deploy.md`, `operate.md`,
+`governance.md`. The original report also includes appliance measurements and any unmet
+targets/verification limits. No platform resource creation, registry publication, push or
+merge is authorized during implementation.

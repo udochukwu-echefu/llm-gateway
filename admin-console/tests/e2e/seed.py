@@ -22,6 +22,12 @@ async def main() -> None:
     await admin.create_team("Other workspace", "Private team")
     platform = await admin.create_admin_key("Fake platform operator", "platform", None)
     org_key = await admin.create_admin_key("Fake org operator", "org", org.name)
+    demo_values = dict(
+        line.split("=", 1)
+        for line in (
+            await asyncio.to_thread(Path(os.environ["GATEWAY_DEMO_KEYS_FILE"]).read_text)
+        ).splitlines()
+    )
     revocable = await admin.create_admin_key("Fake revocable operator", "org", org.name)
     async with sessions.begin() as session:
         for _ in range(26):
@@ -32,6 +38,8 @@ async def main() -> None:
         write_state,
         {
             "platform": platform,
+            "demoPlatform": demo_values["DEMO_PLATFORM_ADMIN_KEY"],
+            "demoOrg": demo_values["DEMO_ORG_ADMIN_KEY"],
             "orgKey": org_key,
             "revocable": revocable,
             "org": org.name,

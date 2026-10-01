@@ -5,6 +5,8 @@ import { responseScanner } from "./no-leak";
 
 interface Credentials {
   platform: string;
+  demoPlatform: string;
+  demoOrg: string;
   orgKey: string;
   revocable: string;
   org: string;
@@ -77,7 +79,13 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
       const scanner = await responseScanner(page);
       await provide();
       const result = await scanner.verify(
-        [credentials.platform, credentials.orgKey, credentials.revocable],
+        [
+          credentials.platform,
+          credentials.orgKey,
+          credentials.revocable,
+          credentials.demoPlatform,
+          credentials.demoOrg,
+        ],
         leaks.tenantKeys,
         leaks.permitted.get(info.testId),
       );
@@ -85,7 +93,13 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
       leaks.permittedResponses += result.permitted;
       for (const scanner of extraScans.scanners) {
         const extra = await scanner.verify(
-          [credentials.platform, credentials.orgKey, credentials.revocable],
+          [
+            credentials.platform,
+            credentials.orgKey,
+            credentials.revocable,
+            credentials.demoPlatform,
+            credentials.demoOrg,
+          ],
           leaks.tenantKeys,
         );
         leaks.responses += extra.responses;
@@ -110,5 +124,11 @@ export async function screenshot(page: Page, name: string) {
   if (process.env.CONSOLE_SCREENSHOTS !== "1") return;
   const images = resolve("../docs/images");
   mkdirSync(images, { recursive: true });
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.classList.add("screenshot-capture");
+    (document.activeElement as HTMLElement)?.blur();
+  });
   await page.screenshot({ path: resolve(images, `console-${name}.png`), fullPage: true });
+  await page.evaluate(() => document.documentElement.classList.remove("screenshot-capture"));
 }

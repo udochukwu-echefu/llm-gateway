@@ -19,3 +19,8 @@ dist/
 # Load-test credentials and raw local output (may be large)
 loadtest/.state/
 loadtest/results/
+
+.demo-keys.env
+.demo-keys.*.env
+
+admin-console/tests/e2e/.demo-keys.e2e.env

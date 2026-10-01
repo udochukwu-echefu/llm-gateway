@@ -2,7 +2,9 @@
 import { useRef, useState } from "react";
 import { BrowserApiError, browserApi } from "@/lib/browser-api";
 import { Dialog } from "./dialog";
+import { useReadOnly, ReadOnlyNotice, READ_ONLY_REASON } from "./read-only";
 export function CachePurge({ org, team }: { org: string; team?: string }) {
+  const readOnly = useReadOnly();
   const name = team ?? org;
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -16,7 +18,7 @@ export function CachePurge({ org, team }: { org: string; team?: string }) {
     setTyped("");
   }
   async function purge() {
-    if (typed !== name || lock.current) return;
+    if (typed !== name || lock.current || readOnly) return;
     lock.current = true;
     setBusy(true);
     setError("");
@@ -55,6 +57,8 @@ export function CachePurge({ org, team }: { org: string; team?: string }) {
       {error && <p role="alert">{error}</p>}
       <button
         className="danger"
+        disabled={readOnly}
+        title={readOnly ? READ_ONLY_REASON : undefined}
         onClick={() => {
           setTyped("");
           setError("");
@@ -63,6 +67,7 @@ export function CachePurge({ org, team }: { org: string; team?: string }) {
       >
         Purge cache
       </button>
+      <ReadOnlyNotice />
       {open && (
         <Dialog title={`Purge cache · ${name}`} onClose={close}>
           <p>Cached responses will be removed. New requests can refill them immediately.</p>

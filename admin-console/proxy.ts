@@ -42,7 +42,10 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 async function proxySession(request: NextRequest, response: NextResponse, password: string) {
-  return getIronSession<SessionData>(nextProxyCookies(request, response), sessionOptions(password));
+  return getIronSession<SessionData>(
+    nextProxyCookies(request, response),
+    sessionOptions(password, readConfig().DEMO_MODE),
+  );
 }
 
 async function refreshProxySession(

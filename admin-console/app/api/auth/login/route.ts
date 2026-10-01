@@ -8,6 +8,11 @@ import { AdminApiError } from "@/lib/admin-client";
 import { loginThrottle } from "@/lib/login-throttle";
 export async function POST(request: Request) {
   const config = readConfig();
+  if (config.DEMO_MODE && !config.DEMO_ALLOW_KEY_SIGN_IN)
+    return NextResponse.json(
+      { error: "Not found." },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
+    );
   if (!hasSameOrigin(request, config.ADMIN_CONSOLE_ORIGIN))
     return NextResponse.json({ error: "Request origin is not allowed." }, { status: 403 });
   const client = request.headers.get("x-console-client-address") ?? "unknown";

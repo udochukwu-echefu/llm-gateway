@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-location-assign-relative-destination */
 import type { Identity } from "@/lib/contracts";
-import { ABSOLUTE_MS, IDLE_MS } from "@/lib/session-policy";
+import { ABSOLUTE_MS, DEMO_ABSOLUTE_MS, IDLE_MS } from "@/lib/session-policy";
 import { usePreferences } from "./preferences";
 import { RecordTime } from "./record-time";
 import { CopyId } from "./copy-id";
@@ -13,10 +13,12 @@ export function Settings({
   identity,
   issuedAt,
   lastSeen,
+  demo = false,
 }: {
   identity: Identity;
   issuedAt: number;
   lastSeen: number;
+  demo?: boolean;
 }) {
   const { value, update } = usePreferences();
   const [error, setError] = useState("");
@@ -42,7 +44,9 @@ export function Settings({
           </dd>
           <dt>Absolute expiry</dt>
           <dd>
-            <RecordTime value={new Date(issuedAt + ABSOLUTE_MS).toISOString()} />
+            <RecordTime
+              value={new Date(issuedAt + (demo ? DEMO_ABSOLUTE_MS : ABSOLUTE_MS)).toISOString()}
+            />
           </dd>
           <dt>Idle expiry</dt>
           <dd>
@@ -121,7 +125,7 @@ export function Settings({
           </label>
         </div>
       </section>
-      {identity.role === "platform" && <PlatformSettings />}
+      {!identity.organization && <PlatformSettings />}
     </>
   );
 }

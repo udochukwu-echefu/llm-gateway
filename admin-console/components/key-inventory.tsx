@@ -8,6 +8,7 @@ import { RecordTime } from "./record-time";
 import { CopyId } from "./copy-id";
 import { listSort } from "@/lib/list-query";
 import type { ConsoleKey } from "@/lib/console-contracts";
+import { useReadOnly, READ_ONLY_REASON } from "./read-only";
 export function KeyInventory({
   orgBase,
   team,
@@ -17,6 +18,7 @@ export function KeyInventory({
   team?: string;
   onRevoke?: (id: string) => void;
 }) {
+  const readOnly = useReadOnly();
   const { params } = useListQuery();
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -117,7 +119,8 @@ export function KeyInventory({
                     <td>
                       <button
                         className="secondary"
-                        disabled={!!key.revoked_at}
+                        disabled={!!key.revoked_at || readOnly}
+                        title={readOnly ? READ_ONLY_REASON : undefined}
                         onClick={() => onRevoke(key.key_id)}
                       >
                         Revoke {key.key_id}

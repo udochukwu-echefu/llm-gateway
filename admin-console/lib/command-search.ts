@@ -2,7 +2,7 @@ import type { SearchResult } from "./console-contracts";
 import type { Identity } from "./contracts";
 export function scopedResults(results: SearchResult[], identity: Identity) {
   return results.filter(
-    (item) => identity.role === "platform" || item.org === identity.organization?.name,
+    (item) => !identity.organization || item.org === identity.organization.name,
   );
 }
 export function resultUrl(item: SearchResult) {

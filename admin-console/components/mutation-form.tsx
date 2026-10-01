@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { browserApi } from "@/lib/browser-api";
 import { operationSchema, isCreation } from "@/lib/bff-policy";
 import { submissionId } from "@/lib/submission";
+import { useReadOnly, ReadOnlyNotice, READ_ONLY_REASON } from "./read-only";
 export interface Field {
   name: string;
   label: string;
@@ -24,13 +25,14 @@ export function MutationForm({
   label: string;
   onSuccess: (body: Record<string, unknown>) => void;
 }) {
+  const readOnly = useReadOnly();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const id = useRef(submissionId());
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (lock.current) return;
+    if (lock.current || readOnly) return;
     const form = event.currentTarget;
     const values = new FormData(form);
     const body = formBody(values, fields);
@@ -70,11 +72,16 @@ export function MutationForm({
       noValidate
     >
       {fields.map((field) => (
-        <FormField key={field.name} field={field} busy={busy} />
+        <FormField key={field.name} field={field} busy={busy || readOnly} />
       ))}
-      <button disabled={busy} type="submit">
+      <button
+        disabled={busy || readOnly}
+        title={readOnly ? READ_ONLY_REASON : undefined}
+        type="submit"
+      >
         {busy ? "Saving…" : label}
       </button>
+      <ReadOnlyNotice />
       {error && (
         <p role="alert" className="error">
           {error}

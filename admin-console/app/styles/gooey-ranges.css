@@ -1,6 +1,7 @@
 /* DevClub Gooey Nav: separated active segment, organic SVG neck, morphing corners.
    License: public/licenses/devclub-components.txt. No inline styles or runtime imports. */
 .gooey-ranges {
+  --gooey-gap: 16px;
   display: inline-block;
   max-width: 100%;
   padding: 2px 0;
@@ -10,7 +11,7 @@
   display: flex;
   align-items: center;
   margin: 0;
-  padding: 0;
+  padding: 0 calc(2 * (var(--gooey-gap) + 1px)) 0 0;
   list-style: none;
 }
 .gooey-range-segment {
@@ -24,16 +25,18 @@
   color: var(--muted);
   box-shadow: var(--shadow);
   transition:
-    margin-left 360ms cubic-bezier(0.3, 0.1, 0.25, 1),
-    border-radius 360ms cubic-bezier(0.3, 0.1, 0.25, 1),
     background-color 200ms ease-out,
+    border-color 200ms ease-out,
     color 200ms ease-out;
 }
 .gooey-range-segment:first-child {
   margin-left: 0;
 }
-.gooey-range-segment[data-left-open="true"]:not(:first-child) {
-  margin-left: 16px;
+.gooey-range-segment[data-shift="1"] {
+  transform: translateX(calc(var(--gooey-gap) + 1px));
+}
+.gooey-range-segment[data-shift="2"] {
+  transform: translateX(calc(2 * (var(--gooey-gap) + 1px)));
 }
 .gooey-range-segment[data-left-open="true"] {
   border-top-left-radius: 10px;
@@ -67,6 +70,7 @@
   box-shadow: none;
 }
 .gooey-range-neck {
+  width: var(--gooey-gap);
   position: absolute;
   top: -1px;
   right: 100%;
@@ -76,6 +80,7 @@
 }
 .gooey-neck-stop {
   stop-color: var(--gooey-surface);
+  transition: stop-color 200ms ease-out;
 }
 .gooey-neck-stop[data-active="true"] {
   stop-color: var(--action);
@@ -97,12 +102,15 @@
   .quick-ranges button.gooey-range-button {
     padding-inline: 10px;
   }
-  .gooey-range-segment[data-left-open="true"]:not(:first-child) {
-    margin-left: 12px;
+  .gooey-ranges {
+    --gooey-gap: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .gooey-range-segment {
+    transition: none;
+  }
+  .gooey-neck-stop {
     transition: none;
   }
   .gooey-range-neck {

@@ -29,7 +29,7 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("create-org").add_argument("name")
     admin_key = commands.add_parser("create-admin-key")
     admin_key.add_argument("name")
-    admin_key.add_argument("--role", choices=("platform", "org"), required=True)
+    admin_key.add_argument("--role", choices=("platform", "org", "viewer"), required=True)
     admin_key.add_argument("--org")
     team = commands.add_parser("create-team")
     team.add_argument("org")

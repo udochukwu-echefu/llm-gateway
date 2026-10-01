@@ -1125,3 +1125,30 @@ equal ratios (1 ms, 10 ms, 100 ms), which keeps fast and slow providers visible 
 It is available only for latency, labels every tick, and leaves zero timings as gaps.
 The table always includes all providers. Generated full screenshot tours are local and
 ignored; only README-linked images are versioned, preventing each tour from growing Git.
+
+## Step 16: a public tour with locked controls
+
+A viewer has a badge that opens read-only doors. Its organization ID decides whether it
+can see one workspace or all of them. The admin API checks the badge centrally and refuses
+changes before handlers run. An org-scoped viewer still gets “not found” for other orgs.
+The console disables change controls with an explanation, but the API is the lock, not
+the button. Exports and search are reads and remain usable.
+
+“Explore” sends only a choice of scope to the console server. The server checks its private
+viewer badge, stores it in the existing encrypted session and returns public identity.
+The badge never appears in HTML, scripts or JSON. Startup refuses a normal administrator
+badge, so a configuration mistake cannot turn the tour into public management access.
+Demo sessions last at most two hours, with the existing thirty-minute idle limit.
+
+A **reverse proxy** is a building's reception desk: Caddy checks everyone in over HTTPS
+and sends them to the console while the inner API, database and metrics doors stay locked
+on an internal network. **Automatic HTTPS** means Caddy obtains and renews the certificate
+that proves the site's identity and encrypts traffic. Only the reception desk publishes
+ports 80/443. It replaces untrusted forwarded addresses with the actual peer address.
+
+The fake provider produces synthetic answers and token counts without real model calls.
+An exact startup URL guard and an internal Docker network prevent accidental paid-provider
+traffic. A daily refresh extends the synthetic history through today without resetting
+workspaces or changing viewer keys. A low-rate worker adds live receipt rows. Their USD
+figures illustrate catalogue accounting, not actual money spent. See ADR 0028 and the
+demo deployment runbook for the single-VPS limitations and operator procedures.

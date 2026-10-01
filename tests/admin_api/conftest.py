@@ -37,6 +37,8 @@ class AdminHarness:
     team_key: str
     other_team_key: str
     sessions: async_sessionmaker[AsyncSession]
+    viewer_key: str
+    org_viewer_key: str
 
     def headers(self, key: str) -> dict[str, str]:
         return {"authorization": f"Bearer {key}"}
@@ -57,6 +59,8 @@ async def admin_harness(migrated_database: str) -> AsyncIterator[AdminHarness]:
     other_team_key = await bootstrap.create_key(other, "team", "fake-client")
     platform_key = await bootstrap.create_admin_key("fake-platform", "platform", None)
     org_key = await bootstrap.create_admin_key("fake-org", "org", org)
+    viewer_key = await bootstrap.create_admin_key("fake-viewer", "viewer", None)
+    org_viewer_key = await bootstrap.create_admin_key("fake-org-viewer", "viewer", org)
     app = create_admin_app(
         AdminContext(
             sessions,
@@ -77,7 +81,17 @@ async def admin_harness(migrated_database: str) -> AsyncIterator[AdminHarness]:
             transport=httpx.ASGITransport(app=app), base_url="http://admin.test"
         ) as client:
             yield AdminHarness(
-                app, client, org, other, platform_key, org_key, team_key, other_team_key, sessions
+                app,
+                client,
+                org,
+                other,
+                platform_key,
+                org_key,
+                team_key,
+                other_team_key,
+                sessions,
+                viewer_key,
+                org_viewer_key,
             )
     finally:
         await engine.dispose()

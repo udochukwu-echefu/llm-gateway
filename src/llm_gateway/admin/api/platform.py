@@ -14,7 +14,7 @@ router = APIRouter()
 
 @router.get("/settings")
 async def settings(request: Request) -> dict[str, object]:
-    service(request).require_platform()
+    service(request).require_platform(read_only=True)
     if request.query_params:
         raise ValueError("Invalid settings query")
     configured = context(request).settings
@@ -25,7 +25,7 @@ async def settings(request: Request) -> dict[str, object]:
 
 @router.get("/providers")
 async def providers(request: Request) -> dict[str, object]:
-    service(request).require_platform()
+    service(request).require_platform(read_only=True)
     if request.query_params:
         raise ValueError("Invalid providers query")
     ctx = context(request)

@@ -33,14 +33,14 @@ class AdminService:
         sessions: async_sessionmaker[AsyncSession],
         pepper: bytes,
         actor: str,
-        role: Literal["platform", "org"] = "platform",
+        role: Literal["platform", "org", "viewer"] = "platform",
         organization_id: uuid.UUID | None = None,
         usage_repository: PostgresUsageRepository | None = None,
     ) -> None:
         self.sessions = sessions
         self.pepper = pepper
         self.actor = actor
-        self.role: Literal["platform", "org"] = role
+        self.role: Literal["platform", "org", "viewer"] = role
         self.organization_id = organization_id
         self.usage_repository = usage_repository or PostgresUsageRepository(sessions)
         self.tenants = PostgresKeyRepository(sessions, actor)
@@ -48,20 +48,24 @@ class AdminService:
     async def authorize_org(self, name: str) -> Organization:
         async with self.sessions() as session:
             org = await session.scalar(select(Organization).where(Organization.name == name))
-        if org is None or (self.role == "org" and org.id != self.organization_id):
+        if org is None or (self.organization_id is not None and org.id != self.organization_id):
             raise ValueError("Organization not found")
         return org
 
-    def require_platform(self) -> None:
-        if self.role != "platform":
+    def require_platform(self, *, read_only: bool = False) -> None:
+        if self.organization_id is not None or (
+            self.role != "platform" and not (read_only and self.role == "viewer")
+        ):
             raise PermissionError("Platform administrator required")
 
     async def create_admin_key(
-        self, name: str, role: Literal["platform", "org"], org: str | None
+        self, name: str, role: Literal["platform", "org", "viewer"], org: str | None
     ) -> str:
         self.require_platform()
         organization_id = (await self.authorize_org(org)).id if org is not None else None
-        if (role == "org") != (organization_id is not None):
+        if role not in {"platform", "org", "viewer"}:
+            raise ValueError("Unknown admin role")
+        if role != "viewer" and (role == "org") != (organization_id is not None):
             raise ValueError("Org keys require --org; platform keys cannot use --org")
         issued = issue_key(self.pepper, prefix="lgwa")
         async with self.sessions.begin() as session:
@@ -84,14 +88,14 @@ class AdminService:
     async def list_orgs(self, cursor: uuid.UUID | None, limit: int) -> list[Organization]:
         async with self.sessions() as session:
             query = select(Organization)
-            if self.role == "org":
+            if self.organization_id is not None:
                 query = query.where(Organization.id == self.organization_id)
             if cursor is not None:
                 query = query.where(Organization.id > cursor)
             return list((await session.scalars(query.order_by(Organization.id).limit(limit))).all())
 
     async def create_team(self, org: str, name: str, session: AsyncSession | None = None) -> Team:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         return await self.tenants.create_team(org, name, session)
 
@@ -111,7 +115,7 @@ class AdminService:
         expires_in_days: int | None = None,
         session: AsyncSession | None = None,
     ) -> str:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         if expires_in_days is not None and expires_in_days <= 0:
             raise ValueError("expires_in_days must be positive")
@@ -126,7 +130,7 @@ class AdminService:
         self, org: str, team: str | None, cursor: uuid.UUID | None, limit: int | None
     ) -> list[ApiKey]:
         if limit is None:
-            if self.role == "org":
+            if self.organization_id is not None:
                 await self.authorize_org(org)
             return await self.tenants.list_keys(org, team)
         organization = await self.authorize_org(org)
@@ -146,7 +150,7 @@ class AdminService:
                 .where(ApiKey.key_id == key_id)
             )
         if owner is not None:
-            if self.role == "org" and owner != self.organization_id:
+            if self.organization_id is not None and owner != self.organization_id:
                 return False
             return await self.tenants.revoke_key(key_id)
         return await self._revoke_admin_key(key_id)
@@ -154,7 +158,9 @@ class AdminService:
     async def _revoke_admin_key(self, key_id: str) -> bool:
         async with self.sessions.begin() as session:
             key = await session.scalar(select(AdminKey).where(AdminKey.key_id == key_id))
-            if key is None or (self.role == "org" and key.organization_id != self.organization_id):
+            if key is None or (
+                self.organization_id is not None and key.organization_id != self.organization_id
+            ):
                 return False
             if key.revoked_at is None:
                 key.revoked_at = utc_now()
@@ -162,7 +168,7 @@ class AdminService:
             return True
 
     async def team_limits(self, org: str, team: str) -> tuple[uuid.UUID, LimitOverrides]:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         return await self.tenants.team_limits(org, team)
 
@@ -179,7 +185,7 @@ class AdminService:
         alert: Decimal | None = None,
         clear: bool = False,
     ) -> None:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         await self.tenants.set_limits(
             org,
@@ -200,7 +206,7 @@ class AdminService:
         patterns: list[str] | None,
         expected_version: str | None = None,
     ) -> None:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         await PolicyRepository(self.sessions, self.actor).set_models(
             org, team, patterns, load_catalog(), expected_version
@@ -225,7 +231,7 @@ class AdminService:
         values: list[str] | None,
         expected_version: str | None = None,
     ) -> None:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         await GuardrailRepository(self.sessions, self.actor).set_policy(
             org, team, residency=residency, values=values, expected_version=expected_version
@@ -245,7 +251,7 @@ class AdminService:
         return await self.usage_repository.report(org, team, since, until, group_by)
 
     async def purge_cache(self, org: str, team: str | None, client: Redis) -> int:
-        if self.role == "org":
+        if self.organization_id is not None:
             await self.authorize_org(org)
         return await purge(self.tenants, client, org, team)
 
@@ -290,7 +296,7 @@ class AdminService:
             )
 
     async def verify_audit(self) -> tuple[int, int | None]:
-        self.require_platform()
+        self.require_platform(read_only=True)
         async with self.sessions() as session:
             events = list((await session.scalars(select(AuditEvent).order_by(AuditEvent.id))).all())
         return len(events), first_broken(events)

@@ -21,7 +21,7 @@ async def search(request: Request) -> dict[str, object]:
     query = SearchQuery.model_validate(query_values(request))
     admin = service(request)
     pattern = "%" + query.q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-    scope = [] if admin.role == "platform" else [Organization.id == admin.organization_id]
+    scope = [] if admin.organization_id is None else [Organization.id == admin.organization_id]
     results: list[dict[str, object]] = []
     async with admin.sessions() as session:
         orgs = (

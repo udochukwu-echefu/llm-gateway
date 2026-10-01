@@ -11,7 +11,7 @@ from llm_gateway.tenants.models import ApiKey, Team
 
 
 def audit_query(
-    role: Literal["platform", "org"],
+    role: Literal["platform", "org", "viewer"],
     organization_id: uuid.UUID | None,
     since: date | None,
     until: date | None,
@@ -20,7 +20,7 @@ def audit_query(
     target_type: str | None,
 ) -> Select[AuditEvent]:
     query = select(AuditEvent)
-    if role == "org":
+    if organization_id is not None:
         key_ids = select(ApiKey.key_id).join(Team).where(Team.organization_id == organization_id)
         query = query.where(
             or_(

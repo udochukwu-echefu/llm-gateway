@@ -79,6 +79,19 @@ test("analytics date range group switches and unknown first-byte gaps", async ({
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/group_by=provider/);
   await expect(page.getByRole("img", { name: /duration_p95/ })).toBeVisible();
+  const latencyChart = page.getByRole("img", { name: /duration_p95/ });
+  const maximum = Number(await latencyChart.getAttribute("data-axis-maximum"));
+  const nvidia = page.getByRole("button", { name: "nvidia", exact: true });
+  await expect(nvidia).toHaveAttribute("aria-pressed", "true");
+  await nvidia.click();
+  await expect(nvidia).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => Number(await latencyChart.getAttribute("data-axis-maximum")))
+    .toBeLessThan(maximum);
+  await page.getByRole("checkbox", { name: "Log scale" }).check();
+  await expect(latencyChart).toHaveAttribute("data-axis-scale", "log");
+  await expect(latencyChart.getByText("1 ms", { exact: true })).toBeVisible();
+  await nvidia.click();
   await page.getByLabel("Chart measure").selectOption("ttfb_p95");
   await expect(page.getByRole("img", { name: /ttfb_p95/ })).toBeVisible();
   await expect(

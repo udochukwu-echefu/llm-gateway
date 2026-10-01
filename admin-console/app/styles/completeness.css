@@ -177,3 +177,11 @@ dd pre {
   border-radius: 0;
   overflow-y: auto;
 }
+
+.chart-legend button {
+  color: inherit;
+  border-color: currentColor;
+}
+.chart-legend button[aria-pressed="false"] {
+  opacity: 0.55;
+}

@@ -1,3 +1,6 @@
+"use client";
+import { useState } from "react";
+import { formatMeasure, formatLatencyTick, numericValue } from "@/lib/number-format";
 import type { AnalyticsRow } from "@/lib/console-contracts";
 export function AnalyticsChart({
   rows,
@@ -8,6 +11,10 @@ export function AnalyticsChart({
   bucket: "hour" | "day";
   measure: "duration_p95" | "ttfb_p95" | "requests" | "error_rate" | "cache_hit_rate";
 }) {
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const [logScale, setLogScale] = useState(false);
+  const latency = measure.startsWith("duration") || measure.startsWith("ttfb");
+  const logarithmic = latency && logScale;
   const recorded = [...new Set(rows.map((row) => row.bucket))].sort();
   const step = bucket === "hour" ? 3600000 : 86400000;
   const start = recorded[0] ? Date.parse(recorded[0]) : 0;
@@ -17,29 +24,67 @@ export function AnalyticsChart({
     (_, index) => new Date(start + index * step).toISOString(),
   );
   const groups = [...new Set(rows.map((row) => row.group ?? "All attempts"))];
-  const max = Math.max(1, ...rows.map((row) => Number(row[measure] ?? 0)));
-  const x = (index: number) => 70 + (index * 540) / Math.max(1, times.length - 1);
-  const y = (value: number) => 220 - (value * 180) / max;
-  const unit = measure.includes("rate") ? "fraction" : measure === "requests" ? "attempts" : "ms";
+  const visible = rows.filter((row) => !hidden.has(row.group ?? "All attempts"));
+  const max = visible.reduce(
+    (maximum, row) => Math.max(maximum, numericValue(row[measure]) ?? 0),
+    logarithmic ? 10 : 1,
+  );
+  const minimum = visible.reduce((smallest, row) => {
+    const value = numericValue(row[measure]);
+    return value !== null && value > 0 ? Math.min(smallest, value) : smallest;
+  }, 1);
+  const floor = 10 ** Math.floor(Math.log10(minimum));
+  const ticks = logarithmic ? [floor] : [0, max / 2];
+  if (logarithmic) {
+    for (let tick = floor * 10; tick < max; tick *= 10) ticks.push(tick);
+  }
+  ticks.push(max);
+  const points = new Map(
+    rows.map((row) => [`${Date.parse(row.bucket)}:${row.group ?? "All attempts"}`, row]),
+  );
+  const x = (index: number) => 100 + (index * 510) / Math.max(1, times.length - 1);
+  const y = (value: number) =>
+    220 -
+    (logarithmic
+      ? (Math.log10(value) - Math.log10(floor)) / (Math.log10(max) - Math.log10(floor))
+      : value / max) *
+      180;
+  const unit = measure.includes("rate") ? "%" : measure === "requests" ? "attempts" : "ms / s";
   return (
     <figure className="usage-chart">
       <figcaption>
         {measure.replaceAll("_", " ")} ({unit})
       </figcaption>
-      <svg role="img" aria-label={`${measure} by UTC time, table below`} viewBox="0 0 700 290">
-        <line className="chart-axis" x1="70" x2="630" y1="220" y2="220" />
-        <line className="chart-axis" x1="70" x2="70" y1="40" y2="220" />
-        {[0, 0.5, 1].map((fraction) => (
-          <g key={fraction}>
-            <line
-              className="chart-grid"
-              x1="70"
-              x2="630"
-              y1={y(max * fraction)}
-              y2={y(max * fraction)}
-            />
-            <text className="chart-label" x="8" y={y(max * fraction)}>
-              {(max * fraction).toFixed(1)}
+      {latency && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={logScale}
+            onChange={(event) => setLogScale(event.target.checked)}
+          />
+          Log scale
+        </label>
+      )}
+      {logarithmic && (
+        <p className="muted">
+          Logarithmic latency axis: equal spacing means a tenfold increase. Zero durations appear as
+          gaps.
+        </p>
+      )}
+      <svg
+        data-axis-maximum={max}
+        data-axis-scale={logarithmic ? "log" : "linear"}
+        role="img"
+        aria-label={`${measure} by UTC time, table below`}
+        viewBox="0 0 700 290"
+      >
+        <line className="chart-axis" x1="100" x2="630" y1="220" y2="220" />
+        <line className="chart-axis" x1="100" x2="100" y1="40" y2="220" />
+        {ticks.map((value) => (
+          <g key={value}>
+            <line className="chart-grid" x1="100" x2="630" y1={y(value)} y2={y(value)} />
+            <text className="chart-label" x="92" textAnchor="end" y={y(value)}>
+              {logarithmic ? formatLatencyTick(value) : formatMeasure(measure, value)}
             </text>
           </g>
         ))}
@@ -53,15 +98,12 @@ export function AnalyticsChart({
           Time (UTC)
         </text>
         {groups.map((group, index) => {
+          if (hidden.has(group)) return null;
           let previous: { x: number; y: number } | undefined;
           const dots = times.map((time, i) => {
-            const row = rows.find(
-              (row) =>
-                Date.parse(row.bucket) === Date.parse(time) &&
-                (row.group ?? "All attempts") === group,
-            );
-            const value = row?.[measure];
-            if (value == null) {
+            const row = points.get(`${Date.parse(time)}:${group}`);
+            const value = numericValue(row?.[measure]);
+            if (value === null || (logarithmic && value <= 0)) {
               previous = undefined;
               return null;
             }
@@ -86,7 +128,7 @@ export function AnalyticsChart({
                   r="2"
                 >
                   <title>
-                    {group}: {time} · {value} {unit}
+                    {group}: {time} · {formatMeasure(measure, value)}
                   </title>
                 </circle>
               </g>
@@ -98,7 +140,21 @@ export function AnalyticsChart({
       <ul className="chart-legend">
         {groups.map((group, index) => (
           <li className={`series-${index % 6}`} key={group}>
-            {group}
+            <button
+              type="button"
+              className="secondary"
+              aria-pressed={!hidden.has(group)}
+              onClick={() =>
+                setHidden((current) => {
+                  const next = new Set(current);
+                  if (next.has(group)) next.delete(group);
+                  else next.add(group);
+                  return next;
+                })
+              }
+            >
+              {group}
+            </button>
           </li>
         ))}
       </ul>

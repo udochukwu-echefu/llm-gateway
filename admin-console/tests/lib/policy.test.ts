@@ -33,7 +33,7 @@ test("settings fail closed without printing supplied secrets", () => {
   ).toThrow("Invalid console configuration");
 });
 test("money is formatted and compared exactly from decimal strings", () => {
-  expect(money("1234567.000000000001")).toBe("$1,234,567.000000000001");
+  expect(money("1234567.000000000001")).toBe("$1,234,567.00");
   expect(money("0E-12")).toBe("$0.00");
   expect(money("1E-12")).toBe("$0.000000000001");
   expect(money("0.1")).toBe("$0.10");

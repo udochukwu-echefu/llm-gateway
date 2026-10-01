@@ -20,5 +20,12 @@ export async function browserApi<T>(path: string, init: RequestInit = {}): Promi
     throw new Error("Please sign in again.");
   }
   if (!response.ok) throw new BrowserApiError(response.status, body.error || "The request failed.");
+  if (
+    init.method &&
+    ["PUT", "DELETE", "POST"].includes(init.method) &&
+    path.startsWith("/api/admin") &&
+    !path.endsWith("/keys")
+  )
+    window.dispatchEvent(new Event("console-saved"));
   return body as T;
 }

@@ -15,6 +15,7 @@ export interface NamedResource {
 export interface Page<T> {
   data: T[];
   next_cursor: string | number | null;
+  total?: number;
 }
 export interface KeyRecord extends NamedResource {
   key_id: string;
@@ -27,6 +28,7 @@ export interface Limits {
   effective: Record<LimitName, number>;
 }
 export interface Budget {
+  display_usd?: string | null;
   overrides: {
     usd: string | null;
     alert_at: string | null;
@@ -54,4 +56,5 @@ export interface AuditEvent {
   action: string;
   target_type: string;
   target_id: string;
+  details?: Record<string, unknown>;
 }

@@ -13,8 +13,20 @@ export function pico(value: string): bigint {
 export function money(value: string | null): string {
   if (value === null) return "Unpriced";
   const amount = pico(value);
-  const fraction = (amount % SCALE).toString().padStart(12, "0").replace(/0+$/, "").padEnd(2, "0");
-  return `$${(amount / SCALE).toLocaleString("en-US")}.${fraction}`;
+  let decimals = 2;
+  if (amount > 0n && amount < SCALE / 100n) {
+    const first = 12 - amount.toString().length;
+    decimals = Math.min(12, first + 4);
+  }
+  const divisor = 10n ** BigInt(12 - decimals);
+  let rounded = (amount + divisor / 2n) / divisor;
+  if (decimals > 2 && rounded.toString().length > 4) {
+    rounded /= 10n;
+    decimals--;
+  }
+  const unit = 10n ** BigInt(decimals);
+  const fraction = (rounded % unit).toString().padStart(decimals, "0");
+  return `$${(rounded / unit).toLocaleString("en-US")}.${fraction}`;
 }
 export function budgetPercent(spend: string, budget: string): number {
   const cap = pico(budget);

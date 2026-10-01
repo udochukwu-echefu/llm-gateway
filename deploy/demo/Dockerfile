@@ -20,6 +20,8 @@ RUN ADMIN_API_URL=http://127.0.0.1:18091 ADMIN_CONSOLE_ORIGIN=http://localhost:3
 RUN mkdir /node-libs && cp /usr/lib/*-linux-gnu/libstdc++.so.6 /node-libs/ && cp /lib/*-linux-gnu/libgcc_s.so.1 /node-libs/
 
 FROM python:3.13.12-slim-bookworm@sha256:a58daefb915e1e03ad48f3ca4df8832065412c5c35cacb9d39f4229184de12b6
+ARG DEMO_SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$DEMO_SOURCE_REVISION
 RUN useradd --system --uid 10001 --create-home demo
 WORKDIR /app
 COPY --from=gateway-build /app/.venv /app/.venv

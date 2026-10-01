@@ -1172,3 +1172,12 @@ In demo mode, viewer identities show “Demo visitor · Platform viewer” or
 The key ID, role and organization scope remain unchanged, and boot-key rotation still
 uses the original internal names. Ordinary identities retain their names. All sidebar
 names wrap, even without spaces, and expose the full display name in a native tooltip.
+
+### Step 16 review: tests must run the current appliance
+
+An image tag is a reusable nickname, not proof of which code it contains. The demo test
+harness checks a **revision label** (a build-time metadata value containing the Git commit)
+before starting containers. Missing or mismatched images are rebuilt and the new label is
+checked again. Uncommitted edits are marked `-dirty` and always force a build, because two
+different sets of edits can have the same commit. Build failures stop the suite with a
+clear manual build command instead of testing old binaries and reporting a false pass.

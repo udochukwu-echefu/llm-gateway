@@ -11,7 +11,8 @@ export default defineConfig({
   webServer: {
     command: "node tests/e2e/appliance.mjs",
     url: `${origin}/login`,
-    timeout: 180000,
+    // A missing/stale image may need an online build before service readiness.
+    timeout: 1800000,
     reuseExistingServer: false,
     gracefulShutdown: { signal: "SIGTERM", timeout: 30000 },
     env: { CONSOLE_TEST_PORT: port },

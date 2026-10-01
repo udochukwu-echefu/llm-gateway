@@ -21,7 +21,7 @@ Each step ends with tests, docs and a working gateway.
 | 13b | Model policy, guardrails, residency and cache purge console editors | ✅ Done |
 | 14 | Z.ai GLM and NVIDIA-hosted Kimi/GLM chat; model-specific rules, queued Kimi polling, per-provider timeouts, account errors; Singapore residency and API region discovery | Implemented; reviewer live NVIDIA queue/GLM Flash evidence recorded; agent live billing checks pending. See docs/tasks/step-14-report.md |
 | 15 | Console requests, analytics, settings, models/provider health, search, CSV, shared controls and complete synthetic demo coverage | Implemented on `feat/step-15-console-completeness`; review fixes: bounded screenshot history, readable metrics/CSV, selectable series and log latency; awaiting review |
-| 16 | Public viewer demo, server-side Explore sign-in, read-only console, fake-only portable appliance and InstaCloud deployment runbook | Approved; friendly visitor identities and wrapping sidebar names added; local appliance targets met, lazy wake top-up and in-memory boot keys; not deployed |
+| 16 | Public viewer demo, server-side Explore sign-in, read-only console, fake-only portable appliance and InstaCloud deployment runbook | Approved; friendly visitor identities, wrapping sidebar names and revision-checked appliance tests added; local appliance targets met, lazy wake top-up and in-memory boot keys; not deployed |
 
 Steps 1–14 are merged. The console includes policy editors, cache purge, Overview
 and helpful empty states; local demos use an opt-in synthetic seeder.

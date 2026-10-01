@@ -304,6 +304,32 @@ sessions have the shorter lifetime regardless of which sign-in route is used. Ne
 these settings in `NEXT_PUBLIC_*`, client props or public Compose secrets. The appliance
 generates both viewer keys in memory; it does not need these key settings in its env file.
 
+#### Demo appliance tests and screenshots
+
+From `admin-console/`, after the Python database/Redis suites:
+
+```bash
+CONSOLE_TEST_PORT=3300 npm run test:e2e:demo
+CONSOLE_TEST_PORT=3300 CONSOLE_CURATED_SCREENSHOTS=1 npm run test:e2e:demo
+```
+
+The harness compares the image's `org.opencontainers.image.revision` label with
+`git rev-parse HEAD` before starting the disposable demo stack. Missing, unlabelled or
+mismatched images are rebuilt automatically with `DEMO_SOURCE_REVISION` set to that commit.
+Uncommitted tracked/untracked files add `-dirty`; dirty checkouts always rebuild, since
+different edits can share that stamp. It never silently runs a stale tagged image.
+Build failures (including missing offline dependencies) stop with a manual build command;
+allow up to 30 minutes for build/startup. For a clean checkout, prebuild from the repository root:
+
+```bash
+docker compose -f deploy/demo/compose.yaml --profile demo-test build --build-arg DEMO_SOURCE_REVISION="$(git rev-parse HEAD)" appliance
+```
+
+Docker must be running. This profile publishes only console on loopback 3300, creates
+isolated Postgres/Redis and removes only its own disposable resources on shutdown.
+The curated screenshot command refreshes all four `docs/images/console-public-demo-*.png`
+images; inspect the rendered states before committing them.
+
 ### Synthetic local demo data
 
 With your **local** database migrated and GATEWAY_DATABASE_URL and a 32-byte

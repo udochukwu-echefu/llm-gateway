@@ -129,14 +129,16 @@ command is paid-only and is not needed for a default free single-instance servic
 deployment if status shows more than one. Two briefly overlapping rollouts are safe because
 boot revocation touches only appliance keys older than 24 hours, never the new boot's keys.
 
-Each wake waits for dependencies (30 s bound), migrates under a Postgres advisory lock,
+Each cold process boot waits for dependencies (30 s bound), migrates under a Postgres advisory lock,
 appends only missing synthetic days, starts loopback services, creates boot-ID viewer and
 tenant keys through a private memory pipe, checks viewer roles, then starts console and traffic.
 Child stdout/stderr streams through the supervisor line by line with a child-name prefix,
 for example `[gateway]`. Key-shaped strings and credential-bearing Postgres/Redis URLs
 are redacted before printing. Final crash diagnostics are drained before the supervisor
 reports the child exit. This is defence in depth; application logs still contain metadata only.
-Any child death fails the container. SIGTERM stops traffic/console, allows gateway usage
+Any required server death or failed traffic child fails the container. The traffic child
+exits successfully after its bounded window; the supervisor neither fails nor restarts it.
+SIGTERM stops traffic/console, allows gateway usage
 flush, then stops the fake provider under a 20-second shared budget; allow 25 seconds at the host.
 
 **Migration caveat:** InstaCloud normally recommends separate expand/contract migrations
@@ -184,11 +186,68 @@ Expect HTTP 200, both Explore buttons, Overview viewer identity/read-only banner
 disabled mutation controls, readable requests/analytics, working CSV/search, and no
 paste-key form. `/admin/v1/me` on the public origin must not serve the gateway admin API
 (an unauthenticated console request redirects to login HTML, not admin JSON).
-Check the platform's routed port list: **only 3000**. Sleep after five minutes without
-inbound router traffic, then visit again: cold start can take seconds. Frequent external
-health pings prevent sleeping; do not schedule cron to keep this demo awake. Internal
-traffic (three startup requests, then 50–70 s jitter) never reaches the inbound router.
-History is topped up on wake, not continuously at midnight while asleep.
+Check the platform's routed port list: **only 3000**. See the idle verification below.
+History is topped up on a cold process boot, not continuously at midnight while asleep.
+
+### Idle behaviour and sleep verification [O]
+
+The owner observed the original deployment staying awake continuously on 2026-10-01
+(about 490 MB resident; estimated $7–9/month, not a measured invoice). `always_on=false`
+alone did not prove it was sleeping. The old synthetic traffic ran forever and caused
+outbound Postgres/Redis accounting even though its HTTP request used loopback.
+InstaCloud documents five minutes without inbound router traffic or a shell session;
+some regional settings also count outbound traffic. CPU work and log output do not count.
+Do not assume that loopback requests with networked accounting are harmless for idle.
+
+After console readiness, three boot requests are followed by 50–70-second jittered requests
+for at most `DEMO_TRAFFIC_WINDOW_S` seconds (default **600**, positive integer). The fixed
+deadline includes request time, failures and the startup burst. The loop then exits **for
+good**, closing its HTTP client; it does not restart when visitors browse or refresh.
+An in-flight request is cancelled at the deadline; connection cleanup and gateway receipt
+finalization can finish just afterward.
+To deliberately change the window on a later authorized update [C]:
+
+```bash
+insta --agent secrets set DEMO_TRAFFIC_WINDOW_S 600 --service compute/appliance
+```
+
+This can redeploy the recipient on newer CLIs; do not run it merely to inspect settings.
+The appliance's fixed environment sets reconciliation and empty usage-queue waits to
+**3600 s**, overriding inherited short gateway timers. A batch size of one still writes
+each fresh receipt immediately. Demo Postgres closes connections after use (no idle
+keepalives); Redis health checks and TCP keepalives are disabled, including URL overrides.
+Production pooling, batching and default intervals are unchanged. Metrics is a passive
+loopback listener; OTLP and Next telemetry are disabled. No idle key-cache refresh or
+breaker probe exists. The full audit is in [the step 16c report](tasks/step-16c-report.md).
+
+After a future owner-authorized deployment of step 16c:
+
+1. Confirm scale-to-zero (`always_on=false`) and exactly one instance in status. Make one
+   visitor request, then close all tabs and shell sessions. Disable uptime checks, curl
+   loops, bots, external scrapes and any other router traffic while observing idle.
+2. Wait for `[traffic] Synthetic demo traffic: window complete; stopping.` in logs (normally
+   ten minutes after traffic-child start). Once in-flight work settles, allow about **five
+   further minutes** without visitors. A region that ignores outbound may sleep earlier.
+3. Use the control-plane status, **not the public URL**, to check without waking the demo:
+
+   ```bash
+   insta --agent compute status appliance
+   insta --agent compute metrics appliance --json
+   ```
+
+   Status should eventually show the machine **suspended or stopped**. Check the platform
+   memory chart drops to **zero**, not merely that CPU/network activity falls. Allow for
+   chart sampling delay. These checks have not been run for this local fix.
+4. Only after observing sleep, visit again. A **cold process restart** logs boot preparation
+   and a fresh burst, giving Requests “just now” receipts. InstaCloud also documents
+   RAM-preserving suspension: a resume can retain the completed loop and will **not**
+   regenerate boot traffic, rotate keys or top up history. Verify which happens in this
+   region; do not claim every wake is a process reboot or continuously fresh traffic.
+
+If memory never drops to zero, inspect actual inbound traffic/shell activity, `always_on`,
+regional outbound-idle policy and platform health checks. Do not keep requesting `/login`
+as a sleep test, silently switch to always-on, or claim the live cause is proven. This
+branch has not been merged, pushed or deployed; live sleeping remains owner verification.
 
 Update from a clean, reviewed commit by running `./deploy/demo/stage.sh` again. For
 rollback, switch to a clean branch at the recorded compatible previous commit and stage
@@ -209,7 +268,7 @@ schema/data**. Never automatically downgrade migration 0012: it refuses existing
 rows, including revoked ones. Inspect the migration ledger after any interrupted boot;
 recover deliberately, not by repeatedly deploying a known broken migration.
 
-Boot keys rotate automatically on wake/restart, without ever displaying them. To trigger
+Boot keys rotate automatically on a cold process boot/restart, without ever displaying them. To trigger
 rotation on a running service: `insta --agent compute restart appliance` [O/C]; for a
 deliberately stopped service use `insta --agent compute start appliance` [O/C]. Old keys
 remain usable until they age past 24 h and another boot revokes them; stolen encrypted

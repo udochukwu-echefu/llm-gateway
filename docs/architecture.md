@@ -1154,10 +1154,11 @@ memory pipe and child environments, never files or output. Only badges older tha
 are revoked, so two briefly overlapping deployments do not invalidate each other.
 Run exactly one instance; this demo rotation is not a production identity system.
 
-**Scale-to-zero** suspends the container after five idle minutes. A visitor wakes it;
-missing days are filled lazily on wake, so there is no cron job keeping it awake. An
-internal traffic loop sends a small burst, then about one request per minute while awake.
-Loopback traffic never touches the platform router. Its fake answers and token counts
+**Scale-to-zero** is configured to suspend the container after five idle minutes. A visitor
+wakes it; missing days are filled lazily on a cold process boot, without a cron job. The
+original internal traffic loop ran throughout the process lifetime; step 16c below bounds
+it. Loopback traffic never touches the platform router, but its accounting contacts the
+data services. Its fake answers and token counts
 illustrate accounting without model charges; an exact URL guard rejects real providers.
 Managed Postgres is credential-reachable, not an isolated private database: only synthetic
 metadata and hashed badges belong there. See ADR 0028 and [the deployment runbook](deployment-demo.md)
@@ -1204,3 +1205,38 @@ Dockerfile within that snapshot, then passes the temporary directory to InstaClo
 and source deployment commands. The owner can review exactly which commit will ship, and
 the temporary context is removed on success or failure. A platform URL is the first browser
 Origin; a later custom-domain switch replaces it because the console accepts one at a time.
+
+### Step 16c: let an unvisited demo become quiet
+
+On 2026-10-01 the owner observed continuous resident memory despite scale-to-zero being
+enabled. The old demo made a fake request every minute forever; each request still writes
+Postgres receipts and touches Redis. Loopback is not a guarantee of idle: InstaCloud says
+some regions also count outbound network activity. This is a plausible contributor, not
+a confirmed diagnosis of the live platform's regional configuration.
+
+`scripts/demo_traffic.py` now runs one **bounded window**: a stopwatch with a fixed end,
+not a timer reset after every request. Three boot requests remain, then requests are spaced
+50–70 seconds apart until `DEMO_TRAFFIC_WINDOW_S` (default 600 seconds) expires. The child
+exits successfully and is never restarted by the supervisor. Other exits, including a
+failed traffic child, still fail the appliance. Requests still running at the deadline are
+cancelled; no new request starts at or beyond it. Cold process boots create fresh receipts
+that appear as “just now”. A RAM-preserving suspension resumes the old process, so it
+does not rerun the boot burst or seed top-up; the owner must verify actual wake semantics.
+
+The appliance fixes budget reconciliation and the usage writer's idle wait to 3600 seconds.
+**Reconciliation** compares durable receipts with Redis and repairs undercounting. The demo
+can tolerate slower repair; production retains its 300-second default. A demo batch contains
+one receipt, so it flushes immediately even though the empty queue waits an hour. Empty
+queue timeouts never contact Postgres. This trades batching efficiency for a quiet demo
+without delaying fresh receipts.
+
+Demo Postgres uses **NullPool**, meaning returning a connection closes it rather than
+keeping it for later. There is then no idle socket on which Postgres/asyncpg/kernel TCP
+keepalives can send traffic. Production keeps pooled connections and checkout pre-ping
+(a connection check when used, not a periodic poll). Redis's demo connection disables
+TCP keepalives and health checks, even if its URL requests them. Key-cache expiry, breaker
+cooldowns and response-cache TTLs are checked on requests; they do not run background
+refreshes or probes. Metrics only listens for scrapes; tracing and Next telemetry remain
+disabled. The supervisor's process checks and log-reader threads use no network. See
+[ADR 0030](adr/0030-demo-idle-network-policy.md) and the
+[complete interval audit](tasks/step-16c-report.md). No production setting default changes.

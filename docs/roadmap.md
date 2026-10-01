@@ -26,6 +26,11 @@ Each step ends with tests, docs and a working gateway.
 Step 16b addresses the first deployment: standard-base64 cache keys, redacted child logs,
 committed-code staging and the tested owner deployment runbook.
 
+Step 16c bounds boot traffic to ten minutes (configurable), permits its successful exit,
+uses hourly demo-only idle timers and prevents idle storage keepalives. Implementation is
+local on `fix/step-16c-demo-idle`; not merged/deployed or live sleep-verified.
+See [the periodic-task audit and gates](tasks/step-16c-report.md).
+
 Steps 1–16 are merged. The console includes policy editors, cache purge, Overview
 and helpful empty states; local demos use an opt-in synthetic seeder.
 Completed measurement does not mean every SLO passed.

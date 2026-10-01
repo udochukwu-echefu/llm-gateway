@@ -43,7 +43,12 @@ def test_boot_credentials_reach_only_the_relevant_child_environment(
     monkeypatch.setattr(supervisor, "bootstrap", bootstrap)
     monkeypatch.setattr(supervisor, "launch", launch)
     monkeypatch.setattr(supervisor, "wait_http", Mock())
-    env = {**demo_environment(), "PORT": "3000", "ADMIN_API_URL": "http://127.0.0.1:18091"}
+    env = {
+        **demo_environment(),
+        "PORT": "3000",
+        "ADMIN_API_URL": "http://127.0.0.1:18091",
+        "DEMO_TRAFFIC_WINDOW_S": "120",
+    }
     monkeypatch.setattr(supervisor, "appliance_environment", Mock(return_value=env))
     monkeypatch.setattr(supervisor, "ensure_alive", Mock(side_effect=[None, RuntimeError("done")]))
     monkeypatch.setattr(supervisor, "signal", Mock())
@@ -60,6 +65,7 @@ def test_boot_credentials_reach_only_the_relevant_child_environment(
     assert "DEMO_TENANT_KEY" not in calls["console"]
     assert "DATABASE_URL" not in calls["console"]
     assert calls["traffic"]["DEMO_TENANT_KEY"] == issued["DEMO_TENANT_KEY"]
+    assert calls["traffic"]["DEMO_TRAFFIC_WINDOW_S"] == "120"
     assert (
         not {"DEMO_VIEWER_KEY", "DEMO_ORG_VIEWER_KEY", "GATEWAY_API_KEY_PEPPER"}
         & calls["traffic"].keys()

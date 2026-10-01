@@ -278,8 +278,9 @@ CI runs formatting, lint, typing, unit/component tests, build and the real-stack
 ### Live demo
 
 [Explore the live demo](https://prod-main-appliance-ca05b3-00hcr9bqd1b.compute.instacloud-edge.com).
-It is read-only, contains synthetic data and uses the fake provider. It sleeps when idle,
-so the first visit can take a few seconds.
+It is read-only, contains synthetic data and uses the fake provider. It is configured for
+scale-to-zero, so a cold visit can take a few seconds. The owner observed it staying awake
+on 2026-10-01; the step 16c idle fix below still needs deployment and live verification.
 The public tour offers platform-wide and Northwind Health read-only Explore sign-ins,
 with friendly “Demo visitor” identities rather than internal boot-key names.
 Viewer permissions are enforced by the gateway, not merely disabled buttons. Demo keys
@@ -288,7 +289,13 @@ remain usable. No trackers, real customer data or paid model calls are included.
 
 The portable non-root appliance packages console, gateway and fake provider behind one
 public console port for InstaCloud scale-to-zero. Per-boot viewer/traffic keys stay in
-memory; missing synthetic days are appended on wake. Run exactly one instance.
+memory; missing synthetic days are appended on a cold process boot. Run exactly one instance.
+The boot burst is followed by 50–70-second synthetic traffic for at most
+`DEMO_TRAFFIC_WINDOW_S` seconds (positive integer, default `600`), then that child exits
+without restarting. Demo-only reconciliation and empty usage waits are hourly; receipts
+still flush immediately. Postgres retains no idle connections and Redis sends no health
+checks or TCP keepalives. Production defaults are unchanged. A RAM-preserving resume does
+not rerun boot traffic; see the runbook's sleep verification and wake caveat.
 See [deployment, DNS, rotation and Docker fallback](docs/deployment-demo.md) and
 [ADR 0028](docs/adr/0028-public-demo-mode.md). Existing synthetic screenshots below show
 the product; below are the public Explore sign-in and locked viewer controls.

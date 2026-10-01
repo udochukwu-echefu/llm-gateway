@@ -75,6 +75,25 @@ async def test_batch_flushes_at_time_when_not_full() -> None:
     assert batches == [1]
 
 
+async def test_demo_single_receipt_flushes_immediately_despite_hourly_idle_wait() -> None:
+    batches: list[int] = []
+    flushed = asyncio.Event()
+
+    async def sink(records: Sequence[UsageRecord]) -> None:
+        batches.append(len(records))
+        flushed.set()
+
+    writer = UsageWriter(sink, batch_size=1, interval=3600)
+    writer.start()
+    try:
+        writer.enqueue(sample_record())
+        await asyncio.wait_for(flushed.wait(), 5)  # Safety net, not a wall-clock assertion.
+    finally:
+        await writer.stop()
+
+    assert batches == [1]
+
+
 async def test_queue_full_drops_immediately_and_counts_loss() -> None:
     async def sink(records: Sequence[UsageRecord]) -> None:
         pass

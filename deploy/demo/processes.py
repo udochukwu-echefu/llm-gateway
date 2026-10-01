@@ -37,7 +37,11 @@ def launch(
 
 def ensure_alive(children: list[Child]) -> None:
     for name, process in children:
-        if process.poll() is not None:
+        status = process.poll()
+        # Traffic is a bounded boot job, not a required long-lived server. Never restart it.
+        if name == "traffic" and status == 0:
+            continue
+        if status is not None:
             drain_output(process)
             raise RuntimeError(f"Appliance child exited: {name}.")
 

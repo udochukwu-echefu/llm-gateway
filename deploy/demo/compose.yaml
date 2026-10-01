@@ -29,6 +29,7 @@ services:
     image: llm-gateway-demo:step16
     environment:
       PORT: "3000"
+      DEMO_TRAFFIC_WINDOW_S: ${DEMO_TRAFFIC_WINDOW_S:-600}
       DATABASE_URL: postgresql://demo_test:synthetic-local-test-placeholder@postgres:5432/demo_test
       REDIS_URL: redis://redis:6379/0
       GATEWAY_API_KEY_PEPPER: synthetic-local-test-pepper-at-least-32-bytes

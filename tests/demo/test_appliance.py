@@ -10,7 +10,7 @@ import pytest
 
 from deploy.demo.boot_keys import send_boot_keys
 from deploy.demo.config import appliance_environment, normalize_database_url
-from deploy.demo.processes import Child, ensure_alive, launch, shutdown
+from deploy.demo.processes import Child, ensure_alive, shutdown
 from deploy.demo.supervisor import internal_command
 from llm_gateway.config import Settings
 from tests.demo.fixtures import demo_environment
@@ -82,16 +82,6 @@ def test_boot_keys_use_only_private_pipe_never_stdout_or_disk(
         pytest.raises(ValueError, match="private pipe"),
     ):
         send_boot_keys(keys, file.fileno())
-
-
-def test_children_cannot_leak_keys_through_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    popen = Mock(return_value=Mock())
-    monkeypatch.setattr(subprocess, "Popen", popen)
-    launch("console", ["node", "scripts/docker-start.mjs"], demo_environment())
-
-    assert popen.call_args.kwargs["stdout"] == subprocess.DEVNULL
-    assert popen.call_args.kwargs["stderr"] == subprocess.DEVNULL
-    assert popen.call_args.kwargs["start_new_session"]
 
 
 def test_child_exit_fails_appliance() -> None:

@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable
 
 from deploy.demo.config import INTERNAL_HOST, appliance_environment
+from deploy.demo.output import drain_output
 from deploy.demo.processes import Child, ensure_alive, launch, shutdown, wait_http
 
 
@@ -18,13 +19,11 @@ def bootstrap(env: dict[str, str], stage: str, stopped: Callable[[], bool]) -> d
     reader, writer = os.pipe()
     try:
         child_env = {**env, "DEMO_BOOT_KEY_FD": str(writer)}
-        process = subprocess.Popen(  # noqa: S603 -- fixed boot helper, never a shell
+        _, process = launch(
+            f"bootstrap-{stage}",
             [sys.executable, "-m", "deploy.demo.prepare", stage],
-            env=child_env,
+            child_env,
             pass_fds=(writer,),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
         )
         os.close(writer)
         writer = -1
@@ -33,7 +32,9 @@ def bootstrap(env: dict[str, str], stage: str, stopped: Callable[[], bool]) -> d
         except RuntimeError:
             os.killpg(process.pid, signal.SIGKILL)
             process.wait()
+            drain_output(process)
             raise
+        drain_output(process)
         if status != 0:
             raise RuntimeError(
                 f"Appliance {stage} failed; check database, Redis and configuration."

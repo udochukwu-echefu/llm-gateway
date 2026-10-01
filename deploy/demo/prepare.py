@@ -55,8 +55,7 @@ async def migrate() -> None:
                 result = await asyncio.to_thread(
                     subprocess.run,
                     [sys.executable, "-m", "alembic", "upgrade", "head"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    # Inherit the boot helper pipes; the parent redacts every line.
                     timeout=45,
                     check=False,
                 )

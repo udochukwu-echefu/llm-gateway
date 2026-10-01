@@ -50,8 +50,14 @@
 .workspace > header {
   min-height: 68px;
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
-  padding: 12px 32px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin: 16px 32px 0;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  flex-wrap: wrap;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -145,7 +151,8 @@
 }
 @media (max-width: 1180px) {
   .workspace > header {
-    padding-inline: 24px;
+    padding-inline: 16px;
+    margin-inline: 24px;
     gap: 12px;
   }
   .workspace > main {
@@ -161,6 +168,7 @@
   }
   .workspace > header {
     padding: 12px 16px;
+    margin: 0 16px;
     min-height: 0;
     flex-wrap: wrap;
   }

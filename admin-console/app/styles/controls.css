@@ -1,6 +1,7 @@
 @import "./theme-toggle.css";
 @import "./search-input.css";
 @import "./reveal-sheet.css";
+@import "./select.css";
 
 button,
 input,

@@ -5,29 +5,48 @@ export function Dialog({
   onClose,
   children,
   drawer = false,
+  dismissOnBackdrop = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   drawer?: boolean;
+  dismissOnBackdrop?: boolean;
 }) {
+  const backdropPress = useRef(false);
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
     const previous = document.activeElement as HTMLElement | null;
     if (drawer && !previous?.matches(":focus-visible")) dialog.classList.add("sheet-reveal");
     dialog.showModal();
-    dialog.querySelector<HTMLElement>('button, input, select, a[href], [tabindex="0"]')?.focus();
+    dialog
+      .querySelector<HTMLElement>(
+        'button, input:not([type="hidden"]), select, a[href], [tabindex="0"]',
+      )
+      ?.focus();
     return () => {
       dialog.close();
       previous?.focus();
     };
   }, [drawer]);
+  function outside(
+    event: React.MouseEvent<HTMLDialogElement> | React.PointerEvent<HTMLDialogElement>,
+  ) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return (
+      event.target === event.currentTarget &&
+      (event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom)
+    );
+  }
   function containFocus(event: React.KeyboardEvent<HTMLDialogElement>) {
     if (event.key !== "Tab") return;
     const items = Array.from(
       ref.current!.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+        'button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), a[href], [tabindex="0"]',
       ),
     );
     const first = items[0];
@@ -52,6 +71,16 @@ export function Dialog({
       ref={ref}
       tabIndex={-1}
       onKeyDown={containFocus}
+      onPointerDown={(event) => {
+        backdropPress.current = dismissOnBackdrop && outside(event);
+      }}
+      onPointerCancel={() => {
+        backdropPress.current = false;
+      }}
+      onClick={(event) => {
+        if (dismissOnBackdrop && backdropPress.current && outside(event)) onClose();
+        backdropPress.current = false;
+      }}
       aria-labelledby="dialog-title"
       onCancel={(event) => {
         event.preventDefault();

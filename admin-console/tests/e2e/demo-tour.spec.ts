@@ -1,3 +1,4 @@
+import { setTheme } from "./fixtures";
 import { test, expect, signIn } from "./fixtures";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -47,7 +48,7 @@ for (const role of ["platform", "org"] as const) {
         : [{ name: "light", width: 1440, height: 1050, theme: "light" }];
     for (const profile of profiles) {
       await page.setViewportSize({ width: profile.width, height: profile.height });
-      await page.getByLabel("Theme", { exact: true }).first().selectOption(profile.theme);
+      await setTheme(page, profile.theme);
       const pages = [
         "overview",
         ...(role === "platform" ? ["orgs", "providers"] : []),

@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 import { useEffect, useState } from "react";
 import { allPages } from "@/lib/usage-data";
 import { DataState } from "./data-state";
@@ -30,10 +31,10 @@ export function OrgScope({ org, orgs }: ReturnType<typeof useOrgScope>) {
       <DataState {...orgs} />
       <label>
         Organisation
-        <select
+        <Select
           aria-label="Organisation"
           value={org ?? ""}
-          onChange={(e) => set({ org: e.target.value })}
+          onValueChange={(next) => set({ org: next })}
         >
           <option value="" disabled>
             Choose an organisation
@@ -43,7 +44,7 @@ export function OrgScope({ org, orgs }: ReturnType<typeof useOrgScope>) {
               {item.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
     </div>
   );

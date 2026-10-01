@@ -140,26 +140,40 @@ function RequestList({
       </p>
       <DataState {...resource} />
       <div className="table-scroll">
-        <table>
+        <table className="request-table">
           <thead>
             <tr>
               <SortHeading field="created_at">Time</SortHeading>
               <SortHeading field="request_id">Request ID</SortHeading>
               <SortHeading field="provider">Provider / model</SortHeading>
               <SortHeading field="status_code">Status</SortHeading>
-              <SortHeading field="duration_ms">Duration</SortHeading>
-              <SortHeading field="cost_usd">Cost</SortHeading>
+              <SortHeading className="numeric" field="duration_ms">
+                Duration
+              </SortHeading>
+              <SortHeading className="numeric" field="cost_usd">
+                Cost
+              </SortHeading>
               <SortHeading field="outcome">Outcome</SortHeading>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id}>
+              <tr
+                key={row.id}
+                className="detail-row"
+                onClick={(event) => {
+                  if (!(event.target as Element).closest("button, a, input"))
+                    setDetail(row.request_id);
+                }}
+              >
                 <td>
                   <RecordTime value={row.created_at} />
                 </td>
                 <td>
-                  <button className="secondary" onClick={() => setDetail(row.request_id)}>
+                  <button
+                    className="secondary row-detail"
+                    onClick={() => setDetail(row.request_id)}
+                  >
                     {row.request_id}
                   </button>
                   <small>Attempt {row.attempt}</small>
@@ -173,8 +187,8 @@ function RequestList({
                     {row.status_code}
                   </span>
                 </td>
-                <td>{formatDuration(row.duration_ms)}</td>
-                <td>
+                <td className="numeric">{formatDuration(row.duration_ms)}</td>
+                <td className="numeric">
                   <MoneyValue value={row.cost_usd} />
                   <small>{row.cost_status}</small>
                 </td>

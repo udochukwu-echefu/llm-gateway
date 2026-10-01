@@ -1,9 +1,12 @@
-import { test, expect, signIn, screenshot } from "./fixtures";
+import { test, expect, signIn, screenshot, selectChoice, setTheme } from "./fixtures";
 import { abusiveLogin } from "./attacks";
 
 test("platform workflow", async ({ page, context, credentials, recordKey }) => {
   await signIn(page, credentials.platform);
-  const identityName = page.locator(".sidebar-footer .identity-name");
+  await expect(page.locator(".sidebar-footer .identity-name")).toHaveCount(0);
+  await page.goto("/settings");
+  const identityName = page.locator(".settings-panel .identity-name:visible");
+  await expect(identityName).toHaveCount(1);
   const fullName = await identityName.textContent();
   expect(fullName!.length).toBeGreaterThan(80);
   await expect(identityName).toHaveAttribute("title", fullName!);
@@ -77,7 +80,7 @@ test("platform workflow", async ({ page, context, credentials, recordKey }) => {
     "set-budget",
     "revoke-key",
   ]) {
-    await page.getByRole("combobox", { name: "Action", exact: true }).selectOption(action);
+    await selectChoice(page.getByRole("combobox", { name: "Action", exact: true }), action);
     await page.getByRole("button", { name: "Apply filters" }).click();
     await expect(page).toHaveURL(new RegExp(`action=${action}`));
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
@@ -155,7 +158,7 @@ test("security headers and CSP", async ({ page, credentials }) => {
   await expect(page.getByText("Unpriced usage", { exact: false }).first()).toBeVisible();
   await screenshot(page, "usage");
   for (const theme of ["light", "dark"]) {
-    await page.getByLabel("Theme", { exact: true }).selectOption(theme);
+    await setTheme(page, theme);
     const fillsHeight = await page.evaluate(() => {
       const aside = document.querySelector("aside")!.getBoundingClientRect().height;
       const frame = document.querySelector(".console")!.getBoundingClientRect().height;

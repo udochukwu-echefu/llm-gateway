@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 import type { ReactNode } from "react";
 import { useListQuery } from "./use-list-query";
 export interface FilterField {
@@ -34,14 +35,14 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
           <label key={name}>
             {label}
             {options ? (
-              <select aria-label={label} name={name} defaultValue={params.get(name) ?? ""}>
+              <Select aria-label={label} name={name} defaultValue={params.get(name) ?? ""}>
                 <option value="">All</option>
                 {options.map((value) => (
                   <option key={value} value={value}>
                     {value}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <input
                 aria-label={label}
@@ -77,12 +78,23 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
     </>
   );
 }
-export function SortHeading({ field, children }: { field: string; children: ReactNode }) {
+export function SortHeading({
+  field,
+  children,
+  className,
+}: {
+  field: string;
+  children: ReactNode;
+  className?: string;
+}) {
   const { params, set } = useListQuery();
   const active = params.get("sort") === field;
   const direction = params.get("direction") ?? "asc";
   return (
-    <th aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+    <th
+      className={className}
+      aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         className="sort-heading"
         onClick={() =>

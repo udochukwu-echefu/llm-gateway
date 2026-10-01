@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 import { useState } from "react";
 import { OrgScope, useOrgScope } from "./org-scope";
 import { useListQuery } from "./use-list-query";
@@ -83,13 +84,17 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
         <>
           <label>
             Chart measure
-            <select value={measure} onChange={(e) => setMeasure(e.target.value as typeof measure)}>
+            <Select
+              aria-label="Chart measure"
+              value={measure}
+              onValueChange={(next) => setMeasure(next as typeof measure)}
+            >
               {["duration_p95", "ttfb_p95", "requests", "error_rate", "cache_hit_rate"].map(
                 (value) => (
                   <option key={value}>{value}</option>
                 ),
               )}
-            </select>
+            </Select>
           </label>
           <AnalyticsChart
             rows={resource.data.data}

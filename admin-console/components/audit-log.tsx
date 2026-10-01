@@ -100,7 +100,13 @@ export function AuditLog({ platform }: { platform: boolean }) {
             </thead>
             <tbody>
               {rows.map((event) => (
-                <tr key={event.id}>
+                <tr
+                  key={event.id}
+                  className="detail-row"
+                  onClick={(click) => {
+                    if (!(click.target as Element).closest("button, a, input")) setDetail(event);
+                  }}
+                >
                   <td>
                     <RecordTime value={event.occurred_at} />
                   </td>
@@ -112,7 +118,7 @@ export function AuditLog({ platform }: { platform: boolean }) {
                     <CopyId value={event.target_id} />
                   </td>
                   <td>
-                    <button className="secondary" onClick={() => setDetail(event)}>
+                    <button className="secondary row-detail" onClick={() => setDetail(event)}>
                       Event {event.id}
                     </button>
                   </td>
@@ -134,14 +140,32 @@ export function AuditLog({ platform }: { platform: boolean }) {
           onMore={events.more}
         />
         {detail && (
-          <Dialog drawer title={`Audit event ${detail.id}`} onClose={() => setDetail(undefined)}>
-            <p>
-              {detail.action} by {detail.actor}
-            </p>
-            <RecordTime value={detail.occurred_at} />
-            <CopyId value={detail.target_id} />
-            <pre>{JSON.stringify(detail.details ?? {}, null, 2)}</pre>
-            <button onClick={() => setDetail(undefined)}>Close</button>
+          <Dialog
+            drawer
+            dismissOnBackdrop
+            title={`Audit event ${detail.id}`}
+            onClose={() => setDetail(undefined)}
+          >
+            <div className="sheet-summary">
+              <span className="eyebrow">AUDIT RECORD</span>
+              <h3>{detail.action}</h3>
+              <p>by {detail.actor}</p>
+              <RecordTime value={detail.occurred_at} />
+            </div>
+            <section className="sheet-section">
+              <h3>Target</h3>
+              <p className="muted">{detail.target_type}</p>
+              <CopyId value={detail.target_id} />
+            </section>
+            <section className="sheet-section">
+              <h3>Event metadata</h3>
+              <pre className="sheet-code">{JSON.stringify(detail.details ?? {}, null, 2)}</pre>
+            </section>
+            <div className="sheet-footer">
+              <button className="secondary" onClick={() => setDetail(undefined)}>
+                Close
+              </button>
+            </div>
           </Dialog>
         )}
       </section>

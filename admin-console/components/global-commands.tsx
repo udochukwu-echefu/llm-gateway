@@ -21,7 +21,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         event.key === "?" &&
         !(
           event.target instanceof HTMLElement &&
-          event.target.closest("input,textarea,select,[contenteditable]")
+          event.target.closest('input,textarea,select,[role="combobox"],[contenteditable]')
         )
       ) {
         event.preventDefault();
@@ -66,7 +66,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         </button>
       </div>
       {open && (
-        <Dialog title="Go to…" onClose={() => setOpen(false)}>
+        <Dialog dismissOnBackdrop title="Go to…" onClose={() => setOpen(false)}>
           <label>
             Search pages, organisations, teams and keys
             <span className="search-input-frame">

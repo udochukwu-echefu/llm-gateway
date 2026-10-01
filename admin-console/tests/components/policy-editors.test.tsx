@@ -95,7 +95,8 @@ test("weakening a guardrail requires confirmation", async () => {
   render(
     <GuardrailsEditor path="/api/admin/orgs/Fake/guardrails" initial={guardrails} org="Fake" />,
   );
-  await user.selectOptions(screen.getByLabelText("email action"), "redact");
+  await user.click(screen.getByRole("combobox", { name: "email action" }));
+  await user.click(await screen.findByRole("option", { name: "redact" }));
   await user.click(screen.getByText("Save guardrails"));
   expect(screen.getByRole("dialog").textContent).toContain("weakens a saved guardrail");
   expect(fetch).not.toHaveBeenCalled();

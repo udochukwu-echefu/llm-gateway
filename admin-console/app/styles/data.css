@@ -1,28 +1,29 @@
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
   margin: 16px 0;
   min-width: 480px;
   font-variant-numeric: tabular-nums;
 }
-th {
+thead th {
   font-size: 11px;
   color: var(--muted);
   font-weight: 550;
   padding: 11px 12px;
-  border-block: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   background: var(--surface);
   white-space: nowrap;
 }
-th:first-child {
+thead th:first-child {
   border-radius: 6px 0 0 6px;
 }
-th:last-child {
+thead th:last-child {
   border-radius: 0 6px 6px 0;
 }
 td {
-  padding: 14px 12px;
+  padding: 16px 12px;
   border-bottom: 1px solid var(--line-soft);
   vertical-align: middle;
   font-size: 12px;
@@ -54,7 +55,7 @@ tbody tr:last-child td {
   color: var(--success);
   border: 1px solid color-mix(in oklch, var(--success), transparent 78%);
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: 999px;
   font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
@@ -189,5 +190,52 @@ caption {
 @media (max-width: 1100px) {
   .usage-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+tbody th[scope="row"] {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+  font-weight: 550;
+  vertical-align: top;
+}
+tbody th[scope="row"] small {
+  display: block;
+  max-width: 32ch;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 400;
+}
+.detail-row {
+  cursor: pointer;
+}
+.detail-row:focus-within {
+  background: var(--surface);
+}
+button.row-detail {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 2px 0;
+  min-height: 28px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+}
+.request-table time {
+  white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+  .detail-row:hover {
+    background: var(--surface);
+  }
+  button.row-detail:hover:not(:disabled) {
+    background: transparent;
+    border-color: transparent;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 }

@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import type { Identity } from "@/lib/contracts";
 import { UnsavedPolicies, usePolicyNavigation } from "./unsaved-policy";
 import { browserApi } from "@/lib/browser-api";
-import { PreferencesProvider, usePreferences } from "./preferences";
+import { PreferencesProvider } from "./preferences";
 import { GlobalCommands } from "./global-commands";
 import { Toasts } from "./toasts";
 import { Suspense } from "react";
@@ -27,7 +27,6 @@ export function Shell(props: { identity: Identity; children: ReactNode }) {
 }
 function ShellContent({ identity, children }: { identity: Identity; children: ReactNode }) {
   const leave = usePolicyNavigation();
-  const preferences = usePreferences();
   const path = usePathname();
   const [error, setError] = useState("");
   const [collapsed, setCollapsed] = useState(false);
@@ -44,11 +43,11 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                 prefetch={false}
                 className="sidebar-brand"
                 href="/overview"
-                aria-label="LLM Gateway Admin console"
-                title={collapsed ? "LLM Gateway" : undefined}
+                aria-label="Runna Gateway Admin console"
+                title={collapsed ? "Runna Gateway" : undefined}
               >
                 <span className="sidebar-mark" aria-hidden="true" />
-                <span className="sidebar-link-text">Menu</span>
+                <span className="sidebar-link-text">Runna Gateway</span>
               </Link>
               <button
                 type="button"
@@ -129,9 +128,6 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
                     ? "Platform admin"
                     : "Organisation admin"}
               </span>
-              <p className="identity-name" title={identity.name}>
-                {identity.name}
-              </p>
               <small>Key ID · {identity.key_id}</small>
             </div>
           </div>
@@ -143,20 +139,6 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           <GlobalCommands identity={identity} />
           <div className="actions">
             <ThemeToggle />
-            <label className="theme-label">
-              Theme
-              <select
-                aria-label="Theme"
-                value={preferences.value.theme}
-                onChange={(e) =>
-                  preferences.update({ theme: e.target.value as "system" | "light" | "dark" })
-                }
-              >
-                <option value="system">System</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
             <button
               className="secondary"
               onClick={async () => {

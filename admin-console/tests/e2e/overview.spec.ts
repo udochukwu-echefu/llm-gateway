@@ -1,4 +1,4 @@
-import { test, expect, signIn, screenshot } from "./fixtures";
+import { test, expect, signIn, screenshot, setTheme } from "./fixtures";
 import { money } from "../../lib/money";
 import { currentMonth } from "../../lib/usage-data";
 import { sumDecimal } from "../../lib/overview-totals";
@@ -83,7 +83,7 @@ test("Overview platform landing includes all organisations and recent activity",
     page.getByRole("link", { name: "View full audit log →", exact: true }),
   ).toBeVisible();
   await screenshot(page, "overview");
-  await page.getByLabel("Theme", { exact: true }).selectOption("dark");
+  await setTheme(page, "dark");
   await screenshot(page, "overview-dark");
   await page.setViewportSize({ width: 820, height: 1100 });
   await screenshot(page, "overview-tablet");

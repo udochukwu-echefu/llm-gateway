@@ -330,16 +330,19 @@ Run the suites after the Python database and Redis gates:
 CONSOLE_TEST_PORT=3300 CONSOLE_SCREENSHOTS=1 npm run test:e2e
 ```
 
-The full set is under `docs/images/console/{platform,org}/{light,dark,tablet,phone}/`.
+The full set is generated locally on demand under
+`docs/images/console/{platform,org}/{light,dark,tablet,phone}/` and is ignored by Git.
+Only the curated top-level `docs/images/console-*.png` used below are committed.
+Use `CONSOLE_CURATED_SCREENSHOTS=1` instead to refresh only those README images.
 Each profile includes every role-visible page and organisation/team tab; the platform
 set also includes Orbit and the paused sandbox. Captures start at the top, blur focus,
 and use the test-only static-sidebar class for long pages. No secret dialogs are captured.
 
-![Requests](docs/images/console/platform/light/requests.png)
-![Analytics](docs/images/console/platform/light/analytics.png)
-![Settings](docs/images/console/platform/light/settings.png)
-![Models dark](docs/images/console/platform/dark/models.png)
-![Requests phone](docs/images/console/org/phone/requests.png)
+![Requests](docs/images/console-requests.png)
+![Analytics](docs/images/console-analytics.png)
+![Settings](docs/images/console-settings.png)
+![Models dark](docs/images/console-models-dark.png)
+![Requests phone](docs/images/console-requests-phone.png)
 
 Screenshots contain synthetic deployments and public IDs only:
 

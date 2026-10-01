@@ -24,3 +24,6 @@ loadtest/results/
 .demo-keys.*.env
 
 admin-console/tests/e2e/.demo-keys.e2e.env
+
+# Full local console tour; keep only curated README images in git
+docs/images/console/

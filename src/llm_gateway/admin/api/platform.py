@@ -61,5 +61,8 @@ async def providers(request: Request) -> dict[str, object]:
                     .mappings()
                     .one()
                 )
-                provider[label] = dict(row)
+                provider[label] = {
+                    **row,
+                    "p95_ms": round(row["p95_ms"], 1) if row["p95_ms"] is not None else None,
+                }
     return {"data": result, "circuit_scope": "this replica"}

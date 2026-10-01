@@ -83,7 +83,13 @@ async def request_page(
 def metadata(row: UsageRow) -> dict[str, Any]:
     # Enumerate receipt columns, never a request/response body or a key-table join.
     return {
-        column.name: json_value(getattr(row, column.name)) for column in UsageRow.__table__.columns
+        column.name: (
+            round(value, 1)
+            if column.name in {"duration_ms", "ttfb_ms"} and isinstance(value, float)
+            else json_value(value)
+        )
+        for column in UsageRow.__table__.columns
+        for value in (getattr(row, column.name),)
     }
 
 

@@ -1,4 +1,5 @@
 "use client";
+import { formatDuration, formatCount } from "@/lib/number-format";
 import { useResource } from "./use-resource";
 import { DataState } from "./data-state";
 import { Dialog } from "./dialog";
@@ -43,7 +44,7 @@ export function RequestDetail({
               <dd>{row.model}</dd>
               <dt>Duration / first byte</dt>
               <dd>
-                {row.duration_ms ?? "Unknown"} / {row.ttfb_ms ?? "Unknown"} ms
+                {formatDuration(row.duration_ms)} / {formatDuration(row.ttfb_ms)}
               </dd>
               <dt>Cost</dt>
               <dd>
@@ -51,7 +52,7 @@ export function RequestDetail({
               </dd>
               <dt>Tokens (input / output)</dt>
               <dd>
-                {row.prompt_tokens ?? "Unknown"} / {row.completion_tokens ?? "Unknown"}
+                {formatCount(row.prompt_tokens)} / {formatCount(row.completion_tokens)}
               </dd>
               <dt>Redactions</dt>
               <dd>{row.redaction_count ?? "Unknown"}</dd>

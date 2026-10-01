@@ -25,7 +25,7 @@ test("requests-log filtering URL chips and complete attempt detail drawer", asyn
   await expect(page.getByRole("button", { name: /^demo-/ }).first()).toBeVisible();
 });
 
-test("CSV export contents match the current request and audit filters with exact money", async ({
+test("CSV export contents match the current request and audit filters with rounded machine-readable numbers", async ({
   page,
   credentials,
 }) => {
@@ -49,7 +49,7 @@ test("CSV export contents match the current request and audit filters with exact
     const csv = await (await fetch(`/api/export/requests?${filter}`)).text();
     return { cost: page.data[0].cost_usd, csv };
   });
-  expect(exact.csv.split("\r\n")[1].split('","')[18]).toBe(exact.cost);
+  expect(exact.csv.split("\r\n")[1].split('","')[18]).toBe(Number(exact.cost).toFixed(3));
   const auditCsv = await page.evaluate(
     async () => await (await fetch("/api/export/audit?action=set-models")).text(),
   );

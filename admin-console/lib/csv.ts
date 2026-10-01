@@ -1,7 +1,14 @@
+import { csvNumber } from "./number-format";
 // Prefix dangerous spreadsheet expressions even when hidden behind whitespace.
 export function csvCell(value: unknown): string {
   const raw =
-    value == null ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    value == null
+      ? ""
+      : typeof value === "number"
+        ? csvNumber(value)
+        : typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value);
   const safe = /^[\s\u0000-\u001f]*[=+\-@]/.test(raw) ? "'" + raw : raw;
   return '"' + safe.replace(/"/g, '""') + '"';
 }

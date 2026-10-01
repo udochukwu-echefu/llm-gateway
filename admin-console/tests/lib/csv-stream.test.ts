@@ -24,5 +24,5 @@ test("CSV stream caps rows and never emits credentials or spreadsheet formula ce
   expect(contents.split("\r\n").filter(Boolean)).toHaveLength(EXPORT_CAP + 1);
   expect(contents).toContain('"\'=FAKE_FORMULA"');
   expect(contents).not.toContain("lgwa_");
-  expect(contents).toContain("0.000000000001");
+  expect(contents).toContain("0.000");
 });

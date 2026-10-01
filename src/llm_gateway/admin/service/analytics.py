@@ -73,4 +73,12 @@ async def analytics(
     if filters.group_by == "team":
         query = query.join(Team, Team.id == UsageRow.team_id)
     rows = (await session.execute(query.group_by(*grouping).order_by(*grouping))).mappings().all()
-    return [{key: json_value(value) for key, value in row.items()} for row in rows]
+    return [
+        {
+            key: round(value, 1)
+            if key.startswith(("duration_", "ttfb_")) and isinstance(value, float)
+            else json_value(value)
+            for key, value in row.items()
+        }
+        for row in rows
+    ]

@@ -1,4 +1,5 @@
 "use client";
+import { formatDuration, formatRate, formatCount } from "@/lib/number-format";
 import { useResource } from "./use-resource";
 import { useListQuery } from "./use-list-query";
 import { SortHeading, PageCount } from "./list-controls";
@@ -36,8 +37,8 @@ export function Providers() {
               <SortHeading field="enabled">Enabled</SortHeading>
               <SortHeading field="host">Host</SortHeading>
               <SortHeading field="circuit_breaker">Breaker · this replica</SortHeading>
-              <th>15 minutes: attempts / error rate / p95 ms</th>
-              <th>24 hours: attempts / error rate / p95 ms</th>
+              <th>15 minutes: attempts / error rate / p95 latency</th>
+              <th>24 hours: attempts / error rate / p95 latency</th>
             </tr>
           </thead>
           <tbody>
@@ -49,8 +50,9 @@ export function Providers() {
                 <td>{row.circuit_breaker ?? "Not configured"}</td>
                 {["15m", "24h"].map((window) => (
                   <td key={window}>
-                    {row[window as "15m"].attempts} / {row[window as "15m"].error_rate ?? "Unknown"}{" "}
-                    / {row[window as "15m"].p95_ms ?? "Unknown"}
+                    {formatCount(row[window as "15m"].attempts)} /{" "}
+                    {formatRate(row[window as "15m"].error_rate)} /{" "}
+                    {formatDuration(row[window as "15m"].p95_ms)}
                   </td>
                 ))}
               </tr>

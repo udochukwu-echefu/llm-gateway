@@ -1,3 +1,4 @@
+import { formatCount } from "@/lib/number-format";
 import { money } from "@/lib/money";
 import type { summarize } from "@/lib/overview-totals";
 export function OverviewCards({ summary }: { summary: ReturnType<typeof summarize> }) {
@@ -6,18 +7,13 @@ export function OverviewCards({ summary }: { summary: ReturnType<typeof summariz
       "spend",
       "Priced spend this month",
       money(summary.spend),
-      `${summary.unpriced.toLocaleString("en-US")} unpriced requests`,
+      `${formatCount(summary.unpriced)} unpriced requests`,
     ],
-    [
-      "requests",
-      "Requests",
-      summary.requests.toLocaleString("en-US"),
-      "Provider attempts and cache hits",
-    ],
+    ["requests", "Requests", formatCount(summary.requests), "Provider attempts and cache hits"],
     [
       "tokens",
       "Known tokens",
-      summary.tokens.toLocaleString("en-US"),
+      formatCount(summary.tokens),
       summary.incompleteTokens ? "Partial total · some usage is unknown" : "Input + output",
     ],
     [
@@ -26,8 +22,8 @@ export function OverviewCards({ summary }: { summary: ReturnType<typeof summariz
       money(summary.savings),
       summary.unknownSavings ? "Some savings are unpriced" : "Estimated savings at reviewed prices",
     ],
-    ["keys", "Active keys", summary.activeKeys.toLocaleString("en-US"), "Not revoked or expired"],
-    ["teams", "Teams", summary.teams.toLocaleString("en-US"), "Across visible organisations"],
+    ["keys", "Active keys", formatCount(summary.activeKeys), "Not revoked or expired"],
+    ["teams", "Teams", formatCount(summary.teams), "Across visible organisations"],
   ];
   return (
     <dl className="overview-cards">

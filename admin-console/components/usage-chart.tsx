@@ -1,4 +1,5 @@
 "use client";
+import { formatCount } from "@/lib/number-format";
 import { useId } from "react";
 import { trendPoint, trendSegments } from "@/lib/usage-trend";
 
@@ -38,7 +39,7 @@ export function UsageChart({ title, unit, days, values, marker }: Props) {
             <g key={value}>
               <line className="chart-grid" x1="60" y1={y} x2="530" y2={y} />
               <text className="chart-label" x="52" y={y + 4} textAnchor="end">
-                {value.toLocaleString("en-US")}
+                {formatCount(value)}
               </text>
             </g>
           );

@@ -1,3 +1,4 @@
+import { formatCount } from "@/lib/number-format";
 import { SortableTable } from "./sortable-table";
 import type { Usage } from "@/lib/contracts";
 import { dailyTokens } from "@/lib/usage-trend";
@@ -37,10 +38,10 @@ export function DailyUsage({ rows }: { rows: Usage[] }) {
           {rows.map((row) => (
             <tr key={row.group}>
               <td>{row.group}</td>
-              <td>{row.requests}</td>
-              <td>{row.prompt_tokens ?? "Unknown"}</td>
-              <td>{row.completion_tokens ?? "Unknown"}</td>
-              <td>{dailyTokens(row) ?? "Unknown"}</td>
+              <td>{formatCount(row.requests)}</td>
+              <td>{formatCount(row.prompt_tokens)}</td>
+              <td>{formatCount(row.completion_tokens)}</td>
+              <td>{formatCount(dailyTokens(row))}</td>
             </tr>
           ))}
         </tbody>

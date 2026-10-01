@@ -6,6 +6,7 @@ import { useResource } from "./use-resource";
 import { FilterBar, SortHeading, PageCount } from "./list-controls";
 import { DataState } from "./data-state";
 import { MoneyValue } from "./money-value";
+import { formatMeasure } from "@/lib/number-format";
 import { AnalyticsChart } from "./analytics-chart";
 import { listSort } from "@/lib/list-query";
 import type { AnalyticsRow } from "@/lib/console-contracts";
@@ -95,9 +96,7 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
           />
           <div className="table-scroll">
             <table>
-              <caption>
-                UTC buckets; durations and first byte in milliseconds; rates as fractions.
-              </caption>
+              <caption>UTC buckets; durations in ms or seconds; rates as percentages.</caption>
               <thead>
                 <tr>
                   {[
@@ -146,8 +145,10 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
                       <td key={field}>
                         {field === "saved_usd" ? (
                           <MoneyValue value={row.saved_usd} />
-                        ) : (
+                        ) : ["bucket", "group"].includes(field) ? (
                           (row[field as keyof AnalyticsRow] ?? "Unknown")
+                        ) : (
+                          formatMeasure(field, row[field as keyof AnalyticsRow])
                         )}
                       </td>
                     ))}

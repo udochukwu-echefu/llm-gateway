@@ -1,6 +1,7 @@
 import "server-only";
 import { adminRequest } from "./admin-client";
 import { browserResponse } from "./bff-response";
+import { csvDecimal } from "./number-format";
 import { csvRow, EXPORT_CAP } from "./csv";
 import type { Page } from "./contracts";
 export const requestColumns = [
@@ -60,7 +61,19 @@ export function csvStream(
           EXPORT_CAP - sent,
         );
         controller.enqueue(
-          encoder.encode(rows.map((row) => csvRow(columns.map((column) => row[column]))).join("")),
+          encoder.encode(
+            rows
+              .map((row) =>
+                csvRow(
+                  columns.map((column) =>
+                    ["cost_usd", "saved_usd"].includes(column)
+                      ? csvDecimal((row[column] as string | null) ?? null)
+                      : row[column],
+                  ),
+                ),
+              )
+              .join(""),
+          ),
         );
         sent += rows.length;
         if (sent >= EXPORT_CAP || page.next_cursor == null) {

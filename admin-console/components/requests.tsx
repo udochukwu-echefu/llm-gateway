@@ -1,4 +1,5 @@
 "use client";
+import { formatDuration } from "@/lib/number-format";
 import { useState } from "react";
 import { useListQuery } from "./use-list-query";
 import { OrgScope, useOrgScope } from "./org-scope";
@@ -170,7 +171,7 @@ function RequestList({
                     {row.status_code}
                   </span>
                 </td>
-                <td>{row.duration_ms ?? "Unknown"} ms</td>
+                <td>{formatDuration(row.duration_ms)}</td>
                 <td>
                   <MoneyValue value={row.cost_usd} />
                   <small>{row.cost_status}</small>

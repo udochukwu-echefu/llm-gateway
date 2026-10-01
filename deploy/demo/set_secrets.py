@@ -12,7 +12,7 @@ def set_secrets() -> None:
         raise RuntimeError("Install the InstaCloud CLI before provisioning secrets.")
     values = {
         "GATEWAY_API_KEY_PEPPER": secrets.token_urlsafe(48),
-        "GATEWAY_CACHE_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+        "GATEWAY_CACHE_ENCRYPTION_KEY": base64.b64encode(secrets.token_bytes(32)).decode(),
         "ADMIN_CONSOLE_SESSION_SECRET": secrets.token_urlsafe(48),
     }
     for name, value in values.items():

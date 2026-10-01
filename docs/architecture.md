@@ -1140,15 +1140,25 @@ The badge never appears in HTML, scripts or JSON. Startup refuses a normal admin
 badge, so a configuration mistake cannot turn the tour into public management access.
 Demo sessions last at most two hours, with the existing thirty-minute idle limit.
 
-A **reverse proxy** is a building's reception desk: Caddy checks everyone in over HTTPS
-and sends them to the console while the inner API, database and metrics doors stay locked
-on an internal network. **Automatic HTTPS** means Caddy obtains and renews the certificate
-that proves the site's identity and encrypts traffic. Only the reception desk publishes
-ports 80/443. It replaces untrusted forwarded addresses with the actual peer address.
+A **demo appliance** packages the console, gateway and fake provider in one portable
+container. InstaCloud documents no private web-service network: publishing separate
+services would give the management door a public URL. Instead, only the console listens
+outside the container; the API, admin API, metrics and fake provider listen on loopback
+(an address reachable only inside that container). The platform terminates HTTPS.
 
-The fake provider produces synthetic answers and token counts without real model calls.
-An exact startup URL guard and an internal Docker network prevent accidental paid-provider
-traffic. A daily refresh extends the synthetic history through today without resetting
-workspaces or changing viewer keys. A low-rate worker adds live receipt rows. Their USD
-figures illustrate catalogue accounting, not actual money spent. See ADR 0028 and the
-demo deployment runbook for the single-VPS limitations and operator procedures.
+A **supervisor** is a small parent process that starts children, notices a crash and shuts
+them down in order. It waits for the data services, migrates under a Postgres advisory
+lock (one boot renovates the schema at a time), and appends missing synthetic days. It
+issues new viewer/traffic badges on every boot; plaintext travels through an anonymous
+memory pipe and child environments, never files or output. Only badges older than 24 hours
+are revoked, so two briefly overlapping deployments do not invalidate each other.
+Run exactly one instance; this demo rotation is not a production identity system.
+
+**Scale-to-zero** suspends the container after five idle minutes. A visitor wakes it;
+missing days are filled lazily on wake, so there is no cron job keeping it awake. An
+internal traffic loop sends a small burst, then about one request per minute while awake.
+Loopback traffic never touches the platform router. Its fake answers and token counts
+illustrate accounting without model charges; an exact URL guard rejects real providers.
+Managed Postgres is credential-reachable, not an isolated private database: only synthetic
+metadata and hashed badges belong there. See ADR 0028 and [the deployment runbook](deployment-demo.md)
+for accepted demo risks, cold-start measurements and operator procedures.

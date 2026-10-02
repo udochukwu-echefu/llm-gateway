@@ -1302,3 +1302,12 @@ cache (previously visited pages kept in memory). This discards the old scope's U
 reload and every API request still pass through the server's session and scope checks.
 Opening the menu never fetches data or starts a keepalive, so it cannot keep the idle demo
 awake. Browser appearance preferences survive the full reload; they are not gateway writes.
+
+### CI setup: test the same startup schema as the console
+
+The Python secret-generation regression calls the console's actual Node startup schema.
+That schema imports Zod, the console's validation library, so a fresh test runner needs
+the pinned Node version and locked console runtime dependencies as well as Python tools.
+The Python CI job installs those prerequisites before pytest; it does not skip the
+cross-runtime check or duplicate the schema in Python. The console job remains separate
+and installs the development dependencies needed for its own browser and component tests.

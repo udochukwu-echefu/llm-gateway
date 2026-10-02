@@ -563,7 +563,12 @@ The benchmark ignores .env and uses only a fake provider.
 
 ## Development
 
+Use Node 24.15.0 from `admin-console/.nvmrc` alongside the locked Python tools.
+The Python suite checks generated secrets against the console's real startup schema,
+so install its locked runtime dependencies before running pytest:
+
 ```bash
+npm --prefix admin-console ci --omit=dev --no-audit --no-fund
 uv run pytest            # tests (no network: providers are mocked)
 uv run ruff check .      # lint
 uv run ruff format .     # format

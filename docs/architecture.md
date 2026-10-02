@@ -1240,3 +1240,9 @@ refreshes or probes. Metrics only listens for scrapes; tracing and Next telemetr
 disabled. The supervisor's process checks and log-reader threads use no network. See
 [ADR 0030](adr/0030-demo-idle-network-policy.md) and the
 [complete interval audit](tasks/step-16c-report.md). No production setting default changes.
+
+### Demo traffic logs: show status immediately
+
+Each synthetic traffic message uses `flush=True` to send it to stdout immediately.
+Without this, Python may hold messages in a buffer (temporary storage) until the
+traffic window ends. Status logs stay metadata-only; traffic timing is unchanged.

@@ -12,11 +12,6 @@ synthetic data and a fake provider; it makes no paid model calls. The console is
 branded **Runna Gateway**; the Python package and repository retain `llm_gateway`
 and `llm-gateway` respectively.
 
-![Runna Gateway platform overview with both read-only demo profiles](docs/images/runna-gateway-platform.png)
-
-*Verified 2 October 2026 release. The account menu switches between platform-wide
-and Northwind Health views. Screenshot values are synthetic.*
-
 ## Architecture
 
 ```mermaid
@@ -66,11 +61,7 @@ The public tour has two API-enforced read-only profiles, organisation isolation,
 metadata-only request records, exact money formatting and policy inheritance.
 The profile menu also exposes Light, Dark and System appearance choices.
 
-![Northwind Health viewer scoped to its organisation](docs/images/runna-gateway-northwind.png)
-
-![Demo sign-in with a dark introduction and light Explore panel](docs/images/runna-gateway-login.png)
-
-[Screenshot provenance](docs/images/runna-gateway-captures.md) ·
+[Verified release screenshots](docs/images/runna-gateway-captures.md) ·
 [2–3 minute walkthrough script](docs/demo-video-script.md)
 
 ## Quick start
@@ -369,12 +360,7 @@ still flush immediately. Postgres retains no idle connections and Redis sends no
 checks or TCP keepalives. Production defaults are unchanged. A RAM-preserving resume does
 not rerun boot traffic; see the runbook's sleep verification and wake caveat.
 See [deployment, DNS, rotation and Docker fallback](docs/deployment-demo.md) and
-[ADR 0028](docs/adr/0028-public-demo-mode.md). Existing synthetic screenshots below show
-the product; below are the public Explore sign-in and locked viewer controls.
-
-![Public demo sign-in](docs/images/runna-gateway-login.png)
-![Platform viewer](docs/images/runna-gateway-platform.png)
-![Read-only controls](docs/images/console-public-demo-read-only-controls.png)
+[ADR 0028](docs/adr/0028-public-demo-mode.md).
 
 For a separately hosted console, `DEMO_MODE` defaults to `false`. Setting it to `true`
 requires server-only `DEMO_VIEWER_KEY` (platform-wide viewer); optional
@@ -468,39 +454,11 @@ CONSOLE_TEST_PORT=3300 CONSOLE_SCREENSHOTS=1 npm run test:e2e
 
 The full set is generated locally on demand under
 `docs/images/console/{platform,org}/{light,dark,tablet,phone}/` and is ignored by Git.
-Only the curated top-level `docs/images/console-*.png` used below are committed.
-Use `CONSOLE_CURATED_SCREENSHOTS=1` instead to refresh only those README images.
+Curated top-level `docs/images/console-*.png` captures are committed separately.
+Use `CONSOLE_CURATED_SCREENSHOTS=1` instead to refresh only those curated images.
 Each profile includes every role-visible page and organisation/team tab; the platform
 set also includes Orbit and the paused sandbox. Captures start at the top, blur focus,
 and use the test-only static-sidebar class for long pages. No secret dialogs are captured.
-
-![Requests](docs/images/console-requests.png)
-![Analytics](docs/images/console-analytics.png)
-![Settings](docs/images/console-settings.png)
-![Models dark](docs/images/console-models-dark.png)
-![Requests phone](docs/images/console-requests-phone.png)
-
-Screenshots contain synthetic deployments and public IDs only:
-
-![Overview](docs/images/console-overview.png)
-![Organisation Overview](docs/images/console-overview-org.png)
-![Overview dark](docs/images/console-overview-dark.png)
-![Overview tablet](docs/images/console-overview-tablet.png)
-![Organisation policies](docs/images/console-policies-org.png)
-![Team policies](docs/images/console-policies-team.png)
-![Policies dark](docs/images/console-policies-dark.png)
-![Policies tablet](docs/images/console-policies-tablet.png)
-![Cache purge](docs/images/console-cache-purge.png)
-
-![Sign-in](docs/images/console-login.png)
-![Organizations](docs/images/console-organisations.png)
-![Usage](docs/images/console-usage.png)
-![API keys](docs/images/console-keys.png)
-![Limits](docs/images/console-limits.png)
-![Budget](docs/images/console-budget.png)
-![Audit](docs/images/console-audit.png)
-![Dark theme](docs/images/console-usage-dark.png)
-![Tablet](docs/images/console-tablet.png)
 
 See [ADR 0024](docs/adr/0024-admin-console.md), [ADR 0025](docs/adr/0025-safe-policy-editing.md)
 and the [step 13b validation report](docs/tasks/step-13b-report.md).
@@ -1035,8 +993,6 @@ the compose network; it is **not** `/metrics` on the API port.
 - [Jaeger](http://localhost:16686): choose service `llm-gateway`, then find a request trace.
 
 Send authenticated traffic with an existing virtual key to populate provider panels.
-Screenshot placeholder: add a redacted screenshot of this dashboard with representative
-traffic before publishing a portfolio demo. Do not include customer identifiers or secrets.
 The profile's UI and API ports bind to loopback; do not expose these local defaults publicly.
 For a gateway running outside Docker, metrics default to `127.0.0.1:9464`. Configure your
 Prometheus target/reachable bind address explicitly; never expose it through the public API.

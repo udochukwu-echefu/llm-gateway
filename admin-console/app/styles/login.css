@@ -6,6 +6,16 @@
   padding: 0;
 }
 .login-story {
+  color-scheme: dark;
+  --rail: oklch(0.205 0 0);
+  --panel: oklch(0.205 0 0);
+  --nav: oklch(0.269 0 0);
+  --text: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0);
+  --line: oklch(1 0 0 / 10%);
+  --accent: oklch(0.922 0 0);
+  --accent-text: oklch(0.205 0 0);
+  color: var(--text);
   background: var(--rail);
   padding: 44px 56px;
   display: flex;

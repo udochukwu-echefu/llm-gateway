@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { Settings } from "@/components/settings";
 import { Shell } from "@/components/shell";
@@ -22,7 +22,9 @@ for (const role of ["platform", "org", "viewer"] as const) {
       </Shell>,
     );
 
-    const displayed = await screen.findByText(name);
+    const displayed = await within(
+      document.querySelector(".settings-panel") as HTMLElement,
+    ).findByText(name);
     expect(displayed.getAttribute("title")).toBe(name);
     expect(displayed.className).toBe("identity-name");
     expect(displayed.closest(".settings-panel")).not.toBeNull();

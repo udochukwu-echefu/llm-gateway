@@ -54,6 +54,9 @@ export async function responseScanner(page: Page) {
     return capture;
   });
   return {
+    bodyFor(request: Request) {
+      return records.get(request)?.body;
+    },
     async verify(adminKeys: string[], tenantKeys: string[], permittedKey?: string) {
       // A retained App Router navigation can never become "networkidle" even with no
       // requests in flight. Drain captured bytes and flush response events instead.

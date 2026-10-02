@@ -164,10 +164,10 @@ test("audit filters action actor target dates URL and safe event drawer", async 
   await signIn(page, credentials.platform);
   await page.goto("/audit");
   await selectChoice(page.getByRole("combobox", { name: "Action", exact: true }), "set-models");
-  await page.getByLabel("Actor", { exact: true }).fill("synthetic-demo-seeder");
+  await page.getByRole("textbox", { name: "Actor", exact: true }).fill("synthetic-demo-seeder");
   await selectChoice(page.getByRole("combobox", { name: "Target type", exact: true }), "team");
-  await page.getByLabel("From date (UTC)").fill("2000-01-01");
-  await page.getByLabel("To date (UTC)").fill("2099-01-01");
+  await page.getByLabel("From date (UTC)").and(page.locator(":visible")).fill("2000-01-01");
+  await page.getByLabel("To date (UTC)").and(page.locator(":visible")).fill("2099-01-01");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/target_type=team/);
   await expect(page.locator("tbody tr").first()).toContainText("set-models");

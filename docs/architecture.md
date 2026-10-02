@@ -1268,3 +1268,37 @@ disabled. The supervisor's process checks and log-reader threads use no network.
 Each synthetic traffic message uses `flush=True` to send it to stdout immediately.
 Without this, Python may hold messages in a buffer (temporary storage) until the
 traffic window ends. Status logs stay metadata-only; traffic timing is unchanged.
+
+### Console profile menu: change the badge, not just the label
+
+The top-right avatar opens account navigation, Sign out, and the same Light/Dark/System
+preferences used in Settings. It previews on mouse hover and stays open after a click;
+touch and keyboard users can open it without hovering. Collapsed actions are hidden from
+assistive technology and cannot receive focus. Its expanding card overlays the page,
+so opening it does not move the workspace. Styles and local icons require no external assets.
+
+In public demo mode the server sends only two **capability flags** (true/false values):
+whether demo choices are enabled, and whether the Northwind choice is configured. A viewer
+role alone does not enable switching. Keys and session cookies are never client props.
+The two profiles are read-only; a selected check reflects the authenticated role and scope.
+
+Switching posts a scope choice to the existing demo sign-in route. That route validates
+Origin, applies the sign-in quota, verifies a server-held viewer badge and replaces the
+encrypted session. The menu keeps the old identity until this succeeds. Failures leave
+the current page and session usable, while duplicate/current-profile requests are blocked.
+Switching and logout use the existing unsaved-policy guard first.
+
+An earlier data read can refresh the old session cookie when its response arrives.
+The browser request helper therefore tracks outstanding responses. The menu waits for
+those complete responses before changing identity, and defers newly requested reads
+until failure or document replacement. Otherwise a finished read could mount another
+component that starts a late request with the old badge. Failure resumes deferred reads;
+success retires the old document without sending them. This is an event-driven wait,
+not polling or a keepalive; failed reads also leave the tracked set. A browser regression
+holds an old read open to prove this ordering.
+
+After success, a full document navigation opens Overview instead of reusing Next's client
+cache (previously visited pages kept in memory). This discards the old scope's UI. Back,
+reload and every API request still pass through the server's session and scope checks.
+Opening the menu never fetches data or starts a keepalive, so it cannot keep the idle demo
+awake. Browser appearance preferences survive the full reload; they are not gateway writes.

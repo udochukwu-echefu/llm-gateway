@@ -226,6 +226,7 @@ test("login throttle and no shared-IP lockout", async ({ page, context, credenti
   await expect(page.getByRole("button", { name: "Verify chain" })).toBeVisible();
   await page.getByRole("button", { name: "Verify chain" }).click();
   await expect(page.getByText(/^Chain verified:/)).toBeVisible();
+  await page.getByRole("button", { name: /^Profile menu:/ }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await signIn(page, credentials.platform);

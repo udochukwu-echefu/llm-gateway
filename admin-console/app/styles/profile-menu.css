@@ -1,0 +1,295 @@
+/* DevClub Profile Menu. License: public/licenses/devclub-components.txt. */
+.profile-slot {
+  position: relative;
+  width: 360px;
+  height: 60px;
+  flex: 0 0 auto;
+  max-width: calc(100vw - 32px);
+}
+.profile-card {
+  --profile-muted: light-dark(color-mix(in oklch, var(--muted) 92%, var(--text)), var(--muted));
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: light-dark(
+    color-mix(in srgb, var(--bg) 95%, transparent),
+    color-mix(in srgb, var(--bg) 90%, transparent)
+  );
+  color: var(--text);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 10px 15px -3px light-dark(rgb(0 0 0 / 5%), rgb(0 0 0 / 30%));
+  transition:
+    box-shadow 300ms,
+    width 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.profile-card[data-open="true"] {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: auto;
+  box-shadow: 0 25px 50px -12px light-dark(rgb(0 0 0 / 10%), rgb(0 0 0 / 50%));
+}
+.profile-card button,
+.profile-card a {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-decoration: none;
+  box-shadow: none;
+  margin: 0;
+}
+.profile-card .profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.profile-card svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.profile-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+}
+.profile-online {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--success);
+  border: 2px solid var(--bg);
+}
+.profile-heading {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.profile-context {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--profile-muted);
+}
+.profile-title,
+.profile-context {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-chevron {
+  display: flex;
+  color: var(--profile-muted);
+  transition: transform 300ms;
+}
+.profile-card[data-open="true"] .profile-chevron {
+  transform: rotate(180deg);
+}
+.profile-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 300ms,
+    visibility 300ms;
+}
+.profile-card[data-open="true"] .profile-reveal {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+.profile-reveal-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.profile-scroll {
+  margin: 0 2px 2px;
+  max-height: calc(100dvh - 210px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 0 0 14px 14px;
+}
+.profile-body {
+  position: relative;
+  padding: 0 6px 6px;
+}
+.profile-scroll::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 0 8px 6px;
+  background: var(--line);
+}
+.profile-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 12px;
+  background: light-dark(
+    color-mix(in srgb, var(--text) 6%, transparent),
+    color-mix(in srgb, var(--text) 10%, transparent)
+  );
+  pointer-events: none;
+  opacity: 0;
+}
+.profile-section + .profile-section::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--line-soft);
+}
+.profile-section h2 {
+  margin: 0 0 4px;
+  padding: 4px 10px 0;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--profile-muted);
+}
+.profile-card .profile-row,
+.profile-card .profile-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  min-height: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--profile-muted);
+  font-size: 12px;
+  line-height: 1.4444;
+  text-align: left;
+  transition: color 150ms;
+}
+.profile-card .profile-row + .profile-row {
+  margin-top: 2px;
+}
+.profile-card .profile-row:hover,
+.profile-card .profile-tile:hover,
+.profile-card .profile-row:focus-visible,
+.profile-card .profile-tile:focus-visible {
+  color: var(--text);
+}
+.profile-card .profile-row:focus-visible,
+.profile-card .profile-tile:focus-visible,
+.profile-card .profile-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+.profile-card [aria-pressed="true"] {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-weight: 500;
+}
+.profile-card button:hover:not(:disabled) {
+  background: transparent;
+}
+.profile-card button:active:not(:disabled) {
+  transform: none;
+}
+.profile-card :disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.profile-row-label {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-row-label small {
+  color: var(--profile-muted);
+  font-size: 10px;
+  line-height: 14px;
+}
+.profile-row-end {
+  margin-left: auto;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--profile-muted);
+}
+.profile-appearance {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.profile-card .profile-tile {
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding-block: 10px;
+  text-align: center;
+}
+.profile-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin: 6px 14px 12px;
+}
+.workspace > header {
+  z-index: 20;
+}
+.workspace > header > .actions {
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+@media (max-width: 1180px) {
+  .profile-slot {
+    width: 60px;
+  }
+  .profile-card:not([data-open="true"]) {
+    width: 60px;
+  }
+  .profile-card:not([data-open="true"]) .profile-heading,
+  .profile-card:not([data-open="true"]) .profile-chevron {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-card,
+  .profile-chevron,
+  .profile-reveal,
+  .profile-row,
+  .profile-tile {
+    transition: none;
+  }
+}

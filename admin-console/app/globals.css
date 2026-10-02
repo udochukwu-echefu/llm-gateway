@@ -8,6 +8,7 @@
 @import "./styles/data.css";
 
 @import "./styles/completeness.css";
+@import "./styles/profile-menu.css";
 .demo-banner {
   background: var(--panel);
   border: 1px solid var(--line);

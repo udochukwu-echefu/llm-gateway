@@ -1,12 +1,9 @@
-/* Full navigation after auth changes discards the old page and any one-time key in memory. */
-/* eslint-disable @next/next/no-location-assign-relative-destination */
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { Identity } from "@/lib/contracts";
-import { UnsavedPolicies, usePolicyNavigation } from "./unsaved-policy";
-import { browserApi } from "@/lib/browser-api";
+import { UnsavedPolicies } from "./unsaved-policy";
 import { PreferencesProvider } from "./preferences";
 import { GlobalCommands } from "./global-commands";
 import { Toasts } from "./toasts";
@@ -14,8 +11,14 @@ import { Suspense } from "react";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ReadOnlyProvider } from "./read-only";
 import { ThemeToggle } from "./theme-toggle";
-import { SparkleButton } from "./sparkle-button";
-export function Shell(props: { identity: Identity; children: ReactNode }) {
+import { ProfileMenu } from "./profile-menu";
+import type { DemoAvailability } from "./profile-identity";
+interface ShellProps {
+  identity: Identity;
+  demo?: DemoAvailability;
+  children: ReactNode;
+}
+export function Shell(props: ShellProps) {
   return (
     <ReadOnlyProvider viewer={props.identity.role === "viewer"}>
       <PreferencesProvider>
@@ -26,10 +29,8 @@ export function Shell(props: { identity: Identity; children: ReactNode }) {
     </ReadOnlyProvider>
   );
 }
-function ShellContent({ identity, children }: { identity: Identity; children: ReactNode }) {
-  const leave = usePolicyNavigation();
+function ShellContent({ identity, demo, children }: ShellProps) {
   const path = usePathname();
-  const [error, setError] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   return (
     <div className={`console${collapsed ? " console-collapsed" : ""}`}>
@@ -144,18 +145,7 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
           <GlobalCommands identity={identity} />
           <div className="actions">
             <ThemeToggle />
-            <SparkleButton
-              text="Sign out"
-              onClick={async () => {
-                if (!leave()) return;
-                try {
-                  await browserApi("/api/auth/logout", { method: "POST" });
-                  window.location.assign("/login");
-                } catch (e) {
-                  setError((e as Error).message);
-                }
-              }}
-            />
+            <ProfileMenu identity={identity} demo={demo} />
           </div>
         </header>
         <main id="main">
@@ -164,7 +154,6 @@ function ShellContent({ identity, children }: { identity: Identity; children: Re
               Read-only demo. Changes are disabled; this is a live gateway with synthetic data.
             </p>
           )}
-          {error && <p role="alert">{error}</p>}
           <Breadcrumbs />
           <Suspense
             fallback={

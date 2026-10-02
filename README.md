@@ -202,8 +202,17 @@ refill entries; it does not remove receipts or change policy. Admin-key manageme
 SSO remain outside the console.
 Closing/Escape, changing tabs or reloading discards a newly created tenant secret. If its
 first response is lost, revoke the resulting key and issue a replacement. Money stays
-as decimal strings and BigInt pico-dollars; no float accounting. Theme defaults to system
-and can be changed to light/dark for the current document.
+as decimal strings and BigInt pico-dollars; no float accounting. Theme defaults to System;
+Light/Dark/System preferences are shared by Settings, the header toggle and the profile
+menu, and saved in this browser.
+
+The top-right avatar opens View profile, Requests, Analytics and Sign out. It previews
+on mouse hover; a click pins it open. Touch and keyboard activation work without hover;
+Escape closes it and restores focus. In public demo mode its two read-only choices switch
+the real server session to Platform viewer or Northwind Health viewer, then fully reload
+Overview. The Northwind choice is shown only when configured. Appearance survives that
+reload. Normal consoles do not offer public demo profiles. Unsaved policies still require
+confirmation before switching or signing out, and failed switches keep the current session.
 
 Login failures are throttled per browser-client IP: ten failures within a fixed minute
 trigger 429 and Retry-After. Successful login resets that client's count. This is a

@@ -1,5 +1,6 @@
 import { test, expect, screenshot } from "./fixtures";
 import type { Page } from "@playwright/test";
+import { profileMenuDemoTests } from "./profile-menu-demo";
 
 async function explore(page: Page, scope: "platform" | "org") {
   await page.goto("/login");
@@ -13,9 +14,11 @@ async function explore(page: Page, scope: "platform" | "org") {
     .click();
   await expect(page).toHaveURL(/\/overview$/);
   await expect(
-    page.getByText(scope === "platform" ? "Platform viewer" : "Organisation viewer", {
-      exact: true,
-    }),
+    page
+      .locator(".sidebar-footer")
+      .getByText(scope === "platform" ? "Platform viewer" : "Organisation viewer", {
+        exact: true,
+      }),
   ).toBeVisible();
   await expect(page.locator(".sidebar-footer .identity-name")).toHaveCount(0);
   await page.goto("/settings");
@@ -145,3 +148,5 @@ test("public demo hides paste-key form and disables key login route", async ({ p
   expect(adminResponse.path).toBe("/login");
   expect(adminResponse.type).toContain("text/html");
 });
+
+profileMenuDemoTests();

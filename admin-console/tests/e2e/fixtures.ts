@@ -4,6 +4,7 @@ import {
   type Page,
   type BrowserContext,
   type Locator,
+  type Request,
 } from "@playwright/test";
 import { readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,17 +28,32 @@ interface LeakTotals {
   permitted: Map<string, string>;
 }
 interface Fixtures {
+  scannedResponses: Awaited<ReturnType<typeof responseScanner>>;
+  responseBody: (request: Request) => string;
   credentials: Credentials;
   coverage: void;
   extraScans: {
     scanners: Awaited<ReturnType<typeof responseScanner>>[];
     contexts: BrowserContext[];
   };
-  newScannedPage: () => Promise<Page>;
+  newScannedPage: (options?: {
+    hasTouch?: boolean;
+    viewport?: { width: number; height: number };
+  }) => Promise<Page>;
   recordKey: (key: string, permitCreation?: boolean) => void;
 }
 
 export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
+  scannedResponses: async ({ page }, provide) => {
+    await provide(await responseScanner(page));
+  },
+  responseBody: async ({ scannedResponses }, provide) => {
+    await provide((request) => {
+      const body = scannedResponses.bodyFor(request);
+      expect(body, "Response bytes captured before navigation").toBeDefined();
+      return body!;
+    });
+  },
   credentials: async ({}, provide) => {
     if (process.env.DEMO_APPLIANCE_E2E === "1") {
       // Actual boot keys never leave the appliance. The scanner also rejects all key patterns.
@@ -87,10 +103,11 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
     await provide({ scanners: [], contexts: [] });
   },
   newScannedPage: async ({ browser, extraScans }, provide) => {
-    await provide(async () => {
+    await provide(async (options = {}) => {
       const context = await browser.newContext({
-        baseURL: `http://[::1]:${process.env.CONSOLE_TEST_PORT ?? "3100"}`,
+        baseURL: `http://${process.env.DEMO_APPLIANCE_E2E === "1" ? "localhost" : "[::1]"}:${process.env.CONSOLE_TEST_PORT ?? "3100"}`,
         viewport: { width: 1440, height: 1050 },
+        ...options,
       });
       const page = await context.newPage();
       extraScans.contexts.push(context);
@@ -99,8 +116,7 @@ export const test = base.extend<Fixtures, { leaks: LeakTotals }>({
     });
   },
   coverage: [
-    async ({ page, credentials, leaks, extraScans }, provide, info) => {
-      const scanner = await responseScanner(page);
+    async ({ scannedResponses: scanner, credentials, leaks, extraScans }, provide, info) => {
       await provide();
       const result = await scanner.verify(
         [
@@ -144,7 +160,10 @@ export async function signIn(page: Page, key: string) {
   await page.goto("/login");
   await page.getByLabel("Admin API key").fill(key);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: /^Profile menu:/ }).click();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.move(0, 0);
   await page.waitForLoadState("networkidle");
 }
 

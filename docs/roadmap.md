@@ -31,6 +31,11 @@ uses hourly demo-only idle timers and prevents idle storage keepalives. Implemen
 local on `fix/step-16c-demo-idle`; not merged/deployed or live sleep-verified.
 See [the periodic-task audit and gates](tasks/step-16c-report.md).
 
+The console profile-menu follow-up is isolated on `feat/console-profile-menu` for
+independent review. It reuses public demo session sign-in for the two read-only scopes,
+adds account navigation and shared Appearance controls, and does not belong to the
+already-approved logging/design deployment.
+
 Steps 1–16 are merged. The console includes policy editors, cache purge, Overview
 and helpful empty states; local demos use an opt-in synthetic seeder.
 Completed measurement does not mean every SLO passed.

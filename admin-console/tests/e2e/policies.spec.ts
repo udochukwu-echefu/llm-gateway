@@ -263,7 +263,7 @@ test("every policy write and cache purge appears in the audit log", async ({
     "cache-purge",
   ]) {
     await selectChoice(page.getByRole("combobox", { name: "Action", exact: true }), action);
-    await page.getByText("Apply filters", { exact: true }).click();
+    await page.getByRole("button", { name: "Apply filters", exact: true }).click();
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }
 });

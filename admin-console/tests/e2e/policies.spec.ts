@@ -1,4 +1,4 @@
-import { test, expect, signIn, screenshot } from "./fixtures";
+import { test, expect, signIn, screenshot, selectChoice, setTheme } from "./fixtures";
 import type { Page, APIRequestContext } from "@playwright/test";
 async function reset(request: APIRequestContext, org: string, key: string) {
   for (const kind of ["model-policy", "guardrails", "residency"])
@@ -70,7 +70,7 @@ test("guardrail tightening and weaker choice has no effect", async ({
   await signIn(page, credentials.orgKey);
   await policies(page, credentials.org);
   let panel = page.getByRole("region", { name: "Guardrails", exact: true });
-  await panel.getByLabel("email action").selectOption("block");
+  await selectChoice(panel.getByRole("combobox", { name: "email action", exact: true }), "block");
   await save(page, "Guardrails");
   await expect(
     panel
@@ -81,7 +81,7 @@ test("guardrail tightening and weaker choice has no effect", async ({
   ).toHaveText("block");
   await policies(page, credentials.org, true);
   panel = page.getByRole("region", { name: "Guardrails", exact: true });
-  await panel.getByLabel("email action").selectOption("allow");
+  await selectChoice(panel.getByRole("combobox", { name: "email action", exact: true }), "allow");
   await expect(panel.getByText("No effect: the organisation already requires block")).toBeVisible();
   await save(page, "Guardrails");
   await expect(
@@ -112,7 +112,7 @@ test("EU residency shrinks usable models using the API view", async ({
   await expect(panel.getByText("Effective models · 0", { exact: true })).toBeVisible();
   await expect(panel.getByText("No usable models.", { exact: true })).toBeVisible();
   await screenshot(page, "policies-org");
-  await page.getByLabel("Theme", { exact: true }).selectOption("dark");
+  await setTheme(page, "dark");
   await screenshot(page, "policies-dark");
   await page.setViewportSize({ width: 820, height: 1100 });
   await screenshot(page, "policies-tablet");
@@ -234,7 +234,7 @@ test("every policy write and cache purge appears in the audit log", async ({
   await page.getByText("Confirm change", { exact: true }).click();
   await expect(models.getByRole("status")).toContainText("Policy saved");
   const guards = page.getByRole("region", { name: "Guardrails", exact: true });
-  await guards.getByLabel("phone action").selectOption("redact");
+  await selectChoice(guards.getByRole("combobox", { name: "phone action", exact: true }), "redact");
   await save(page, "Guardrails");
   await guards.getByText("Remove override", { exact: true }).click();
   await page.getByText("Confirm change", { exact: true }).click();
@@ -262,7 +262,7 @@ test("every policy write and cache purge appears in the audit log", async ({
     "clear-residency",
     "cache-purge",
   ]) {
-    await page.getByLabel("Action", { exact: true }).selectOption(action);
+    await selectChoice(page.getByRole("combobox", { name: "Action", exact: true }), action);
     await page.getByText("Apply filters", { exact: true }).click();
     await expect(page.getByRole("cell", { name: action, exact: true }).first()).toBeVisible();
   }

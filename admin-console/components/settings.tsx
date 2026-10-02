@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 /* eslint-disable @next/next/no-location-assign-relative-destination */
 import type { Identity } from "@/lib/contracts";
 import { ABSOLUTE_MS, DEMO_ABSOLUTE_MS, IDLE_MS } from "@/lib/session-policy";
@@ -24,12 +25,16 @@ export function Settings({
   const [error, setError] = useState("");
   return (
     <>
-      <h1>Settings</h1>
-      <section className="panel">
+      <div className="screen-heading">
+        <h1>Settings</h1>
+      </div>
+      <section className="panel settings-panel">
         <h2>Account</h2>
         <dl>
           <dt>Name</dt>
-          <dd>{identity.name}</dd>
+          <dd className="identity-name" title={identity.name}>
+            {identity.name}
+          </dd>
           <dt>Role</dt>
           <dd>{identity.role}</dd>
           <dt>Key ID</dt>
@@ -68,60 +73,60 @@ export function Settings({
         </button>
         {error && <p role="alert">{error}</p>}
       </section>
-      <section className="panel">
+      <section className="panel settings-panel">
         <h2>Preferences</h2>
         <p>Saved only in this browser.</p>
         <div className="filter-bar">
           <label>
             Theme
-            <select
+            <Select
               aria-label="Theme"
               value={value.theme}
-              onChange={(e) => update({ theme: e.target.value as typeof value.theme })}
+              onValueChange={(next) => update({ theme: next as typeof value.theme })}
             >
               {["system", "light", "dark"].map((item) => (
                 <option key={item}>{item}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             Time display
-            <select
+            <Select
               aria-label="Time display"
               value={value.time}
-              onChange={(e) => update({ time: e.target.value as typeof value.time })}
+              onValueChange={(next) => update({ time: next as typeof value.time })}
             >
               <option value="utc">UTC</option>
               <option value="local">
                 Local ({Intl.DateTimeFormat().resolvedOptions().timeZone})
               </option>
-            </select>
+            </Select>
           </label>
           <label>
             Table density
-            <select
+            <Select
               aria-label="Table density"
               value={value.density}
-              onChange={(e) => update({ density: e.target.value as typeof value.density })}
+              onValueChange={(next) => update({ density: next as typeof value.density })}
             >
               {["comfortable", "compact"].map((item) => (
                 <option key={item}>{item}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <label>
             Default landing page
-            <select
+            <Select
               aria-label="Default landing page"
               value={value.landing}
-              onChange={(e) => update({ landing: e.target.value as typeof value.landing })}
+              onValueChange={(next) => update({ landing: next as typeof value.landing })}
             >
               {["/overview", "/requests", "/analytics", "/keys", "/models", "/settings"].map(
                 (item) => (
                   <option key={item}>{item}</option>
                 ),
               )}
-            </select>
+            </Select>
           </label>
         </div>
       </section>
@@ -132,7 +137,7 @@ export function Settings({
 function PlatformSettings() {
   const resource = useResource<Record<string, unknown>>("/api/admin/settings");
   return (
-    <section className="panel">
+    <section className="panel settings-panel">
       <h2>Platform</h2>
       <p>
         Read-only effective configuration. Settings come from environment variables and change

@@ -1,0 +1,108 @@
+.select-root {
+  display: block;
+  position: relative;
+  anchor-scope: --select-trigger;
+  min-width: 0;
+}
+label .select-root {
+  margin-top: 7px;
+}
+button.select-trigger {
+  anchor-name: --select-trigger;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 11px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 450;
+  text-align: left;
+}
+button.select-trigger:active {
+  transform: none;
+}
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-chevron {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+}
+.select-menu {
+  position: fixed;
+  position-anchor: --select-trigger;
+  inset: auto;
+  top: anchor(bottom);
+  left: anchor(left);
+  width: anchor-size(width);
+  min-width: 140px;
+  max-width: calc(100vw - 24px);
+  max-height: min(320px, 50dvh);
+  position-try-fallbacks: flip-block, flip-inline;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 6px 0;
+  padding: 5px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: var(--shadow-overlay);
+  font: 450 13px/1.5 var(--font-ui);
+}
+.select-menu[aria-hidden="true"] {
+  display: none;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.select-option[data-active="true"] {
+  background: var(--surface);
+}
+.select-option[aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.select-check {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 5px;
+  border-left: 1.5px solid var(--text);
+  border-bottom: 1.5px solid var(--text);
+  transform: rotate(-45deg);
+}
+@supports not (anchor-name: --select-trigger) {
+  .select-menu {
+    position: absolute;
+    inset: 100% 0 auto;
+    width: 100%;
+    z-index: 10;
+  }
+}
+@media (max-width: 760px) {
+  button.select-trigger,
+  .select-menu {
+    font-size: 16px;
+  }
+  .select-option {
+    min-height: 40px;
+  }
+}

@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Dialog } from "./dialog";
+import { SearchInput } from "./search-input";
 import type { Identity } from "@/lib/contracts";
 import type { SearchResult } from "@/lib/console-contracts";
 import { commandPages, resultUrl, scopedResults } from "@/lib/command-search";
@@ -12,6 +13,8 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
     [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]),
     [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const resultNav = useRef<HTMLElement>(null);
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -21,7 +24,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         event.key === "?" &&
         !(
           event.target instanceof HTMLElement &&
-          event.target.closest("input,textarea,select,[contenteditable]")
+          event.target.closest('input,textarea,select,[role="combobox"],[contenteditable]')
         )
       ) {
         event.preventDefault();
@@ -36,8 +39,10 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
     const timer = setTimeout(async () => {
       if (!query.trim()) {
         setResults([]);
+        setBusy(false);
         return;
       }
+      setBusy(true);
       try {
         const response = await browserApi<{ data: SearchResult[] }>(
           `/api/admin/search?q=${encodeURIComponent(query)}`,
@@ -48,6 +53,8 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         }
       } catch (error) {
         if (active) setError((error as Error).message);
+      } finally {
+        if (active) setBusy(false);
       }
     }, 200);
     return () => {
@@ -58,7 +65,7 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
   return (
     <>
       <div className="global-tools">
-        <button className="secondary" onClick={() => setOpen(true)}>
+        <button className="secondary search-trigger" onClick={() => setOpen(true)}>
           Search · ⌘/Ctrl K
         </button>
         <button className="secondary" aria-label="Keyboard shortcuts" onClick={() => setHelp(true)}>
@@ -66,18 +73,15 @@ export function GlobalCommands({ identity }: { identity: Identity }) {
         </button>
       </div>
       {open && (
-        <Dialog title="Go to…" onClose={() => setOpen(false)}>
-          <label>
-            Search pages, organisations, teams and keys
-            <input
-              autoComplete="off"
-              maxLength={128}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+        <Dialog dismissOnBackdrop title="Go to…" onClose={() => setOpen(false)}>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            busy={busy}
+            onSubmit={() => resultNav.current?.querySelector<HTMLAnchorElement>("a")?.focus()}
+          />
           {error && <p role="alert">{error}</p>}
-          <nav aria-label="Search results">
+          <nav ref={resultNav} aria-label="Search results">
             {[...commandPages, ...(!identity.organization ? ["Providers"] : [])]
               .filter((page) => page.toLowerCase().includes(query.toLowerCase()))
               .map((page) => (

@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 import { useState } from "react";
 import { OrgScope, useOrgScope } from "./org-scope";
 import { useListQuery } from "./use-list-query";
@@ -10,32 +11,36 @@ import { formatMeasure } from "@/lib/number-format";
 import { AnalyticsChart } from "./analytics-chart";
 import { listSort } from "@/lib/list-query";
 import type { AnalyticsRow } from "@/lib/console-contracts";
+import { GooeyRanges } from "./gooey-ranges";
 export function Analytics() {
   const scope = useOrgScope();
   const { params, set } = useListQuery();
   return (
     <>
-      <h1>Analytics</h1>
-      <p>
-        Performance and reliability over recorded attempts, including retries and fallbacks. These
-        percentiles do not measure gateway overhead.
-      </p>
+      <div className="screen-heading">
+        <h1>Analytics</h1>
+        <p>
+          Performance and reliability over recorded attempts, including retries and fallbacks. These
+          percentiles do not measure gateway overhead.
+        </p>
+      </div>
       <OrgScope {...scope} />
       <div className="quick-ranges">
-        {[7, 30, 90].map((days) => (
-          <button
-            className="secondary"
-            key={days}
-            onClick={() =>
-              set({
-                since: new Date(Date.now() - days * 86400000).toISOString(),
-                until: new Date().toISOString(),
-              })
-            }
-          >
-            {days} days
-          </button>
-        ))}
+        <GooeyRanges
+          items={[7, 30, 90].map((days) => ({
+            label: `${days} days`,
+            value: days,
+            duration: days * 86400000,
+          }))}
+          since={params.get("since")}
+          until={params.get("until")}
+          onSelect={(days) =>
+            set({
+              since: new Date(Date.now() - days * 86400000).toISOString(),
+              until: new Date().toISOString(),
+            })
+          }
+        />
       </div>
       <section className="panel">
         <FilterBar
@@ -75,27 +80,36 @@ function AnalyticsData({ org, query }: { org: string; query: string }) {
   );
   const limit = Number(params.get("shown") ?? 50);
   return (
-    <section className="panel">
+    <section className="panel analytics-panel">
       <DataState {...resource} />
       {resource.data && (
         <>
           <label>
             Chart measure
-            <select value={measure} onChange={(e) => setMeasure(e.target.value as typeof measure)}>
+            <Select
+              aria-label="Chart measure"
+              value={measure}
+              onValueChange={(next) => setMeasure(next as typeof measure)}
+            >
               {["duration_p95", "ttfb_p95", "requests", "error_rate", "cache_hit_rate"].map(
                 (value) => (
                   <option key={value}>{value}</option>
                 ),
               )}
-            </select>
+            </Select>
           </label>
           <AnalyticsChart
             rows={resource.data.data}
             measure={measure}
             bucket={params.get("bucket") === "hour" ? "hour" : "day"}
           />
-          <div className="table-scroll">
-            <table>
+          <div
+            className="table-scroll analytics-table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Analytics results table"
+          >
+            <table className="analytics-table">
               <caption>UTC buckets; durations in ms or seconds; rates as percentages.</caption>
               <thead>
                 <tr>

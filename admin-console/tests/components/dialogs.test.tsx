@@ -115,3 +115,37 @@ test("creation retry retains its submission ID and editing starts a new submissi
   expect(fetch.mock.calls[2][1].headers["Idempotency-Key"]).not.toBe(first);
   vi.unstubAllGlobals();
 });
+
+test("the sheet stays present until its reverse reveal finishes", async () => {
+  const { Dialog, SheetCloseButton } = await import("@/components/dialog");
+  const close = vi.fn();
+  let finish!: () => void;
+  const reverse = vi.fn();
+  const cancel = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "animate");
+  const animate = vi.fn().mockReturnValue({
+    reverse,
+    cancel,
+    finished: new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  } as unknown as Animation);
+  Object.defineProperty(HTMLElement.prototype, "animate", { configurable: true, value: animate });
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  const view = render(
+    <Dialog drawer title="Read-only detail" onClose={close}>
+      <SheetCloseButton />
+    </Dialog>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: /^Close$/ }));
+  expect(reverse).toHaveBeenCalledOnce();
+  expect(close).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog")).toBeDefined();
+  finish();
+  await waitFor(() => expect(close).toHaveBeenCalledOnce());
+  view.unmount();
+  if (original) Object.defineProperty(HTMLElement.prototype, "animate", original);
+  else Reflect.deleteProperty(HTMLElement.prototype, "animate");
+  vi.unstubAllGlobals();
+});

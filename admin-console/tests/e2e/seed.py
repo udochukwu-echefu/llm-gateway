@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 
+from calendar_seed import seed_calendar
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from llm_gateway.admin.service.service import AdminService
@@ -17,6 +18,7 @@ async def main() -> None:
     admin = AdminService(
         sessions, os.environ["GATEWAY_API_KEY_PEPPER"].encode(), "synthetic-console-fixture"
     )
+    await seed_calendar(admin)
     org = await admin.authorize_org("Demo Co")
     await admin.create_org("Other workspace")
     await admin.create_team("Other workspace", "Private team")

@@ -1,3 +1,4 @@
+import { selectChoice } from "./fixtures";
 import { test, expect, signIn } from "./fixtures";
 
 test("requests-log filtering URL chips and complete attempt detail drawer", async ({
@@ -16,8 +17,17 @@ test("requests-log filtering URL chips and complete attempt detail drawer", asyn
   await expect(page.getByRole("heading", { name: "Attempt 2: groq 502" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Attempt 3: deepseek 200" })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const selectedRow = page.locator(".request-table tbody tr").first();
+  const selectedId = await selectedRow.getByRole("button", { name: /^demo-/ }).innerText();
+  await selectedRow.getByRole("cell").nth(2).click();
+  await expect(page.getByRole("dialog", { name: "Request attempt timeline" })).toBeVisible();
+  await expect(page.locator(".sheet-summary .copy-id")).toContainText(selectedId);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
   await page.getByText("Request filters", { exact: true }).click();
-  await page.getByLabel("Provider", { exact: true }).selectOption("groq");
+  await selectChoice(page.getByRole("combobox", { name: "Provider", exact: true }), "groq");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/provider=groq/);
   await expect(page.getByText(/^No request results match/)).toBeVisible();
@@ -75,7 +85,7 @@ test("analytics date range group switches and unknown first-byte gaps", async ({
   await page.goto("/analytics?org=Demo%20Co");
   await page.getByRole("button", { name: "90 days", exact: true }).click();
   await expect(page).toHaveURL(/since=/);
-  await page.getByLabel("Group by").selectOption("provider");
+  await selectChoice(page.getByRole("combobox", { name: "Group by", exact: true }), "provider");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/group_by=provider/);
   await expect(page.getByRole("img", { name: /duration_p95/ })).toBeVisible();
@@ -92,12 +102,15 @@ test("analytics date range group switches and unknown first-byte gaps", async ({
   await expect(latencyChart).toHaveAttribute("data-axis-scale", "log");
   await expect(latencyChart.getByText("1 ms", { exact: true })).toBeVisible();
   await nvidia.click();
-  await page.getByLabel("Chart measure").selectOption("ttfb_p95");
+  await selectChoice(
+    page.getByRole("combobox", { name: "Chart measure", exact: true }),
+    "ttfb_p95",
+  );
   await expect(page.getByRole("img", { name: /ttfb_p95/ })).toBeVisible();
   await expect(
     page.getByText("Unknown values appear as gaps. Full values are in the table below."),
   ).toBeVisible();
-  await page.getByLabel("Group by").selectOption("team");
+  await selectChoice(page.getByRole("combobox", { name: "Group by", exact: true }), "team");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page).toHaveURL(/group_by=team/);
   await expect(page.locator("tbody tr").first()).toContainText(/Search|Support|Engineering/);
@@ -110,12 +123,14 @@ test("settings platform and org roles preferences persistence and forbidden API"
   await signIn(page, credentials.platform);
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Platform", exact: true })).toBeVisible();
-  await page.getByRole("combobox", { name: "Table density", exact: true }).selectOption("compact");
-  await page
-    .getByRole("combobox", { name: "Default landing page", exact: true })
-    .selectOption("/requests");
+  await selectChoice(page.getByRole("combobox", { name: "Table density", exact: true }), "compact");
+  await selectChoice(
+    page.getByRole("combobox", { name: "Default landing page", exact: true }),
+    "/requests",
+  );
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Table density", exact: true })).toHaveValue(
+  await expect(page.getByRole("combobox", { name: "Table density", exact: true })).toHaveAttribute(
+    "data-value",
     "compact",
   );
   await signIn(page, credentials.demoOrg);
@@ -130,14 +145,14 @@ test("keys search team status filters and last-used metadata", async ({ page, cr
   await signIn(page, credentials.platform);
   await page.goto("/keys?org=Demo%20Co");
   await page.getByLabel("Search by name or key ID").fill("Synthetic Search");
-  await page.getByLabel("Key status").selectOption("expiring");
+  await selectChoice(page.getByRole("combobox", { name: "Key status", exact: true }), "expiring");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await expect(page.locator("tbody tr")).toContainText("Expiring soon");
-  await page.getByLabel("Key status").selectOption("revoked");
+  await selectChoice(page.getByRole("combobox", { name: "Key status", exact: true }), "revoked");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.locator("tbody tr")).toContainText("Revoked");
-  await page.getByLabel("Key status").selectOption("never-used");
+  await selectChoice(page.getByRole("combobox", { name: "Key status", exact: true }), "never-used");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.locator("tbody tr").first()).toContainText("Never used");
 });
@@ -148,9 +163,9 @@ test("audit filters action actor target dates URL and safe event drawer", async 
 }) => {
   await signIn(page, credentials.platform);
   await page.goto("/audit");
-  await page.getByLabel("Action", { exact: true }).selectOption("set-models");
+  await selectChoice(page.getByRole("combobox", { name: "Action", exact: true }), "set-models");
   await page.getByLabel("Actor", { exact: true }).fill("synthetic-demo-seeder");
-  await page.getByLabel("Target type").selectOption("team");
+  await selectChoice(page.getByRole("combobox", { name: "Target type", exact: true }), "team");
   await page.getByLabel("From date (UTC)").fill("2000-01-01");
   await page.getByLabel("To date (UTC)").fill("2099-01-01");
   await page.getByRole("button", { name: "Apply filters" }).click();
@@ -169,9 +184,36 @@ test("command palette page navigation and API-enforced organisation scoping", as
   credentials,
 }) => {
   await signIn(page, credentials.platform);
+
+  await page.getByRole("button", { name: "Search · ⌘/Ctrl K" }).click();
+  await expect(page.getByRole("dialog", { name: "Go to…" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
+  await expect(page.locator(".search-orb")).toBeVisible();
+  await expect(page.locator(".search-voice-band")).toBeVisible();
+  await expect(page.locator(".search-voice[style]")).toHaveCount(0);
+  await page.mouse.click(4, 4);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.keyboard.press("Control+k");
   await page.getByLabel("Search pages, organisations, teams and keys").fill("Northwind");
-  await expect(page.getByRole("link", { name: /Northwind Health/ }).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: /Northwind Health/ })
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("link", { name: /Northwind Health/ })
+      .first(),
+  ).toBeFocused();
+  await page.getByLabel("Search pages, organisations, teams and keys").focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.keyboard.press("Control+k");
+  await expect(page.getByLabel("Search pages, organisations, teams and keys")).toHaveValue("");
   await page.keyboard.press("Escape");
   await signIn(page, credentials.demoOrg);
   await page.keyboard.press("Control+k");

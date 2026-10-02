@@ -1126,6 +1126,28 @@ It is available only for latency, labels every tick, and leaves zero timings as 
 The table always includes all providers. Generated full screenshot tours are local and
 ignored; only README-linked images are versioned, preventing each tour from growing Git.
 
+### Calendar correction: whole UTC days, exact boundaries
+
+UTC is the shared clock for Requests, Analytics and Audit, regardless of the browser's
+local timezone. Calendar presets select dates, not a rolling number of hours: Today
+is the whole UTC date, and Last 7 days is today plus the six preceding UTC dates.
+Rolling quick-range buttons such as 15m and 1h still end at the current instant.
+
+Requests and Analytics use **inclusive bounds**, meaning records exactly on either
+boundary count. A calendar preset starts at 00:00 and ends at 23:59:59.999999 on its
+last date. A microsecond is one millionth of a second, the database's timestamp
+precision. This includes the final fraction of that day without including next midnight.
+The console keeps these exact times as text because JavaScript Date and native browser
+date/time inputs cannot retain all six fractional digits. Fields, URL chips and reopened
+calendars keep the same boundary when submitted again. A URL offset is normalized to UTC
+without losing its fractional seconds.
+
+Selecting a day preset deliberately resets both times. Afterward, an operator can type
+custom UTC times, including seconds; these override the preset and remove its highlight.
+Cancel or Escape discards calendar drafts, while Clear removes the dates. Audit retains
+its date-only API values and existing whole-date interpretation. No backend comparison
+or authorization rules change.
+
 ## Step 16: a public tour with locked controls
 
 A viewer has a badge that opens read-only doors. Its organization ID decides whether it

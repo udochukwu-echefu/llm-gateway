@@ -1,0 +1,784 @@
+/* voice-glow 0.2.1 default/dark layers with the original colorful palette; MIT, Jakub Antalik. License retained in beam-engine.js. */
+
+@property --vb-opacity-search {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
+}
+
+.search-voice {
+  position: relative;
+  border-radius: 37px;
+  overflow: hidden;
+  --vb-h-search: 0.8;
+  --vb-w-search: 1;
+  --vb-x0-search: 0px;
+  --vb-l0-search: 1;
+  --vb-y0-search: 0px;
+  --vb-x1-search: -36px;
+  --vb-l1-search: 1;
+  --vb-y1-search: 0px;
+  --vb-x2-search: 36px;
+  --vb-l2-search: 1;
+  --vb-y2-search: 0px;
+  --vb-x3-search: -72px;
+  --vb-l3-search: 1;
+  --vb-y3-search: 0px;
+  --vb-x4-search: 72px;
+  --vb-l4-search: 1;
+  --vb-y4-search: 0px;
+  --vb-x5-search: -108px;
+  --vb-l5-search: 1;
+  --vb-y5-search: 0px;
+  --vb-x6-search: 108px;
+  --vb-l6-search: 1;
+  --vb-y6-search: 0px;
+  --vb-glow-search: 0.4;
+  --vb-z-search: 1;
+  --vb-cx-search: 0px;
+  --vb-cy-search: 0px;
+  --vb-bh-search: 0px;
+  --vb-bendA-search: 0;
+  --vb-mw-search: 1;
+  --vb-hue-search: 0deg;
+  --vb-level-search: 0;
+}
+
+.search-voice[data-active] {
+  animation: vb-fade-in-search 0.6s ease forwards;
+}
+
+.search-voice[data-fading] {
+  animation: vb-fade-out-search 0.5s ease forwards;
+}
+
+/* Stroke — the colours painted into the 1px edge ring, masked to the centred ellipse. */
+.search-voice[data-active]::after,
+.search-voice[data-fading]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: calc(36px * var(--vb-z-search, 1));
+  padding: calc(1px * var(--vb-z-search, 1));
+  clip-path: inset(0 round calc(37px * var(--vb-z-search, 1)));
+  background:
+    radial-gradient(
+      ellipse calc(30px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(30px * var(--vb-h-search) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + (2px + var(--vb-cy-search)) * var(--vb-z-search, 1)),
+      rgba(255, 255, 255, 0.45) 0%,
+      rgba(255, 255, 255, 0.14) 30%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse calc(48px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(58px * var(--vb-h-search) * var(--vb-l0-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x0-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y0-search)) * var(--vb-z-search, 1)),
+      rgb(255, 70, 120) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(35px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(50px * var(--vb-h-search) * var(--vb-l1-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x1-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y1-search)) * var(--vb-z-search, 1)),
+      rgb(60, 190, 255) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(35px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(50px * var(--vb-h-search) * var(--vb-l2-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x2-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y2-search)) * var(--vb-z-search, 1)),
+      rgb(175, 70, 255) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(31px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(40px * var(--vb-h-search) * var(--vb-l3-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x3-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y3-search)) * var(--vb-z-search, 1)),
+      rgb(60, 220, 130) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(31px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(40px * var(--vb-h-search) * var(--vb-l4-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x4-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y4-search)) * var(--vb-z-search, 1)),
+      rgb(255, 150, 40) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(27px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(33px * var(--vb-h-search) * var(--vb-l5-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x5-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y5-search)) * var(--vb-z-search, 1)),
+      rgb(90, 100, 255) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(27px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(33px * var(--vb-h-search) * var(--vb-l6-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x6-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (2px + var(--vb-y6-search)) * var(--vb-z-search, 1)),
+      rgb(40, 200, 190) 0%,
+      transparent 75%
+    );
+  -webkit-mask:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: source-in, xor;
+  mask:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: intersect, exclude;
+  pointer-events: none;
+  /* Its own compositing layer: WebKit otherwise re-rasterizes the
+     filtered layer into the parent every frame on the CPU (a phone-sized
+     host runs at a sixth of the frame rate without this). */
+  will-change: transform;
+  z-index: 2;
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--vb-glow-search) * 1.16 * var(--voice-stroke-opacity, 1) *
+      var(--voice-strength, 1)
+  );
+  filter: hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2);
+}
+
+/* Inner glow — soft light inside the element, faded off at the corners.
+   With distortion on, this copy is clipped to ABOVE the band line (the
+   polygon the driver writes each frame) and a mirror layer below carries
+   the displacement filter, so only the glow under the line warps. */
+.search-voice[data-active]::before,
+.search-voice[data-fading]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: calc(37px * var(--vb-z-search, 1));
+  background:
+    radial-gradient(
+      ellipse calc(43px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(52px * var(--vb-h-search) * var(--vb-l0-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x0-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y0-search)) * var(--vb-z-search, 1)),
+      rgba(255, 70, 120, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(32px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(45px * var(--vb-h-search) * var(--vb-l1-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x1-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y1-search)) * var(--vb-z-search, 1)),
+      rgba(60, 190, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(32px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(45px * var(--vb-h-search) * var(--vb-l2-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x2-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y2-search)) * var(--vb-z-search, 1)),
+      rgba(175, 70, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(28px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(36px * var(--vb-h-search) * var(--vb-l3-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x3-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y3-search)) * var(--vb-z-search, 1)),
+      rgba(60, 220, 130, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(28px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(36px * var(--vb-h-search) * var(--vb-l4-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x4-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y4-search)) * var(--vb-z-search, 1)),
+      rgba(255, 150, 40, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(25px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(29px * var(--vb-h-search) * var(--vb-l5-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x5-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y5-search)) * var(--vb-z-search, 1)),
+      rgba(90, 100, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(25px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(29px * var(--vb-h-search) * var(--vb-l6-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x6-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y6-search)) * var(--vb-z-search, 1)),
+      rgba(40, 200, 190, 0.46) 0%,
+      transparent 75%
+    );
+  box-shadow: inset 0 0 calc(9px * var(--vb-z-search, 1)) 1px rgba(255, 255, 255, 0.1);
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      rgba(255, 255, 255, 0.3) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    ),
+    linear-gradient(
+      to right,
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    );
+  -webkit-mask-composite: source-in, source-over;
+  mask-image:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      rgba(255, 255, 255, 0.3) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    ),
+    linear-gradient(
+      to right,
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    );
+  mask-composite: intersect, add;
+  pointer-events: none;
+  /* Its own compositing layer: WebKit otherwise re-rasterizes the
+     filtered layer into the parent every frame on the CPU (a phone-sized
+     host runs at a sixth of the frame rate without this). */
+  will-change: transform;
+  z-index: 1;
+  clip-path: var(--vb-clip-above-search, inset(0 round 37px));
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--vb-glow-search) * 0.47 * var(--voice-inner-opacity, 1) *
+      var(--voice-strength, 1)
+  );
+  filter: hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2);
+}
+.search-voice[data-active] .search-voice-warp-inner,
+.search-voice[data-fading] .search-voice-warp-inner {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: calc(37px * var(--vb-z-search, 1));
+  background:
+    radial-gradient(
+      ellipse calc(43px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(52px * var(--vb-h-search) * var(--vb-l0-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x0-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y0-search)) * var(--vb-z-search, 1)),
+      rgba(255, 70, 120, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(32px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(45px * var(--vb-h-search) * var(--vb-l1-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x1-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y1-search)) * var(--vb-z-search, 1)),
+      rgba(60, 190, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(32px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(45px * var(--vb-h-search) * var(--vb-l2-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x2-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y2-search)) * var(--vb-z-search, 1)),
+      rgba(175, 70, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(28px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(36px * var(--vb-h-search) * var(--vb-l3-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x3-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y3-search)) * var(--vb-z-search, 1)),
+      rgba(60, 220, 130, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(28px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(36px * var(--vb-h-search) * var(--vb-l4-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x4-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y4-search)) * var(--vb-z-search, 1)),
+      rgba(255, 150, 40, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(25px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(29px * var(--vb-h-search) * var(--vb-l5-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x5-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y5-search)) * var(--vb-z-search, 1)),
+      rgba(90, 100, 255, 0.46) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      ellipse calc(25px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(29px * var(--vb-h-search) * var(--vb-l6-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x6-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y6-search)) * var(--vb-z-search, 1)),
+      rgba(40, 200, 190, 0.46) 0%,
+      transparent 75%
+    );
+  box-shadow: inset 0 0 calc(9px * var(--vb-z-search, 1)) 1px rgba(255, 255, 255, 0.1);
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      rgba(255, 255, 255, 0.3) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    ),
+    linear-gradient(
+      to right,
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    );
+  -webkit-mask-composite: source-in, source-over;
+  mask-image:
+    radial-gradient(
+      ellipse calc(127.5px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+        calc((64px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+        calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+      white 0%,
+      rgba(255, 255, 255, 0.5) 45%,
+      rgba(255, 255, 255, 0.3) 85%,
+      transparent 100%
+    ),
+    linear-gradient(
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    ),
+    linear-gradient(
+      to right,
+      white,
+      transparent calc(28px * var(--vb-z-search, 1)),
+      transparent calc(100% - 28px * var(--vb-z-search, 1)),
+      white
+    );
+  mask-composite: intersect, add;
+  pointer-events: none;
+  /* Its own compositing layer: WebKit otherwise re-rasterizes the
+     filtered layer into the parent every frame on the CPU (a phone-sized
+     host runs at a sixth of the frame rate without this). */
+  will-change: transform;
+  z-index: 1;
+  clip-path: var(--vb-clip-below-search, inset(0 round 37px));
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--vb-glow-search) * 0.47 * var(--voice-inner-opacity, 1) *
+      var(--voice-strength, 1)
+  );
+  filter: hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2) url(#vb-distort-search);
+}
+
+/* Bloom — the blurred halo, tallest of the three, above the content. */
+.search-voice .search-voice-bloom,
+.search-voice .search-voice-warp {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: calc(36px * var(--vb-z-search, 1));
+  pointer-events: none;
+  /* Its own compositing layer: WebKit otherwise re-rasterizes the
+     filtered layer into the parent every frame on the CPU (a phone-sized
+     host runs at a sixth of the frame rate without this). */
+  will-change: transform;
+  opacity: 0;
+}
+
+.search-voice .search-voice-bloom,
+.search-voice .search-voice-warp-bloom {
+  -webkit-mask: radial-gradient(
+    ellipse calc(150px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+      calc((130px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+      calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+      calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+    white 0%,
+    rgba(255, 255, 255, 0.5) 35%,
+    transparent 100%
+  );
+  mask: radial-gradient(
+    ellipse calc(150px * var(--vb-w-search) * var(--vb-mw-search) * var(--vb-z-search, 1))
+      calc((130px * var(--vb-h-search) + var(--vb-bh-search)) * var(--vb-z-search, 1)) at
+      calc(50% + var(--vb-cx-search) * var(--vb-w-search) * var(--vb-z-search, 1))
+      calc(100% + var(--vb-cy-search) * var(--vb-z-search, 1)),
+    white 0%,
+    rgba(255, 255, 255, 0.5) 35%,
+    transparent 100%
+  );
+  background:
+    radial-gradient(
+      ellipse calc(55px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(86px * var(--vb-h-search) * var(--vb-l0-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x0-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y0-search)) * var(--vb-z-search, 1)),
+      rgba(255, 70, 120, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(40px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(75px * var(--vb-h-search) * var(--vb-l1-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x1-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y1-search)) * var(--vb-z-search, 1)),
+      rgba(60, 190, 255, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(40px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(75px * var(--vb-h-search) * var(--vb-l2-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x2-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y2-search)) * var(--vb-z-search, 1)),
+      rgba(175, 70, 255, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(36px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(60px * var(--vb-h-search) * var(--vb-l3-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x3-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y3-search)) * var(--vb-z-search, 1)),
+      rgba(60, 220, 130, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(36px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(60px * var(--vb-h-search) * var(--vb-l4-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x4-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y4-search)) * var(--vb-z-search, 1)),
+      rgba(255, 150, 40, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(31px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(49px * var(--vb-h-search) * var(--vb-l5-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x5-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y5-search)) * var(--vb-z-search, 1)),
+      rgba(90, 100, 255, 0.9) 0%,
+      transparent 77%
+    ),
+    radial-gradient(
+      ellipse calc(31px * var(--vb-w-search) * var(--vb-z-search, 1))
+        calc(49px * var(--vb-h-search) * var(--vb-l6-search) * var(--vb-z-search, 1)) at
+        calc(
+          50% + (var(--vb-cx-search) + var(--vb-x6-search)) * var(--vb-w-search) *
+            var(--vb-z-search, 1)
+        )
+        calc(100% + (0px + var(--vb-y6-search)) * var(--vb-z-search, 1)),
+      rgba(40, 200, 190, 0.9) 0%,
+      transparent 77%
+    );
+  z-index: 3;
+}
+
+.search-voice[data-active] .search-voice-bloom,
+.search-voice[data-fading] .search-voice-bloom {
+  display: block;
+  clip-path: var(--vb-clip-above-search, inset(0 round 37px));
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--vb-glow-search) * 0.89 * var(--voice-bloom-opacity, 1) *
+      var(--voice-strength, 1)
+  );
+  filter: blur(calc(10px * var(--vb-z-search, 1)))
+    hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2);
+}
+
+.search-voice[data-active] .search-voice-warp-bloom,
+.search-voice[data-fading] .search-voice-warp-bloom {
+  display: block;
+  clip-path: var(--vb-clip-below-search, inset(0 round 37px));
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--vb-glow-search) * 0.89 * var(--voice-bloom-opacity, 1) *
+      var(--voice-strength, 1)
+  );
+  filter: blur(calc(10px * var(--vb-z-search, 1)))
+    hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2) url(#vb-distort-search);
+}
+
+/* Processing drops the distortion: the driver marks the wrapper once the
+   warp has faded out, the warp layers leave the paint and the base layers
+   give up their split at the band line. */
+.search-voice[data-voice-warp="off"]::before,
+.search-voice[data-voice-warp="off"] .search-voice-bloom {
+  clip-path: inset(0 round 37px);
+}
+
+.search-voice[data-voice-warp="off"] .search-voice-warp {
+  display: none;
+}
+
+/* Epicentre — a soft white wash at the source, under the band line (the
+   driver's clip; unclipped when no line is drawn), sitting above every
+   glow layer and the band's halo so the centre reads lighter than the
+   band (same z as the band canvases, painted after them). Sized by the voice like the
+   other layers; off unless `coreLight` is set (the light theme sets it).
+   Up to 1 it is the wash's opacity; past 1 the solid white core widens
+   too, for a centre that stays lighter than a strong band. It follows the
+   glow's presence but not `strength`, which would only dim it. */
+
+/* Band — the canvas the driver draws the bend's contour on: an organic
+   bell with chromatic fringes. Fades with the root, follows the strength
+   and turns with the hue drift like the other layers. */
+.search-voice .search-voice-band,
+.search-voice .search-voice-band-halo {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  /* Its own compositing layer: WebKit otherwise re-rasterizes the
+     filtered layer into the parent every frame on the CPU (a phone-sized
+     host runs at a sixth of the frame rate without this). */
+  will-change: transform;
+  z-index: 4;
+}
+
+.search-voice[data-active] .search-voice-band,
+.search-voice[data-fading] .search-voice-band,
+.search-voice[data-active] .search-voice-band-halo,
+.search-voice[data-fading] .search-voice-band-halo {
+  display: block;
+  opacity: calc(
+    var(--vb-opacity-search, 1) * var(--voice-band-opacity, 1) * var(--voice-strength, 1)
+  );
+  /* The blur vars are 0 where the canvas blurs its own strokes; where the
+     2D context has no filter (WebKit) the driver sets them and the layers
+     are blurred here instead — the ridge on the band canvas, its wider
+     halo on the canvas beneath. */
+  filter: blur(var(--vb-band-blur-search, 0px))
+    hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2);
+}
+
+.search-voice[data-active] .search-voice-band-halo,
+.search-voice[data-fading] .search-voice-band-halo {
+  filter: blur(var(--vb-band-halo-blur-search, 0px))
+    hue-rotate(calc(var(--voice-hue-base, 0deg) + var(--vb-hue-search))) brightness(1.15)
+    saturate(1.2);
+}
+
+/* Resolution. The soft layers — inner light and its warp mirror, bloom and
+   its mirror, the epicentre — are rastered at half size and scaled back
+   up by the compositor: the box is halved, every length inside rides the
+   layer's factor `--vb-z` at 0.5 (the driver also writes the band-line
+   clips at half scale), and the will-change transform is rastered
+   pre-scale where the engine does that (Chromium, Safari 18). For blurred
+   gradients that is the same picture at a quarter of the raster and
+   filter work, which is what a phone at 3x runs out of. The 1px stroke
+   stays full-res on every screen: at half size it is half a CSS pixel,
+   which a 3x phone rasters into a faint smear instead of the hairline,
+   and the layer is cheap (no blur). The component sets
+   `data-voice-halfres`. */
+.search-voice[data-voice-halfres]::before,
+.search-voice[data-voice-halfres] .search-voice-warp,
+.search-voice[data-voice-halfres] .search-voice-bloom,
+.search-voice[data-voice-halfres] .search-voice-core {
+  --vb-z-search: 0.5;
+  inset: auto;
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 50%;
+  transform: translateZ(0) scale(2);
+  transform-origin: 0 0;
+}
+.search-voice[data-voice-halfres][data-active]::before,
+.search-voice[data-voice-halfres][data-fading]::before,
+.search-voice[data-voice-halfres][data-active] .search-voice-bloom,
+.search-voice[data-voice-halfres][data-fading] .search-voice-bloom {
+  clip-path: var(--vb-clip-above-z-search, inset(0 round calc(37px * var(--vb-z-search, 1))));
+}
+.search-voice[data-voice-halfres][data-active] .search-voice-warp,
+.search-voice[data-voice-halfres][data-fading] .search-voice-warp {
+  clip-path: var(--vb-clip-below-z-search, inset(0 round calc(37px * var(--vb-z-search, 1))));
+}
+/* Processing (warp off): the mirrors are gone, so the base layers paint
+   the whole box again — this must outweigh the split above. */
+.search-voice[data-voice-halfres][data-voice-warp="off"]::before,
+.search-voice[data-voice-halfres][data-voice-warp="off"] .search-voice-bloom {
+  clip-path: inset(0 round calc(37px * var(--vb-z-search, 1)));
+}
+.search-voice[data-voice-halfres] .search-voice-core > div {
+  clip-path: var(--vb-clip-below-z-search, none);
+}
+@keyframes vb-fade-in-search {
+  to {
+    --vb-opacity-search: 1;
+  }
+}
+
+@keyframes vb-fade-out-search {
+  from {
+    --vb-opacity-search: 1;
+  }
+  to {
+    --vb-opacity-search: 0;
+  }
+}
+
+.search-voice[data-paused],
+.search-voice[data-paused]::after,
+.search-voice[data-paused]::before,
+.search-voice[data-paused] .search-voice-bloom {
+  animation-play-state: paused !important;
+}
+
+.search-voice {
+  --voice-strength: 0.9;
+  margin-top: 10px;
+  width: 100%;
+  isolation: isolate;
+}
+.search-voice .search-input-frame {
+  margin-top: 0;
+}
+.search-voice-filter {
+  position: absolute;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-voice[data-active] {
+    animation: none;
+    --vb-opacity-search: 1;
+  }
+}

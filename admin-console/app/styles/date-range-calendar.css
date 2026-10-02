@@ -1,0 +1,179 @@
+.calendar-months-frame {
+  position: relative;
+  min-width: 0;
+}
+.calendar-months {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 40px;
+  min-height: 294px;
+}
+.calendar-month {
+  min-width: 0;
+}
+.calendar-month-title {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 32px;
+}
+.calendar-weekdays,
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.calendar-weekdays {
+  margin-bottom: 10px;
+  padding: 2px 0;
+  color: var(--calendar-muted);
+  text-transform: uppercase;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.calendar-week {
+  height: 38px;
+}
+.calendar-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 38px;
+}
+.calendar-cell[data-range]::before {
+  content: "";
+  position: absolute;
+  inset: 1px 0;
+  background: var(--calendar-band);
+  border-block: 1px solid var(--calendar-border);
+}
+.calendar-cell[data-segment-start]::before {
+  border-radius: 999px 0 0 999px;
+  border-left: 1px solid var(--calendar-border);
+}
+.calendar-cell[data-segment-end]::before {
+  border-radius: 0 999px 999px 0;
+  border-right: 1px solid var(--calendar-border);
+}
+.calendar-cell[data-segment-start][data-segment-end]::before {
+  border-radius: 999px;
+}
+button.calendar-day {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--calendar-muted);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    transform 150ms var(--ease-out);
+}
+button.calendar-day[data-range] {
+  color: var(--calendar-ink);
+  font-weight: 600;
+}
+button.calendar-day[data-edge] {
+  background: var(--calendar-edge);
+  color: var(--calendar-edge-ink);
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 18%);
+  transform: scale(1.02);
+}
+.calendar-today-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+button.calendar-nav {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid var(--calendar-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--calendar-muted);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  transition:
+    transform 160ms var(--ease-out),
+    color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+.calendar-previous {
+  left: 0;
+}
+.calendar-next {
+  right: 0;
+}
+.calendar-chevron {
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("../../public/icons/chevron-left.svg") center / contain no-repeat;
+}
+.calendar-next .calendar-chevron {
+  transform: rotate(180deg);
+}
+.date-range-popover button:focus-visible {
+  outline: 2px solid var(--calendar-ink);
+  outline-offset: 2px;
+}
+button.calendar-day:active:not(:disabled),
+button.calendar-nav:active:not(:disabled),
+button.calendar-apply:active:not(:disabled),
+button.calendar-cancel:active:not(:disabled) {
+  transform: scale(0.95);
+}
+@media (hover: hover) and (pointer: fine) {
+  button.calendar-trigger:hover:not(:disabled) {
+    background: var(--surface);
+    color: var(--text);
+  }
+  button.calendar-preset:hover:not(:disabled),
+  button.calendar-cancel:hover:not(:disabled),
+  button.calendar-clear:hover:not(:disabled),
+  button.calendar-nav:hover:not(:disabled),
+  button.calendar-day:not([data-edge]):hover:not(:disabled) {
+    background: var(--calendar-hover);
+    color: var(--calendar-ink);
+  }
+  button.calendar-preset[aria-pressed="true"]:hover:not(:disabled) {
+    background: transparent;
+  }
+  button.calendar-day[data-edge]:hover:not(:disabled),
+  button.calendar-apply:hover:not(:disabled) {
+    background: var(--calendar-edge);
+    color: var(--calendar-edge-ink);
+    filter: brightness(1.15);
+  }
+  button.calendar-nav:hover:not(:disabled) {
+    transform: scale(1.05);
+  }
+}

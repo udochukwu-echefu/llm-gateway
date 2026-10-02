@@ -17,7 +17,10 @@ async function explore(page: Page, scope: "platform" | "org") {
       exact: true,
     }),
   ).toBeVisible();
-  const identityName = page.locator(".sidebar-footer .identity-name");
+  await expect(page.locator(".sidebar-footer .identity-name")).toHaveCount(0);
+  await page.goto("/settings");
+  const identityName = page.locator(".settings-panel .identity-name:visible");
+  await expect(identityName).toHaveCount(1);
   const friendlyName =
     scope === "platform"
       ? "Demo visitor · Platform viewer"
@@ -33,6 +36,7 @@ async function explore(page: Page, scope: "platform" | "org") {
       "Read-only demo. Changes are disabled; this is a live gateway with synthetic data.",
     ),
   ).toBeVisible();
+  await page.goto("/overview");
   await expect(page.getByRole("heading", { name: "Organisations", exact: true })).toBeVisible();
 }
 for (const scope of ["platform", "org"] as const) {

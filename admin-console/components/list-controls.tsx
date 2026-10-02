@@ -1,6 +1,14 @@
 "use client";
+import { Select } from "./select";
 import type { ReactNode } from "react";
 import { useListQuery } from "./use-list-query";
+import { DateRangeFields } from "./date-range-fields";
+import {
+  timestampFieldValue,
+  timestampQueryValue,
+  utcTimestampPattern,
+  utcTimestampHint,
+} from "./date-range-timestamps";
 export interface FilterField {
   name: string;
   label: string;
@@ -9,6 +17,16 @@ export interface FilterField {
 }
 export function FilterBar({ fields, children }: { fields: FilterField[]; children?: ReactNode }) {
   const { params, set } = useListQuery();
+  const rangeStart = fields.find(
+    (field) => field.name === "since" && ["date", "datetime"].includes(field.type ?? ""),
+  );
+  const rangeEnd = fields.find(
+    (field) => field.name === "until" && field.type === rangeStart?.type,
+  );
+  function fieldValue(name: string, type?: string) {
+    const value = params.get(name) ?? "";
+    return type === "datetime" ? timestampFieldValue(value) : value;
+  }
   return (
     <>
       <form
@@ -21,43 +39,52 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
             Object.fromEntries(
               fields.map(({ name, type }) => {
                 const value = String(form.get(name) ?? "");
-                return [
-                  name,
-                  type === "datetime" && value ? new Date(value + "Z").toISOString() : value,
-                ];
+                return [name, type === "datetime" ? timestampQueryValue(value) : value];
               }),
             ),
           );
         }}
       >
-        {fields.map(({ name, label, type, options }) => (
-          <label key={name}>
-            {label}
-            {options ? (
-              <select aria-label={label} name={name} defaultValue={params.get(name) ?? ""}>
-                <option value="">All</option>
-                {options.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                aria-label={label}
-                name={name}
-                type={type === "datetime" ? "datetime-local" : (type ?? "text")}
-                defaultValue={
-                  type === "datetime" &&
-                  params.get(name) &&
-                  Number.isFinite(Date.parse(params.get(name)!))
-                    ? new Date(params.get(name)!).toISOString().slice(0, 16)
-                    : (params.get(name) ?? "")
-                }
+        {fields.map(({ name, label, type, options }) => {
+          if (rangeStart && rangeEnd && name === rangeEnd.name) return null;
+          if (rangeStart && rangeEnd && name === rangeStart.name)
+            return (
+              <DateRangeFields
+                key={name}
+                start={{ name, label, value: fieldValue(name, type) }}
+                end={{
+                  name: rangeEnd.name,
+                  label: rangeEnd.label,
+                  value: fieldValue(rangeEnd.name, rangeEnd.type),
+                }}
+                withTime={type === "datetime"}
               />
-            )}
-          </label>
-        ))}
+            );
+          return (
+            <label key={name}>
+              {label}
+              {options ? (
+                <Select aria-label={label} name={name} defaultValue={params.get(name) ?? ""}>
+                  <option value="">All</option>
+                  {options.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <input
+                  aria-label={label}
+                  name={name}
+                  type={type === "datetime" ? "text" : (type ?? "text")}
+                  pattern={type === "datetime" ? utcTimestampPattern : undefined}
+                  title={type === "datetime" ? utcTimestampHint : undefined}
+                  defaultValue={fieldValue(name, type)}
+                />
+              )}
+            </label>
+          );
+        })}
         <button>Apply filters</button>
         {children}
       </form>
@@ -77,12 +104,23 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
     </>
   );
 }
-export function SortHeading({ field, children }: { field: string; children: ReactNode }) {
+export function SortHeading({
+  field,
+  children,
+  className,
+}: {
+  field: string;
+  children: ReactNode;
+  className?: string;
+}) {
   const { params, set } = useListQuery();
   const active = params.get("sort") === field;
   const direction = params.get("direction") ?? "asc";
   return (
-    <th aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}>
+    <th
+      className={className}
+      aria-sort={active ? (direction === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         className="sort-heading"
         onClick={() =>

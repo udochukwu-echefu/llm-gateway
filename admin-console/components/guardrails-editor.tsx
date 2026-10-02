@@ -1,4 +1,5 @@
 "use client";
+import { Select } from "./select";
 import { SortableTable } from "./sortable-table";
 import {
   actions,
@@ -73,13 +74,13 @@ export function GuardrailsEditor({
               <td>{editor.view.overrides.organization[detector] ?? "inherit"}</td>
               {team && <td>{editor.view.overrides.team[detector] ?? "inherit"}</td>}
               <td>
-                <select
+                <Select
                   aria-label={`${detector} action`}
                   value={editor.draft[detector] ?? "inherit"}
-                  onChange={(e) => {
+                  onValueChange={(value) => {
                     const next = { ...editor.draft };
-                    if (e.target.value === "inherit") delete next[detector];
-                    else next[detector] = e.target.value as (typeof actions)[number];
+                    if (value === "inherit") delete next[detector];
+                    else next[detector] = value as (typeof actions)[number];
                     editor.setDraft(next);
                   }}
                 >
@@ -89,7 +90,7 @@ export function GuardrailsEditor({
                       {a}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <small role="status">
                   {noEffect(
                     detector,

@@ -11,6 +11,7 @@ import { MoneyValue } from "./money-value";
 import { RequestDetail } from "./request-detail";
 import { listSort } from "@/lib/list-query";
 import type { RequestAttempt } from "@/lib/console-contracts";
+import { GooeyRanges } from "./gooey-ranges";
 const fields: FilterField[] = [
   { name: "since", label: "From timestamp (UTC)", type: "datetime" },
   { name: "until", label: "To timestamp (UTC)", type: "datetime" },
@@ -59,35 +60,40 @@ export function Requests() {
   query.set("page_size", "50");
   return (
     <>
-      <h1>Requests</h1>
-      <p className="muted">Prompts and responses are never stored. This log is metadata only.</p>
+      <div className="screen-heading">
+        <h1>Requests</h1>
+        <p className="muted">Prompts and responses are never stored. This log is metadata only.</p>
+      </div>
       <OrgScope {...scope} />
       <div className="quick-ranges" aria-label="Quick ranges">
-        {[
-          ["15m", 15 / 60],
-          ["1h", 1],
-          ["24h", 24],
-          ["7d", 168],
-          ["30d", 720],
-        ].map(([label, hours]) => (
-          <button
-            key={label}
-            className="secondary"
-            onClick={() =>
-              set({
-                since: new Date(Date.now() - Number(hours) * 3600000).toISOString(),
-                until: new Date().toISOString(),
-              })
-            }
-          >
-            {label}
-          </button>
-        ))}
+        <GooeyRanges
+          items={[
+            { label: "15m", value: 15 / 60, duration: 15 * 60000 },
+            { label: "1h", value: 1, duration: 3600000 },
+            { label: "24h", value: 24, duration: 24 * 3600000 },
+            { label: "7d", value: 168, duration: 168 * 3600000 },
+            { label: "30d", value: 720, duration: 720 * 3600000 },
+          ]}
+          since={params.get("since")}
+          until={params.get("until")}
+          onSelect={(hours) =>
+            set({
+              since: new Date(Date.now() - hours * 3600000).toISOString(),
+              until: new Date().toISOString(),
+            })
+          }
+        />
         <span>Custom: use the timestamp fields</span>
       </div>
-      <section className="panel">
-        <details>
-          <summary>Request filters</summary>
+      <section className="panel request-filter-panel">
+        <details className="request-filters">
+          <summary className="request-filters-toggle">
+            <span className="request-filters-label">
+              <span className="request-filters-icon" aria-hidden="true" />
+              Request filters
+            </span>
+            <span className="request-filters-chevron" aria-hidden="true" />
+          </summary>
           <FilterBar fields={fields} />
         </details>
       </section>
@@ -138,26 +144,40 @@ function RequestList({
       </p>
       <DataState {...resource} />
       <div className="table-scroll">
-        <table>
+        <table className="request-table">
           <thead>
             <tr>
               <SortHeading field="created_at">Time</SortHeading>
               <SortHeading field="request_id">Request ID</SortHeading>
               <SortHeading field="provider">Provider / model</SortHeading>
               <SortHeading field="status_code">Status</SortHeading>
-              <SortHeading field="duration_ms">Duration</SortHeading>
-              <SortHeading field="cost_usd">Cost</SortHeading>
+              <SortHeading className="numeric" field="duration_ms">
+                Duration
+              </SortHeading>
+              <SortHeading className="numeric" field="cost_usd">
+                Cost
+              </SortHeading>
               <SortHeading field="outcome">Outcome</SortHeading>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id}>
+              <tr
+                key={row.id}
+                className="detail-row"
+                onClick={(event) => {
+                  if (!(event.target as Element).closest("button, a, input"))
+                    setDetail(row.request_id);
+                }}
+              >
                 <td>
                   <RecordTime value={row.created_at} />
                 </td>
                 <td>
-                  <button className="secondary" onClick={() => setDetail(row.request_id)}>
+                  <button
+                    className="secondary row-detail"
+                    onClick={() => setDetail(row.request_id)}
+                  >
                     {row.request_id}
                   </button>
                   <small>Attempt {row.attempt}</small>
@@ -171,8 +191,8 @@ function RequestList({
                     {row.status_code}
                   </span>
                 </td>
-                <td>{formatDuration(row.duration_ms)}</td>
-                <td>
+                <td className="numeric">{formatDuration(row.duration_ms)}</td>
+                <td className="numeric">
                   <MoneyValue value={row.cost_usd} />
                   <small>{row.cost_status}</small>
                 </td>

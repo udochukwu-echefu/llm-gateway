@@ -5,8 +5,10 @@ export function Keys() {
   const scope = useOrgScope();
   return (
     <>
-      <h1>Keys</h1>
-      <p>Organisation-wide key activity and expiry. Full key secrets are never shown here.</p>
+      <div className="screen-heading">
+        <h1>Keys</h1>
+        <p>Organisation-wide key activity and expiry. Full key secrets are never shown here.</p>
+      </div>
       <OrgScope {...scope} />
       {scope.org && (
         <section className="panel">

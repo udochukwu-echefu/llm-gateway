@@ -23,14 +23,16 @@ export function Providers() {
   );
   return (
     <>
-      <h1>Providers</h1>
-      <p>
-        Circuit breaker state is local to <strong>this replica</strong> serving the admin API.
-        Recorded health includes all organisations.
-      </p>
+      <div className="screen-heading">
+        <h1>Providers</h1>
+        <p>
+          Circuit breaker state is local to <strong>this replica</strong> serving the admin API.
+          Recorded health includes all organisations.
+        </p>
+      </div>
       <section className="panel">
         <DataState {...resource} />
-        <table>
+        <table className="provider-table">
           <thead>
             <tr>
               <SortHeading field="provider">Provider</SortHeading>

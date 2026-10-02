@@ -1,4 +1,10 @@
-import { test as base, expect, type Page, type BrowserContext } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Page,
+  type BrowserContext,
+  type Locator,
+} from "@playwright/test";
 import { readFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { responseScanner } from "./no-leak";
@@ -154,4 +160,24 @@ export async function screenshot(page: Page, name: string) {
   });
   await page.screenshot({ path: resolve(images, `console-${name}.png`), fullPage: true });
   await page.evaluate(() => document.documentElement.classList.remove("screenshot-capture"));
+}
+
+export async function selectChoice(control: Locator, value: string) {
+  await control.click();
+  // The custom menu retains the visible label and the original option value.
+  const label = await control.getAttribute("aria-label");
+  await control
+    .page()
+    .getByRole("listbox", { name: label!, exact: true })
+    .locator(`[role="option"][data-value="${value}"]`)
+    .click();
+  await expect(control).toHaveAttribute("data-value", value);
+}
+
+export async function setTheme(page: Page, theme: string) {
+  const toggle = page.getByRole("button", { name: `Switch to ${theme} theme`, exact: true });
+  if (await toggle.isVisible()) await toggle.click();
+  await expect
+    .poll(() => page.locator("html").evaluate((element) => getComputedStyle(element).colorScheme))
+    .toBe(theme);
 }

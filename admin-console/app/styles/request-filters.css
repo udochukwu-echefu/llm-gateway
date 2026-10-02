@@ -1,0 +1,81 @@
+.panel.request-filter-panel {
+  padding: 0;
+}
+.request-filters > summary.request-filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 18px 24px;
+  border-radius: var(--radius-panel);
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  transition: background-color 180ms var(--ease-out);
+}
+.request-filters-toggle::-webkit-details-marker {
+  display: none;
+}
+.request-filters-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.request-filters-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask: url("../../public/icons/sliders-horizontal.svg") center / contain no-repeat;
+}
+.request-filters-chevron {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--muted);
+  mask: url("../../public/icons/chevron-left.svg") center / contain no-repeat;
+  transform: rotate(180deg);
+  transition: transform 200ms var(--ease-out);
+}
+.request-filters[open] > summary.request-filters-toggle {
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  background: var(--surface);
+}
+.request-filters[open] .request-filters-chevron {
+  transform: rotate(-90deg);
+}
+.request-filters-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.request-filters .filter-bar {
+  padding: 24px;
+}
+.request-filters .filter-chips {
+  margin: 0 24px 24px;
+}
+.request-filters .filter-chips:empty {
+  margin: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .request-filters > summary.request-filters-toggle:hover {
+    background: var(--surface);
+  }
+}
+@media (max-width: 760px) {
+  .request-filters > summary.request-filters-toggle {
+    padding: 16px 20px;
+  }
+  .request-filters .filter-bar {
+    padding: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .request-filters > summary.request-filters-toggle,
+  .request-filters-chevron {
+    transition: none;
+  }
+}

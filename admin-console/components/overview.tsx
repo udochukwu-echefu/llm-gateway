@@ -64,7 +64,7 @@ export function Overview() {
             )}
           </section>
           <div className="overview-grid">
-            <section className="panel">
+            <section className="panel overview-chart-panel">
               <h2>Requests over time</h2>
               {data.byDay.length ? (
                 <>
@@ -99,7 +99,7 @@ export function Overview() {
                 <UsageEmpty />
               )}
             </section>
-            <section className="panel">
+            <section className="panel overview-model-panel">
               <h2>Top 5 models by priced spend</h2>
               {data.models.length ? (
                 <SortableTable name="overview-2">

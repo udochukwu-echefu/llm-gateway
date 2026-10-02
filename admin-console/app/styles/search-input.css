@@ -1,0 +1,114 @@
+.global-tools button.search-trigger {
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 3px oklch(0.2 0 0 / 0.04),
+    var(--shadow);
+}
+.search-input-frame {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 74px;
+  margin-top: 10px;
+  padding: 12px 12px 12px 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--panel), transparent 5%);
+  backdrop-filter: blur(40px);
+  transition: border-color 300ms ease;
+}
+.search-input-frame:focus-within {
+  border-color: var(--muted);
+}
+.search-input-frame .command-search-input {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 0%;
+  width: 0;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  font-size: 18px;
+  line-height: 32px;
+  letter-spacing: -0.18px;
+}
+.search-input-frame .command-search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.search-input-frame .command-search-input::placeholder {
+  color: var(--muted);
+  opacity: 0.65;
+}
+button.search-orb-button {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  transition:
+    background-color 300ms ease-out,
+    border-color 300ms ease-out,
+    transform 300ms ease-out;
+}
+button.search-orb-button:disabled {
+  opacity: 0.45;
+}
+button.search-orb-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+@media (hover: hover) and (pointer: fine) {
+  button.search-orb-button:hover:not(:disabled) {
+    border-color: var(--muted);
+    background: rgb(255 255 255 / 6%);
+  }
+}
+.search-orb {
+  position: absolute;
+  z-index: 5;
+  width: 30px;
+  height: 30px;
+  right: 21px;
+  top: calc(50% - 15px);
+  pointer-events: none;
+}
+.search-voice:has(.search-orb-button:disabled) .search-orb {
+  opacity: 0.45;
+}
+dialog nav[aria-label="Search results"] {
+  margin-block: 18px;
+  max-height: min(50dvh, 420px);
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-input-frame,
+  button.search-orb-button {
+    transition: none;
+  }
+}
+
+:root[data-theme="light"] .search-orb {
+  filter: invert(1);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] .search-orb {
+    filter: invert(1);
+  }
+}

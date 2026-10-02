@@ -37,6 +37,14 @@ jobs:
       GATEWAY_REDIS_URL: redis://127.0.0.1:6379/0
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: admin-console/.nvmrc
+          cache: npm
+          cache-dependency-path: admin-console/package-lock.json
+      - name: Install console runtime dependencies
+        working-directory: admin-console
+        run: npm ci --omit=dev --no-audit --no-fund
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true

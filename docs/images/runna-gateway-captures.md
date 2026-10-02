@@ -15,3 +15,15 @@ All records, organisations and displayed spending are synthetic. Public key IDs
 are identifiers, not usable credentials; no API key, session cookie, prompt or
 completion appears in these captures. The images document that verified release,
 not continuous availability or measured production traffic.
+
+## Platform viewer
+
+![Platform Overview with both read-only profiles in the account menu](runna-gateway-platform.png)
+
+## Northwind Health viewer
+
+![Light Overview scoped to the Northwind Health organisation](runna-gateway-northwind.png)
+
+## Public sign-in
+
+![Explore sign-in with a dark introduction and light sign-in panel](runna-gateway-login.png)

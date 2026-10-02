@@ -9,6 +9,12 @@ import {
 } from "react";
 import { DateRangePicker } from "./date-range-picker";
 import { dateKey, rangeFromValues } from "./date-range-dates";
+import {
+  utcTimestampHint,
+  utcTimestampPattern,
+  validUtcTimestamp,
+  wholeDayTimes,
+} from "./date-range-timestamps";
 
 interface DateField {
   name: string;
@@ -73,9 +79,18 @@ export function DateRangeFields({
               <input
                 aria-label={field.label}
                 name={field.name}
-                type={withTime ? "datetime-local" : "date"}
+                type={withTime ? "text" : "date"}
+                placeholder={withTime ? "YYYY-MM-DDTHH:mm" : undefined}
+                pattern={withTime ? utcTimestampPattern : undefined}
+                title={withTime ? utcTimestampHint : undefined}
                 value={values[side]}
-                onChange={(event) => setValues({ ...values, [side]: event.target.value })}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  event.target.setCustomValidity(
+                    withTime && value && !validUtcTimestamp(value) ? utcTimestampHint : "",
+                  );
+                  setValues({ ...values, [side]: value });
+                }}
                 onKeyDown={onInputKey}
               />
               <button
@@ -116,8 +131,8 @@ export function DateRangeFields({
             initialRange={rangeFromValues(values.start, values.end)}
             today={today}
             times={{
-              start: values.start.slice(11, 16) || "00:00",
-              end: values.end.slice(11, 16) || "00:00",
+              start: values.start.slice(11) || wholeDayTimes.start,
+              end: values.end.slice(11) || wholeDayTimes.end,
             }}
             withTime={withTime}
             onApply={(range, times) => {
@@ -125,10 +140,16 @@ export function DateRangeFields({
                 start: range.start + (withTime ? `T${times.start}` : ""),
                 end: range.end + (withTime ? `T${times.end}` : ""),
               });
+              fields.current
+                ?.querySelectorAll("input")
+                .forEach((input) => input.setCustomValidity(""));
               closeCalendar();
             }}
             onClear={() => {
               setValues({ start: "", end: "" });
+              fields.current
+                ?.querySelectorAll("input")
+                .forEach((input) => input.setCustomValidity(""));
               closeCalendar();
             }}
             onCancel={closeCalendar}

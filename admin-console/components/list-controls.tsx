@@ -3,6 +3,12 @@ import { Select } from "./select";
 import type { ReactNode } from "react";
 import { useListQuery } from "./use-list-query";
 import { DateRangeFields } from "./date-range-fields";
+import {
+  timestampFieldValue,
+  timestampQueryValue,
+  utcTimestampPattern,
+  utcTimestampHint,
+} from "./date-range-timestamps";
 export interface FilterField {
   name: string;
   label: string;
@@ -19,9 +25,7 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
   );
   function fieldValue(name: string, type?: string) {
     const value = params.get(name) ?? "";
-    return type === "datetime" && value && Number.isFinite(Date.parse(value))
-      ? new Date(value).toISOString().slice(0, 16)
-      : value;
+    return type === "datetime" ? timestampFieldValue(value) : value;
   }
   return (
     <>
@@ -35,10 +39,7 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
             Object.fromEntries(
               fields.map(({ name, type }) => {
                 const value = String(form.get(name) ?? "");
-                return [
-                  name,
-                  type === "datetime" && value ? new Date(value + "Z").toISOString() : value,
-                ];
+                return [name, type === "datetime" ? timestampQueryValue(value) : value];
               }),
             ),
           );
@@ -75,14 +76,10 @@ export function FilterBar({ fields, children }: { fields: FilterField[]; childre
                 <input
                   aria-label={label}
                   name={name}
-                  type={type === "datetime" ? "datetime-local" : (type ?? "text")}
-                  defaultValue={
-                    type === "datetime" &&
-                    params.get(name) &&
-                    Number.isFinite(Date.parse(params.get(name)!))
-                      ? new Date(params.get(name)!).toISOString().slice(0, 16)
-                      : (params.get(name) ?? "")
-                  }
+                  type={type === "datetime" ? "text" : (type ?? "text")}
+                  pattern={type === "datetime" ? utcTimestampPattern : undefined}
+                  title={type === "datetime" ? utcTimestampHint : undefined}
+                  defaultValue={fieldValue(name, type)}
                 />
               )}
             </label>

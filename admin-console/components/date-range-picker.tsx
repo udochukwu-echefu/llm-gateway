@@ -15,6 +15,13 @@ import {
   type CalendarRange,
 } from "./date-range-dates";
 import { DateRangeMonth } from "./date-range-month";
+import {
+  utcTimeHint,
+  utcTimePattern,
+  validUtcTime,
+  isWholeDayTimes,
+  wholeDayTimes,
+} from "./date-range-timestamps";
 
 function subscribeToScreen(notify: () => void) {
   const media = window.matchMedia("(max-width: 767px)");
@@ -60,7 +67,7 @@ export function DateRangePicker({
   const months = Array.from({ length: count }, (_, index) => addCalendarMonths(view, index));
   const presets = calendarPresets(today);
   const active =
-    !anchor && draft
+    !anchor && draft && (!withTime || isWholeDayTimes(time))
       ? presets.findIndex(({ range }) => range.start === draft.start && range.end === draft.end)
       : -1;
   const tabbable = months.some((month) => month.slice(0, 7) === focusDay.slice(0, 7))
@@ -96,6 +103,7 @@ export function DateRangePicker({
   }
   function choosePreset(range: CalendarRange) {
     setDraft(range);
+    if (withTime) setTime(wholeDayTimes);
     setAnchor(undefined);
     setHover(undefined);
     setFocusDay(range.start);
@@ -192,7 +200,10 @@ export function DateRangePicker({
             Start time (UTC)
             <input
               aria-label="Start time (UTC)"
-              type="time"
+              type="text"
+              placeholder="HH:mm"
+              pattern={utcTimePattern}
+              title={utcTimeHint}
               value={time.start}
               onChange={(event) => setTime({ ...time, start: event.target.value })}
             />
@@ -201,7 +212,10 @@ export function DateRangePicker({
             End time (UTC)
             <input
               aria-label="End time (UTC)"
-              type="time"
+              type="text"
+              placeholder="HH:mm"
+              pattern={utcTimePattern}
+              title={utcTimeHint}
               value={time.end}
               onChange={(event) => setTime({ ...time, end: event.target.value })}
             />
@@ -221,7 +235,7 @@ export function DateRangePicker({
               <span className="calendar-count">
                 {anchor && hover === anchor
                   ? "Pick an end date"
-                  : `${days} ${days === 1 ? "day" : "days"}`}
+                  : `${days} ${days === 1 ? "date" : "dates"}${withTime ? ` · ${time.start}–${time.end} UTC` : " (UTC)"}`}
               </span>
             )}
           </div>
@@ -233,7 +247,9 @@ export function DateRangePicker({
           <button
             type="button"
             className="calendar-apply"
-            disabled={!shown || (withTime && (!time.start || !time.end))}
+            disabled={
+              !shown || (withTime && (!validUtcTime(time.start) || !validUtcTime(time.end)))
+            }
             onClick={() => {
               const range = anchor ? { start: anchor, end: anchor } : draft;
               if (range) onApply(range, time);

@@ -76,13 +76,23 @@ jobs:
         run: docker build -t llm-gateway:ci .
       - name: Smoke test
         run: |
-          docker run -d --name gateway -p 8000:8000 -e GATEWAY_PROVIDERS__GROQ__API_KEY=ci-placeholder -e GATEWAY_API_KEY_PEPPER=ci-only-fake-pepper-at-least-32-bytes -e GATEWAY_DATABASE_URL=postgresql+asyncpg://fake:fake@127.0.0.1:1/fake -e GATEWAY_REDIS_URL=redis://127.0.0.1:1/0 llm-gateway:ci
+          # Dummy cache key: standard base64 encoding of 32 zero bytes, only for CI.
+          docker run -d --name gateway -p 8000:8000 \
+            -e GATEWAY_PROVIDERS__GROQ__API_KEY=ci-placeholder \
+            -e GATEWAY_API_KEY_PEPPER=ci-only-fake-pepper-at-least-32-bytes \
+            -e GATEWAY_CACHE_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            -e GATEWAY_DATABASE_URL=postgresql+asyncpg://fake:fake@127.0.0.1:1/fake \
+            -e GATEWAY_REDIS_URL=redis://127.0.0.1:1/0 \
+            llm-gateway:ci
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/healthz && exit 0
             sleep 1
           done
           docker logs gateway
           exit 1
+      - name: Remove smoke container
+        if: always()
+        run: docker rm -f gateway || true
 
   loadtest-smoke:
     runs-on: ubuntu-latest

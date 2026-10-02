@@ -1311,3 +1311,8 @@ the pinned Node version and locked console runtime dependencies as well as Pytho
 The Python CI job installs those prerequisites before pytest; it does not skip the
 cross-runtime check or duplicate the schema in Python. The console job remains separate
 and installs the development dependencies needed for its own browser and component tests.
+
+The image health check also supplies an explicit dummy 32-byte cache key, because caching
+is enabled by default and startup correctly refuses a missing encryption key. This fake
+test value does not change production validation. CI removes its named smoke container
+after either success or failure.

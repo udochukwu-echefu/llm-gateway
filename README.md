@@ -1,16 +1,77 @@
-# LLM Gateway
+# Runna Gateway
 
-One OpenAI-compatible API in front of many model providers, built for company use:
-central keys, per-team limits and budgets, cost tracking, failover and audit logs.
+One OpenAI-compatible API for multiple model providers, with team access controls,
+shared limits and budgets, usage accounting, safe failover and a private admin console.
 
-> **Status: steps 1–13 complete; step 14 providers implemented.** The admin console
-> includes policy editors, residency and cache purge. Chat routes to Groq,
-> DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted Kimi/GLM; embeddings to Gemini/OpenAI.
-> Every `/v1` request requires a gateway-issued key; Redis coordinates
-> team limits and budgets across replicas. Bounded retries, local circuit breakers and
-> approved opt-in fallback recover from provider failures. Guardrails block secrets,
-> redact configured personal data and enforce tenant data residency. See the
-> [roadmap](docs/roadmap.md).
+[Open the read-only demo](https://prod-main-appliance-ca05b3-00hcr9bqd1b.compute.instacloud-edge.com) ·
+[Portfolio](https://udochukwu.cv) ·
+[Benchmark evidence](docs/benchmarks/load-test-report.md)
+
+A self-directed portfolio project built to production standards. The demo uses
+synthetic data and a fake provider; it makes no paid model calls. The console is
+branded **Runna Gateway**; the Python package and repository retain `llm_gateway`
+and `llm-gateway` respectively.
+
+![Runna Gateway platform overview with both read-only demo profiles](docs/images/runna-gateway-platform.png)
+
+*Verified 2 October 2026 release. The account menu switches between platform-wide
+and Northwind Health views. Screenshot values are synthetic.*
+
+## Architecture
+
+```mermaid
+flowchart LR
+    App[OpenAI-compatible client] --> Gateway[FastAPI gateway]
+    Gateway --> Providers[Provider adapters]
+    Gateway <--> Redis[(Redis: shared limits, budgets, encrypted cache)]
+    Gateway --> Writer[Best-effort batched receipt writer]
+    Writer --> Postgres[(PostgreSQL: tenants, keys, policies, receipts, audit)]
+    Browser[Admin browser] --> BFF[Next.js server / BFF]
+    BFF --> Admin[Private admin API]
+    Admin <--> Postgres
+    Admin <--> Redis
+```
+
+Applications use team-scoped keys. Provider credentials stay in the gateway;
+admin credentials stay on the console server. Multiple replicas coordinate through
+Redis and Postgres, while connection pools and circuit breakers remain local.
+Receipts use exact decimal money, with unknown prices recorded as unpriced.
+The in-memory writer is best-effort accounting, not an invoice ledger.
+
+Chat routes to Groq, DeepSeek, Gemini, OpenAI, Z.ai and NVIDIA-hosted models;
+embeddings route to Gemini and OpenAI. Reviewed model policies apply to aliases
+and every fallback destination. See the [architecture](docs/architecture.md),
+[decision records](docs/adr/) and [roadmap](docs/roadmap.md).
+
+## Measured results
+
+Recorded 30 September 2026 campaign, source `2cb7ee35`, on an M2 Pro laptop through
+Docker Desktop with a fixed 200 ms fake provider. These are test results, not
+production capacity or a benchmark of every later change.
+
+| Measurement | Recorded result | Boundary |
+|---|---|---|
+| Gateway overhead p99 at tested SLO capacity | One replica: **7.199 ms at 100 offered requests/s**; two: **5.590 ms at 200/s** | Under 10 ms at these stages; higher stages and some low-rate stages missed |
+| Successful throughput scaling | **199.332 → 398.661 responses/s (2.000×)** | Fully generated, error-eligible stages; these throughput stages missed the overhead SLO |
+| Ten-minute receipt soak | **30,001 client successes = provider completions = durable receipts** | Zero lost records in this run after flush; not a durability guarantee |
+| Rolling RPM enforcement | **629 admissions** in each of three runs, under a **630** bound | 600 RPM plus burst 30; old-counter mutation failed at 631 |
+
+The generator dropped 14,985 scheduled iterations at a higher stage; that stage is
+excluded from the capacity headline. A 5 KB PII-redaction scenario also missed the
+10 ms target (11.370 ms p99). Read the [full method, misses and limitations](docs/benchmarks/load-test-report.md).
+
+## Explore the console
+
+The public tour has two API-enforced read-only profiles, organisation isolation,
+metadata-only request records, exact money formatting and policy inheritance.
+The profile menu also exposes Light, Dark and System appearance choices.
+
+![Northwind Health viewer scoped to its organisation](docs/images/runna-gateway-northwind.png)
+
+![Demo sign-in with a dark introduction and light Explore panel](docs/images/runna-gateway-login.png)
+
+[Screenshot provenance](docs/images/runna-gateway-captures.md) ·
+[2–3 minute walkthrough script](docs/demo-video-script.md)
 
 ## Quick start
 
@@ -288,8 +349,10 @@ CI runs formatting, lint, typing, unit/component tests, build and the real-stack
 
 [Explore the live demo](https://prod-main-appliance-ca05b3-00hcr9bqd1b.compute.instacloud-edge.com).
 It is read-only, contains synthetic data and uses the fake provider. It is configured for
-scale-to-zero, so a cold visit can take a few seconds. The owner observed it staying awake
-on 2026-10-01; the step 16c idle fix below still needs deployment and live verification.
+scale-to-zero. The 2 October release was observed suspending naturally after its
+synthetic traffic stopped; one cold wake returned HTTP 200 after **33.4 seconds**
+and started fresh processes. Direct memory-zero and billing savings remain unverified.
+The demo has no uptime guarantee and can be unavailable while its host is stopped.
 The public tour offers platform-wide and Northwind Health read-only Explore sign-ins,
 with friendly “Demo visitor” identities rather than internal boot-key names.
 Viewer permissions are enforced by the gateway, not merely disabled buttons. Demo keys
@@ -309,8 +372,8 @@ See [deployment, DNS, rotation and Docker fallback](docs/deployment-demo.md) and
 [ADR 0028](docs/adr/0028-public-demo-mode.md). Existing synthetic screenshots below show
 the product; below are the public Explore sign-in and locked viewer controls.
 
-![Public demo sign-in](docs/images/console-public-demo-login.png)
-![Platform viewer](docs/images/console-public-demo-platform.png)
+![Public demo sign-in](docs/images/runna-gateway-login.png)
+![Platform viewer](docs/images/runna-gateway-platform.png)
 ![Read-only controls](docs/images/console-public-demo-read-only-controls.png)
 
 For a separately hosted console, `DEMO_MODE` defaults to `false`. Setting it to `true`

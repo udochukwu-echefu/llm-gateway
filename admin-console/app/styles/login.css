@@ -6,6 +6,16 @@
   padding: 0;
 }
 .login-story {
+  color-scheme: dark;
+  --rail: oklch(0.205 0 0);
+  --panel: oklch(0.205 0 0);
+  --nav: oklch(0.269 0 0);
+  --text: oklch(0.985 0 0);
+  --muted: oklch(0.708 0 0);
+  --line: oklch(1 0 0 / 10%);
+  --accent: oklch(0.922 0 0);
+  --accent-text: oklch(0.205 0 0);
+  color: var(--text);
   background: var(--rail);
   padding: 44px 56px;
   display: flex;
@@ -79,6 +89,21 @@
   right: -21px;
 }
 .login-access {
+  color-scheme: light;
+  --bg: oklch(1 0 0);
+  --panel: #ffffff;
+  --surface: oklch(0.97 0 0);
+  --text: oklch(0.145 0 0);
+  --muted: oklch(0.54 0 0);
+  --line: oklch(0.922 0 0);
+  --accent: oklch(0.205 0 0);
+  --accent-text: #ffffff;
+  --action: oklch(0.205 0 0);
+  --action-text: #ffffff;
+  --nav: oklch(0.97 0 0);
+  --danger: oklch(0.49 0.17 26);
+  --shadow: 0 1px 2px oklch(0.25 0 0 / 0.04);
+  color: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;

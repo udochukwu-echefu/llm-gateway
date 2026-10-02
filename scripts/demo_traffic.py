@@ -62,15 +62,15 @@ async def run_traffic(
             # A continuously streaming response must not outlive the boot window either.
             async with asyncio.timeout(deadline - clock()):
                 status = await send_traffic(client, key, index)
-            print(f"Synthetic demo traffic: status={status}.")
+            print(f"Synthetic demo traffic: status={status}.", flush=True)
         except (httpx.HTTPError, TimeoutError):
-            print("Synthetic demo traffic: gateway unavailable.")
+            print("Synthetic demo traffic: gateway unavailable.", flush=True)
         index += 1
         remaining = deadline - clock()
         if remaining <= 0:
             break
         await sleep(min(remaining, 0.2 if index < 3 else jitter(50, 70)))
-    print("Synthetic demo traffic: window complete; stopping.")
+    print("Synthetic demo traffic: window complete; stopping.", flush=True)
 
 
 async def main() -> None:

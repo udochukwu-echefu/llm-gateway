@@ -39,10 +39,7 @@ COPY loadtest/fake_provider ./loadtest/fake_provider
 COPY scripts/seed_demo.py scripts/demo_traffic.py ./scripts/
 COPY deploy/demo/*.py ./deploy/demo/
 # The owner staging context has a commit file; ordinary source builds do not.
-RUN --mount=type=bind,source=.,target=/build-context,readonly \
-    if [ -f /build-context/BUILD_COMMIT ]; then \
-      install -m 0644 /build-context/BUILD_COMMIT /app/BUILD_COMMIT; \
-    fi
+COPY LICENSE BUILD_COMMIT* /app/build-meta/
 ENV PATH=/app/.venv/bin:$PATH PYTHONPATH=/app LD_LIBRARY_PATH=/usr/local/lib PYTHONUNBUFFERED=1 NEXT_TELEMETRY_DISABLED=1 PORT=3000
 USER demo
 EXPOSE 3000

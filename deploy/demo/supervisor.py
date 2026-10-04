@@ -16,7 +16,7 @@ from deploy.demo.config import INTERNAL_HOST, appliance_environment
 from deploy.demo.output import drain_output
 from deploy.demo.processes import Child, ensure_alive, launch, shutdown, wait_http
 
-BUILD_COMMIT_PATH = Path("/app/BUILD_COMMIT")
+BUILD_COMMIT_PATH = Path("/app/build-meta/BUILD_COMMIT")
 
 
 def bootstrap(env: dict[str, str], stage: str, stopped: Callable[[], bool]) -> dict[str, str]:

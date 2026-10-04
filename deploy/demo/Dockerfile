@@ -9,7 +9,7 @@ COPY src ./src
 COPY catalog ./catalog
 RUN uv sync --locked --no-dev --no-editable
 
-FROM node:24.15.0-bookworm-slim@sha256:4e6b70dd6cbfc88c8157ba19aa3d9f9cce6ba4703576d55459e45efcbc9c5f5d AS console-build
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS console-build
 WORKDIR /console
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY admin-console/package.json admin-console/package-lock.json ./

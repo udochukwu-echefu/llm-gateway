@@ -1335,3 +1335,8 @@ latest result.
 The console proxy adds HSTS only when its configured public origin uses HTTPS.
 HSTS tells a browser to use HTTPS on later visits for one year. It does not apply
 to HTTP localhost, where a browser has no TLS connection to remember.
+
+Dependabot checks dependency versions every week. It uses the `uv` ecosystem for
+Python because the project installs from `uv.lock`, its record of exact dependency
+versions. Grouping small updates reduces review noise; major updates remain separate
+so a reviewer can inspect larger compatibility changes.

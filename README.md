@@ -337,6 +337,9 @@ Redis outage behavior is covered at the HTTP/component layers, avoiding stopping
 shared Redis used by local tests and other development work.
 CI runs formatting, lint, typing, unit/component tests, build, the real-stack Chromium suite
 and the disposable demo appliance Chromium suite.
+Dependabot checks npm, uv, GitHub Actions and all three Dockerfile directories weekly;
+minor and patch updates are grouped. The Python entry uses `uv` so updates keep
+`uv.lock` in sync with `pyproject.toml`.
 
 ### Live demo
 

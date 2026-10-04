@@ -1340,3 +1340,7 @@ Dependabot checks dependency versions every week. It uses the `uv` ecosystem for
 Python because the project installs from `uv.lock`, its record of exact dependency
 versions. Grouping small updates reduces review noise; major updates remain separate
 so a reviewer can inspect larger compatibility changes.
+
+The project and its Python and console package metadata now declare MIT licensing.
+The Python wheel carries the LICENSE file, and the third-party animation source
+retains its own MIT notices so recipients can see both authors' terms.

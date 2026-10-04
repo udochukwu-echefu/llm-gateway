@@ -936,6 +936,16 @@ NVIDIA removes the remote queued job without a documented cancellation API.
 - [Security threat model](docs/security/threat-model.md)
 - [Security policy and private vulnerability reporting](SECURITY.md)
 
+## License
+
+This project is [MIT licensed](LICENSE).
+
+### Third-party code
+
+The animation engines in `admin-console/components/search-visuals/` are adapted from
+MIT-licensed thinking-orbs 0.3.2 and voice-glow 0.2.1 by Jakub Antalik. Their
+existing license headers remain in those files.
+
 ## Resilience and approved fallback
 
 Run `uv run alembic upgrade head` before deploying this step (migration 0004 adds

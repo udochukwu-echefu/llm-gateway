@@ -1344,3 +1344,14 @@ so a reviewer can inspect larger compatibility changes.
 The project and its Python and console package metadata now declare MIT licensing.
 The Python wheel carries the LICENSE file, and the third-party animation source
 retains its own MIT notices so recipients can see both authors' terms.
+
+### Dependabot runtime pins: change the toolchain together
+
+An **ignore rule** tells Dependabot not to propose certain version jumps. TypeScript
+major releases need a compatibility review with typescript-eslint, and Node type
+definitions must use the same major as the Node runtime. Dependabot therefore skips
+those two npm major updates. It also skips Node and Python image minor and major updates
+in every Docker directory. Those larger runtime upgrades need
+one reviewed change through `.nvmrc`, package engines, `.python-version`, `pyproject.toml`
+and the images. ESLint and Redis majors still arrive as individual proposals because
+they can be evaluated without changing those runtime pins.

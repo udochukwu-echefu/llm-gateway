@@ -339,7 +339,9 @@ CI runs formatting, lint, typing, unit/component tests, build, the real-stack Ch
 and the disposable demo appliance Chromium suite.
 Dependabot checks npm, uv, GitHub Actions and all three Dockerfile directories weekly;
 minor and patch updates are grouped. The Python entry uses `uv` so updates keep
-`uv.lock` in sync with `pyproject.toml`.
+`uv.lock` in sync with `pyproject.toml`. TypeScript and Node type major updates, Node
+image minor or major updates, and Python image minor or major updates are held for
+coordinated runtime reviews. ESLint and Redis major updates still receive individual PRs.
 
 ### Live demo
 

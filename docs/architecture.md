@@ -1324,3 +1324,10 @@ context. The appliance image copies that file when present, and the supervisor c
 that it contains a hexadecimal commit ID before passing it to the gateway. Settings
 then shows the ID to platform viewers. A local image without this file reports an
 unknown commit, which avoids claiming it matches a deployment that never happened.
+
+The demo appliance browser suite now has its own CI job. It builds an image labelled
+with the checkout's Git commit, then tests that image with disposable Postgres and
+Redis containers. The label check prevents a passing result from an older image.
+CI uploads the browser report on failure and removes the disposable containers after
+every run. New pushes on the same branch cancel older CI runs so reviewers see the
+latest result.

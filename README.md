@@ -334,7 +334,8 @@ skips deny-all confirmation, enables untyped purge and accepts an unknown detect
 each must fail its designated behavior test, then all sources are restored.
 Redis outage behavior is covered at the HTTP/component layers, avoiding stopping the
 shared Redis used by local tests and other development work.
-CI runs formatting, lint, typing, unit/component tests, build and the real-stack Chromium suite.
+CI runs formatting, lint, typing, unit/component tests, build, the real-stack Chromium suite
+and the disposable demo appliance Chromium suite.
 
 ### Live demo
 

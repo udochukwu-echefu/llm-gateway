@@ -1331,3 +1331,7 @@ Redis containers. The label check prevents a passing result from an older image.
 CI uploads the browser report on failure and removes the disposable containers after
 every run. New pushes on the same branch cancel older CI runs so reviewers see the
 latest result.
+
+The console proxy adds HSTS only when its configured public origin uses HTTPS.
+HSTS tells a browser to use HTTPS on later visits for one year. It does not apply
+to HTTP localhost, where a browser has no TLS connection to remember.

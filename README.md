@@ -207,6 +207,7 @@ npm run dev -- --hostname localhost --port 3100
 Use [the console](http://localhost:3100/login) and paste the issued admin key.
 Local Chromium allows Secure cookies on localhost; deployments must use HTTPS.
 `ADMIN_CONSOLE_ORIGIN` must exactly match the browser's origin (scheme, host, port).
+An HTTPS origin sends a one-year HSTS header for that host; HTTP localhost omits it.
 The local and Docker entry points validate before starting Next. Invalid URLs or a
 missing/short secret stop the process before it can print Ready or serve requests. Keep `.env*` untracked;
 do not use any `NEXT_PUBLIC_` setting for these values. Changing the session secret

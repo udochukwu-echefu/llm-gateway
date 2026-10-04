@@ -72,6 +72,9 @@ def test_stage_archives_only_committed_code_and_prints_deployment_url(
     assert "https://synthetic-demo.example.invalid" in result.stdout
     capture = Path(env["STAGE_CAPTURE"])
     assert (capture / "Dockerfile").read_text() == "FROM synthetic-demo\n"
+    commit = _run(["git", "-C", str(repo), "rev-parse", "HEAD"]).stdout.strip()
+    assert (capture / "BUILD_COMMIT").read_text() == f"{commit}\n"
+    assert not (repo / "BUILD_COMMIT").exists()
     assert all(
         not (capture / name).exists()
         for name in (

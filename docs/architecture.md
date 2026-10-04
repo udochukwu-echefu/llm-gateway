@@ -1316,3 +1316,11 @@ The image health check also supplies an explicit dummy 32-byte cache key, becaus
 is enabled by default and startup correctly refuses a missing encryption key. This fake
 test value does not change production validation. CI removes its named smoke container
 after either success or failure.
+
+### Audit polish: identify the code in the deployed demo
+
+The owner deployment helper now puts the checked Git commit into its temporary build
+context. The appliance image copies that file when present, and the supervisor checks
+that it contains a hexadecimal commit ID before passing it to the gateway. Settings
+then shows the ID to platform viewers. A local image without this file reports an
+unknown commit, which avoids claiming it matches a deployment that never happened.

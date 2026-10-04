@@ -148,10 +148,14 @@ function PlatformSettings() {
         <dl>
           {Object.entries(resource.data).map(([name, value]) => (
             <div key={name}>
-              <dt>{name.replaceAll("_", " ")}</dt>
+              <dt>{name === "git_commit" ? "Deployed commit" : name.replaceAll("_", " ")}</dt>
               <dd>
                 <pre>
-                  {typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                  {name === "git_commit" && value === null
+                    ? "Not available"
+                    : typeof value === "object"
+                      ? JSON.stringify(value, null, 2)
+                      : String(value)}
                 </pre>
               </dd>
             </div>

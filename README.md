@@ -353,6 +353,9 @@ remain usable. No trackers, real customer data or paid model calls are included.
 The portable non-root appliance packages console, gateway and fake provider behind one
 public console port for InstaCloud scale-to-zero. Per-boot viewer/traffic keys stay in
 memory; missing synthetic days are appended on a cold process boot. Run exactly one instance.
+The platform viewer's Settings page shows the deployed Git commit when the owner deploys
+with `deploy/demo/stage.sh`; ordinary local appliance builds show “Not available”. The
+helper writes the commit only into its temporary build context.
 The boot burst is followed by 50–70-second synthetic traffic for at most
 `DEMO_TRAFFIC_WINDOW_S` seconds (positive integer, default `600`), then that child exits
 without restarting. Demo-only reconciliation and empty usage waits are hourly; receipts

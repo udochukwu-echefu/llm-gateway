@@ -13,6 +13,7 @@ stage_dir=$(mktemp -d "${TMPDIR:-/tmp}/llm-gateway-demo.XXXXXX")
 trap 'rm -rf -- "$stage_dir"' EXIT
 # Read the Dockerfile from the archive too, so concurrent edits cannot enter the context.
 git archive HEAD | tar -x -C "$stage_dir"
+git rev-parse HEAD > "$stage_dir/BUILD_COMMIT"
 cp "$stage_dir/deploy/demo/Dockerfile" "$stage_dir/Dockerfile"
 insta --agent build "$stage_dir" --port 3000
 # InstaCloud prints the public URL on a successful deployment; leave it visible.

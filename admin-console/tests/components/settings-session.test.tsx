@@ -9,6 +9,10 @@ vi.mock("@/components/preferences", () => ({
 vi.mock("@/components/record-time", () => ({
   RecordTime: ({ value }: { value: string }) => <span>{value}</span>,
 }));
+const resource = vi.hoisted(() => ({ data: { git_commit: "a".repeat(40) } }));
+vi.mock("@/components/use-resource", () => ({
+  useResource: () => resource,
+}));
 for (const demo of [false, true]) {
   test(`viewer Settings shows actual ${demo ? "demo" : "ordinary"} session lifetime`, () => {
     const issuedAt = 100000;
@@ -30,3 +34,17 @@ for (const demo of [false, true]) {
     ).toBeTruthy();
   });
 }
+
+test("platform Settings shows the deployed commit from the API", () => {
+  render(
+    <Settings
+      identity={{ key_id: "fake", name: "Viewer", role: "viewer", organization: null }}
+      issuedAt={100000}
+      lastSeen={100000}
+      demo
+    />,
+  );
+
+  expect(screen.getByText("Deployed commit")).toBeTruthy();
+  expect(screen.getByText("a".repeat(40))).toBeTruthy();
+});

@@ -1,5 +1,6 @@
 """Exercise the parent lifecycle and child credential boundaries, not just helpers."""
 
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -70,3 +71,37 @@ def test_boot_credentials_reach_only_the_relevant_child_environment(
         not {"DEMO_VIEWER_KEY", "DEMO_ORG_VIEWER_KEY", "GATEWAY_API_KEY_PEPPER"}
         & calls["traffic"].keys()
     )
+
+
+@pytest.mark.parametrize(
+    ("file_value", "expected"),
+    [("A" * 40 + "\n", "a" * 40), ("not-a-commit\n", None), (None, None)],
+)
+def test_parent_exports_only_valid_staged_commit_to_gateway(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    file_value: str | None,
+    expected: str | None,
+) -> None:
+    path = tmp_path / "BUILD_COMMIT"
+    if file_value is not None:
+        path.write_text(file_value)
+    monkeypatch.setattr(supervisor, "BUILD_COMMIT_PATH", path)
+    monkeypatch.setattr(
+        supervisor,
+        "appliance_environment",
+        lambda: {**demo_environment(), "GATEWAY_GIT_COMMIT": "spoofed"},
+    )
+    environments: list[dict[str, str]] = []
+
+    def start(env: dict[str, str], children: list[Child], stopped: object) -> None:
+        environments.append(env)
+        raise RuntimeError("stop after gateway environment capture")
+
+    monkeypatch.setattr(supervisor, "_start_children", start)
+    monkeypatch.setattr(supervisor, "signal", Mock())
+    monkeypatch.setattr(supervisor, "resource", Mock())
+    monkeypatch.setattr(supervisor, "shutdown", Mock())
+
+    assert supervisor.main() == 1
+    assert environments[0].get("GATEWAY_GIT_COMMIT") == expected

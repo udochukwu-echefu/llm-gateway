@@ -41,7 +41,7 @@ jobs:
       GATEWAY_REDIS_URL: redis://127.0.0.1:6379/0
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: admin-console/.nvmrc
           cache: npm
@@ -148,7 +148,7 @@ jobs:
         working-directory: admin-console
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: admin-console/.nvmrc
           cache: npm
@@ -179,7 +179,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.15.0
           cache: npm

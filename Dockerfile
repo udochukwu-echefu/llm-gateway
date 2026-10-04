@@ -4,7 +4,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
 # Dependencies first, so this layer is cached until uv.lock changes.
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock LICENSE ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY README.md ./
 COPY src ./src

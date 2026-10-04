@@ -207,6 +207,7 @@ npm run dev -- --hostname localhost --port 3100
 Use [the console](http://localhost:3100/login) and paste the issued admin key.
 Local Chromium allows Secure cookies on localhost; deployments must use HTTPS.
 `ADMIN_CONSOLE_ORIGIN` must exactly match the browser's origin (scheme, host, port).
+An HTTPS origin sends a one-year HSTS header for that host; HTTP localhost omits it.
 The local and Docker entry points validate before starting Next. Invalid URLs or a
 missing/short secret stop the process before it can print Ready or serve requests. Keep `.env*` untracked;
 do not use any `NEXT_PUBLIC_` setting for these values. Changing the session secret
@@ -334,7 +335,11 @@ skips deny-all confirmation, enables untyped purge and accepts an unknown detect
 each must fail its designated behavior test, then all sources are restored.
 Redis outage behavior is covered at the HTTP/component layers, avoiding stopping the
 shared Redis used by local tests and other development work.
-CI runs formatting, lint, typing, unit/component tests, build and the real-stack Chromium suite.
+CI runs formatting, lint, typing, unit/component tests, build, the real-stack Chromium suite
+and the disposable demo appliance Chromium suite.
+Dependabot checks npm, uv, GitHub Actions and all three Dockerfile directories weekly;
+minor and patch updates are grouped. The Python entry uses `uv` so updates keep
+`uv.lock` in sync with `pyproject.toml`.
 
 ### Live demo
 
@@ -353,6 +358,9 @@ remain usable. No trackers, real customer data or paid model calls are included.
 The portable non-root appliance packages console, gateway and fake provider behind one
 public console port for InstaCloud scale-to-zero. Per-boot viewer/traffic keys stay in
 memory; missing synthetic days are appended on a cold process boot. Run exactly one instance.
+The platform viewer's Settings page shows the deployed Git commit when the owner deploys
+with `deploy/demo/stage.sh`; ordinary local appliance builds show “Not available”. The
+helper writes the commit only into its temporary build context.
 The boot burst is followed by 50–70-second synthetic traffic for at most
 `DEMO_TRAFFIC_WINDOW_S` seconds (positive integer, default `600`), then that child exits
 without restarting. Demo-only reconciliation and empty usage waits are hourly; receipts
@@ -926,6 +934,17 @@ NVIDIA removes the remote queued job without a documented cancellation API.
    [ADR 0010: Redis limits](docs/adr/0010-redis-limits.md),
    [ADR 0011: budgets and failure mode](docs/adr/0011-budgets-and-failure.md).
 - [Security threat model](docs/security/threat-model.md)
+- [Security policy and private vulnerability reporting](SECURITY.md)
+
+## License
+
+This project is [MIT licensed](LICENSE).
+
+### Third-party code
+
+The animation engines in `admin-console/components/search-visuals/` are adapted from
+MIT-licensed thinking-orbs 0.3.2 and voice-glow 0.2.1 by Jakub Antalik. Their
+existing license headers remain in those files.
 
 ## Resilience and approved fallback
 

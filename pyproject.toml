@@ -3,6 +3,8 @@ name = "llm-gateway"
 version = "0.1.0"
 description = "A multi-tenant gateway in front of LLM providers: one API, central auth, limits, cost tracking and failover."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.0",

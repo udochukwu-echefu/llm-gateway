@@ -73,6 +73,13 @@ ratings are qualitative for this early deployment.
 | Tenant secret revealed again | Only first creation response contains secret; dialog state discarded on close/unmount; no reveal control/storage; no-store responses | User must secure their clipboard/secret store; lost first response requires revoke/reissue |
 | Cached authenticated pages | Dynamic rendering, no-store pages/BFF responses, full navigation on authentication changes | Browser/device compromise or screenshots can expose public administrative metadata |
 
+Console proxy response headers include a nonce-based Content-Security-Policy,
+`Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, and
+`Cache-Control: no-store`. When `ADMIN_CONSOLE_ORIGIN` is HTTPS, the proxy also
+sends `Strict-Transport-Security: max-age=31536000` on its responses. It omits
+`includeSubDomains` and `preload` so a future subdomain deployment does not set
+transport policy for the owner's entire domain. HTTP localhost sends no HSTS.
+
 The console's login-failure throttle is per socket-derived client IP, in memory on
 each replica: ten failures in a fixed minute, bounded to 10,000 entries. NAT clients
 share a quota; replicas/restarts do not share or preserve counters. Authenticated

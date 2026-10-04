@@ -5,6 +5,7 @@ import { fetchIdentity } from "./lib/identity";
 import { AdminApiError } from "./lib/admin-client";
 import { isActive, sessionOptions, type SessionData } from "./lib/session-policy";
 export async function proxy(request: NextRequest) {
+  const config = readConfig();
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = createCsp(nonce);
   const headers = new Headers(request.headers);
@@ -13,7 +14,6 @@ export async function proxy(request: NextRequest) {
   headers.set("Content-Security-Policy", policy);
   let response = NextResponse.next({ request: { headers } });
   if (!request.nextUrl.pathname.startsWith("/api/") && request.nextUrl.pathname !== "/login") {
-    const config = readConfig();
     const session = await proxySession(request, response, config.ADMIN_CONSOLE_SESSION_SECRET);
     if (!isActive(session)) {
       response = NextResponse.redirect(new URL("/login", request.url));
@@ -43,6 +43,9 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Cache-Control", "no-store");
+  if (new URL(config.ADMIN_CONSOLE_ORIGIN).protocol === "https:") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000");
+  }
   return response;
 }
 async function proxySession(request: NextRequest, response: NextResponse, password: string) {

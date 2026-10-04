@@ -42,6 +42,10 @@ Completed measurement does not mean every SLO passed.
 See the [report](benchmarks/load-test-report.md) for measured capacity, saturation,
 scaling, guardrails, streaming, accounting, memory and idle-path distributions.
 
+Post-audit polish is on `chore/audit-polish` for review: deployed commit provenance,
+demo appliance CI, HTTPS HSTS, a security policy, grouped dependency updates and
+MIT licensing. It is not yet merged or deployed.
+
 ## Targets (SLOs) we'll load-test against in step 12
 
 - Gateway overhead (time added on top of the provider): under 10 ms at p99, excluding

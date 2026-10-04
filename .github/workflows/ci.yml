@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -84,7 +88,7 @@ jobs:
             -e GATEWAY_DATABASE_URL=postgresql+asyncpg://fake:fake@127.0.0.1:1/fake \
             -e GATEWAY_REDIS_URL=redis://127.0.0.1:1/0 \
             llm-gateway:ci
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/healthz && exit 0
             sleep 1
           done
@@ -169,3 +173,37 @@ jobs:
         run: ./node_modules/.bin/playwright install --with-deps chromium
       - name: Real-stack end-to-end and response no-leak scan
         run: npm run test:e2e
+
+  demo-appliance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: admin-console/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+      - name: Install pinned console dependencies
+        working-directory: admin-console
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: admin-console
+        run: npx playwright install --with-deps chromium
+      - name: Build the revision-labelled appliance
+        run: docker compose -f deploy/demo/compose.yaml --profile demo-test build --build-arg DEMO_SOURCE_REVISION="$(git rev-parse HEAD)" appliance
+      - name: Run demo appliance end-to-end tests
+        working-directory: admin-console
+        run: CONSOLE_TEST_PORT=3300 npm run test:e2e:demo
+      - name: Upload demo Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-appliance-playwright-report
+          path: admin-console/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Tear down demo appliance test profile
+        if: always()
+        run: docker compose -f deploy/demo/compose.yaml --profile demo-test down --volumes --remove-orphans

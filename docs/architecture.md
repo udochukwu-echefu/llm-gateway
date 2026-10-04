@@ -1316,3 +1316,31 @@ The image health check also supplies an explicit dummy 32-byte cache key, becaus
 is enabled by default and startup correctly refuses a missing encryption key. This fake
 test value does not change production validation. CI removes its named smoke container
 after either success or failure.
+
+### Audit polish: identify the code in the deployed demo
+
+The owner deployment helper now puts the checked Git commit into its temporary build
+context. The appliance image copies that file when present, and the supervisor checks
+that it contains a hexadecimal commit ID before passing it to the gateway. Settings
+then shows the ID to platform viewers. A local image without this file reports an
+unknown commit, which avoids claiming it matches a deployment that never happened.
+
+The demo appliance browser suite now has its own CI job. It builds an image labelled
+with the checkout's Git commit, then tests that image with disposable Postgres and
+Redis containers. The label check prevents a passing result from an older image.
+CI uploads the browser report on failure and removes the disposable containers after
+every run. New pushes on the same branch cancel older CI runs so reviewers see the
+latest result.
+
+The console proxy adds HSTS only when its configured public origin uses HTTPS.
+HSTS tells a browser to use HTTPS on later visits for one year. It does not apply
+to HTTP localhost, where a browser has no TLS connection to remember.
+
+Dependabot checks dependency versions every week. It uses the `uv` ecosystem for
+Python because the project installs from `uv.lock`, its record of exact dependency
+versions. Grouping small updates reduces review noise; major updates remain separate
+so a reviewer can inspect larger compatibility changes.
+
+The project and its Python and console package metadata now declare MIT licensing.
+The Python wheel carries the LICENSE file, and the third-party animation source
+retains its own MIT notices so recipients can see both authors' terms.

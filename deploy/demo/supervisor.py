@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import resource
 import signal
 import subprocess
@@ -9,10 +10,13 @@ import sys
 import time
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 
 from deploy.demo.config import INTERNAL_HOST, appliance_environment
 from deploy.demo.output import drain_output
 from deploy.demo.processes import Child, ensure_alive, launch, shutdown, wait_http
+
+BUILD_COMMIT_PATH = Path("/app/build-meta/BUILD_COMMIT")
 
 
 def bootstrap(env: dict[str, str], stage: str, stopped: Callable[[], bool]) -> dict[str, str]:
@@ -60,6 +64,9 @@ def main() -> int:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     try:
         env = appliance_environment()
+        env.pop("GATEWAY_GIT_COMMIT", None)
+        if commit := build_commit(BUILD_COMMIT_PATH):
+            env["GATEWAY_GIT_COMMIT"] = commit
         env["DEMO_BOOT_ID"] = uuid.uuid4().hex
         _start_children(env, children, lambda: stopped)
         print("Demo appliance ready.", flush=True)
@@ -79,6 +86,14 @@ def main() -> int:
         return 1
     finally:
         shutdown(children)
+
+
+def build_commit(path: Path) -> str | None:
+    try:
+        value = path.read_text(encoding="ascii").strip()
+    except (OSError, UnicodeError):
+        return None
+    return value.lower() if re.fullmatch(r"[0-9a-fA-F]{7,40}", value) else None
 
 
 def _wait_boot(process: subprocess.Popen[bytes], stopped: Callable[[], bool]) -> int:

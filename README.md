@@ -931,6 +931,7 @@ NVIDIA removes the remote queued job without a documented cancellation API.
    [ADR 0010: Redis limits](docs/adr/0010-redis-limits.md),
    [ADR 0011: budgets and failure mode](docs/adr/0011-budgets-and-failure.md).
 - [Security threat model](docs/security/threat-model.md)
+- [Security policy and private vulnerability reporting](SECURITY.md)
 
 ## Resilience and approved fallback
 

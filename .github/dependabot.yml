@@ -5,6 +5,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # typescript-eslint supports TypeScript below 6.1; review major releases separately,
+      # especially TypeScript 7's Go rewrite.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # Node types must stay on the same major as admin-console/.nvmrc.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns: ["*"]
@@ -36,6 +44,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Move Node minor and major versions together in a deliberate PR with
+      # .nvmrc, package engines, and every image.
+      - dependency-name: node
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Keep Python at 3.13 until .python-version, pyproject, and images move together.
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns: ["*"]
@@ -46,6 +62,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Move Node minor and major versions together in a deliberate PR with
+      # .nvmrc, package engines, and every image.
+      - dependency-name: node
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Keep Python at 3.13 until .python-version, pyproject, and images move together.
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns: ["*"]
@@ -56,6 +80,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Move Node minor and major versions together in a deliberate PR with
+      # .nvmrc, package engines, and every image.
+      - dependency-name: node
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Keep Python at 3.13 until .python-version, pyproject, and images move together.
+      - dependency-name: python
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       minor-and-patch:
         patterns: ["*"]

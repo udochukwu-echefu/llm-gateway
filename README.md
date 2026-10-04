@@ -322,7 +322,8 @@ cookies/CSRF, revocation, login throttling, policy inheritance, guardrail floors
 concurrent browser editors, typed purge, audit coverage, unsaved edits, empty states and
 Overview API totals/scope. An automatic shared fixture scans every
 observed browser response body and all headers in every test, including both conflict-test
-contexts, and reports the total. Exactly one
+contexts, and reports the total. The demo tour drains pending body captures before each
+navigation; any response whose body cannot be captured still fails the test. Exactly one
 successful tenant-key creation JSON response may contain its newly issued tenant secret;
 all other responses must omit it, and no response may contain an admin credential.
 Break checks deliberately inject an admin key into a client component, remove the Origin

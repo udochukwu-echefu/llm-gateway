@@ -63,6 +63,7 @@ export function profileMenuDemoTests() {
     page,
     context,
     responseBody,
+    scannedResponses,
   }) => {
     await explore(page);
     const cookie = (await context.cookies()).find((c) => c.name === "__Host-lgw-console")!;
@@ -73,12 +74,15 @@ export function profileMenuDemoTests() {
     await open(page);
     await actions(page).getByRole("button", { name: "Dark", exact: true }).click();
     await page.keyboard.press("Escape");
+    await scannedResponses.settle();
     await page.goto("/orgs/Demo%20Co");
     await expect(page.getByRole("heading", { name: "Demo Co", exact: true })).toBeVisible();
+    await page.waitForLoadState("networkidle");
     await page.evaluate(() => {
       (window as Window & { previousScope?: boolean }).previousScope = true;
     });
 
+    await scannedResponses.settle();
     await choose(page, "org", responseBody);
 
     expect(
@@ -89,18 +93,22 @@ export function profileMenuDemoTests() {
     await assertNorthwind(page);
     await assertReadOnly(page);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await scannedResponses.settle();
     await page.reload();
     await assertNorthwind(page);
+    await scannedResponses.settle();
     await page.goBack();
     await assertNorthwind(page);
     await expect(
       page.getByRole("alert").filter({ hasText: "Organization not found" }),
     ).toBeVisible();
     await expect(page.getByRole("cell", { name: "Search", exact: true })).toHaveCount(0);
+    await scannedResponses.settle();
     await page.goto("/settings");
     await expect(page.locator(".settings-panel .identity-name")).toHaveText(
       "Demo visitor · Northwind Health viewer",
     );
+    await scannedResponses.settle();
     await choose(page, "platform", responseBody);
     await expect(
       page
@@ -117,9 +125,11 @@ export function profileMenuDemoTests() {
       "aria-pressed",
       "true",
     );
+    await scannedResponses.settle();
     await actions(page).getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(page).toHaveURL(/\/login$/);
     expect((await context.cookies()).some((c) => c.name === "__Host-lgw-console")).toBe(false);
+    await scannedResponses.settle();
     await page.goBack();
     await expect(page).toHaveURL(/\/login$/);
   });

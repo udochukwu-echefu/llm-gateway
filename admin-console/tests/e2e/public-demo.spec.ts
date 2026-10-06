@@ -2,8 +2,18 @@ import { test, expect, screenshot } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { profileMenuDemoTests } from "./profile-menu-demo";
 
-async function explore(page: Page, scope: "platform" | "org") {
-  await page.goto("/login");
+interface ResponseDrain {
+  settle(): Promise<void>;
+}
+
+async function gotoAfterCapture(page: Page, scanner: ResponseDrain, path: string) {
+  await scanner.settle();
+  await page.goto(path);
+}
+
+async function explore(page: Page, scope: "platform" | "org", scanner: ResponseDrain) {
+  await gotoAfterCapture(page, scanner, "/login");
+  await scanner.settle();
   await page
     .getByRole("button", {
       name:
@@ -21,7 +31,7 @@ async function explore(page: Page, scope: "platform" | "org") {
       }),
   ).toBeVisible();
   await expect(page.locator(".sidebar-footer .identity-name")).toHaveCount(0);
-  await page.goto("/settings");
+  await gotoAfterCapture(page, scanner, "/settings");
   const identityName = page.locator(".settings-panel .identity-name:visible");
   await expect(identityName).toHaveCount(1);
   const friendlyName =
@@ -39,21 +49,24 @@ async function explore(page: Page, scope: "platform" | "org") {
       "Read-only demo. Changes are disabled; this is a live gateway with synthetic data.",
     ),
   ).toBeVisible();
-  await page.goto("/overview");
+  await gotoAfterCapture(page, scanner, "/overview");
   await expect(page.getByRole("heading", { name: "Organisations", exact: true })).toBeVisible();
 }
 for (const scope of ["platform", "org"] as const) {
-  test(`Explore button signs in as ${scope} viewer`, async ({ page }) => {
+  test(`Explore button signs in as ${scope} viewer`, async ({ page, scannedResponses }) => {
     if (scope === "platform") {
-      await page.goto("/login");
+      await gotoAfterCapture(page, scannedResponses, "/login");
       await screenshot(page, "public-demo-login");
     }
-    await explore(page, scope);
+    await explore(page, scope, scannedResponses);
     await screenshot(page, `public-demo-${scope}`);
   });
-  test(`public demo tour visits every screen as ${scope} viewer`, async ({ page }) => {
+  test(`public demo tour visits every screen as ${scope} viewer`, async ({
+    page,
+    scannedResponses,
+  }) => {
     test.setTimeout(240000);
-    await explore(page, scope);
+    await explore(page, scope, scannedResponses);
     const org = scope === "platform" ? "Demo Co" : "Northwind Health";
     const team = scope === "platform" ? "Search" : "Clinical";
     for (const screen of [
@@ -67,7 +80,7 @@ for (const scope of ["platform", "org"] as const) {
       "settings",
       ...(scope === "platform" ? ["providers"] : []),
     ]) {
-      await page.goto(`/${screen}?org=${encodeURIComponent(org)}`);
+      await gotoAfterCapture(page, scannedResponses, `/${screen}?org=${encodeURIComponent(org)}`);
       await page.waitForLoadState("networkidle");
       await expect(page.locator("main .skeleton")).toHaveCount(0);
       await expect(page.locator("main h1")).toBeVisible();
@@ -80,8 +93,9 @@ for (const scope of ["platform", "org"] as const) {
         ["API keys", "Limits", "Budget", "Policies", "Cache"],
       ],
     ] as const) {
-      await page.goto(path);
+      await gotoAfterCapture(page, scannedResponses, path);
       for (const tab of tabs) {
+        await scannedResponses.settle();
         await page.getByRole("button", { name: tab, exact: true }).click();
         await page.waitForLoadState("networkidle");
         await expect(page.locator("main .skeleton")).toHaveCount(0);
@@ -95,7 +109,7 @@ for (const scope of ["platform", "org"] as const) {
           await screenshot(page, "public-demo-read-only-controls");
       }
     }
-    await page.goto(`/requests?org=${encodeURIComponent(org)}`);
+    await gotoAfterCapture(page, scannedResponses, `/requests?org=${encodeURIComponent(org)}`);
     const exported = await page.evaluate(
       async () =>
         (await fetch(`/api/export/requests?${new URLSearchParams(location.search)}`)).status,
@@ -112,8 +126,11 @@ for (const scope of ["platform", "org"] as const) {
     }
   });
 }
-test("public viewer direct BFF mutation attempts return 403", async ({ page }) => {
-  await explore(page, "platform");
+test("public viewer direct BFF mutation attempts return 403", async ({
+  page,
+  scannedResponses,
+}) => {
+  await explore(page, "platform", scannedResponses);
   const results = await page.evaluate(async () =>
     Promise.all(
       [
@@ -133,8 +150,11 @@ test("public viewer direct BFF mutation attempts return 403", async ({ page }) =
   );
   expect(results).toEqual(Array(4).fill({ status: 403, code: "read_only_admin" }));
 });
-test("public demo hides paste-key form and disables key login route", async ({ page }) => {
-  await page.goto("/login");
+test("public demo hides paste-key form and disables key login route", async ({
+  page,
+  scannedResponses,
+}) => {
+  await gotoAfterCapture(page, scannedResponses, "/login");
   await expect(page.getByLabel("Admin API key")).toHaveCount(0);
   const status = await page.evaluate(
     async () => (await fetch("/api/auth/login", { method: "POST", body: "{}" })).status,

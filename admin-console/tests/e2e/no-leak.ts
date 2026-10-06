@@ -53,22 +53,28 @@ export async function responseScanner(page: Page) {
     captures.push(capture);
     return capture;
   });
+  async function settle() {
+    // Drain route fulfillments and redirect body reads before another navigation
+    // can evict a response from Chromium's protocol cache.
+    let completedCaptures = -1,
+      completedBodies = -1;
+    while (completedCaptures !== captures.length || completedBodies !== pending.length) {
+      completedCaptures = captures.length;
+      completedBodies = pending.length;
+      await Promise.all(captures);
+      await Promise.all(pending);
+      await page.evaluate(() => undefined);
+    }
+  }
   return {
     bodyFor(request: Request) {
       return records.get(request)?.body;
     },
+    settle,
     async verify(adminKeys: string[], tenantKeys: string[], permittedKey?: string) {
       // A retained App Router navigation can never become "networkidle" even with no
       // requests in flight. Drain captured bytes and flush response events instead.
-      let completedCaptures = -1,
-        completedBodies = -1;
-      while (completedCaptures !== captures.length || completedBodies !== pending.length) {
-        completedCaptures = captures.length;
-        completedBodies = pending.length;
-        await Promise.all(captures);
-        await Promise.all(pending);
-        await page.evaluate(() => undefined);
-      }
+      await settle();
       expect(failures.length, "Every browser response must be inspected").toBe(0);
       // Captured requests cancelled before a response are also scanned below.
       for (const request of received)

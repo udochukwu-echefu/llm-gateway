@@ -1355,3 +1355,14 @@ in every Docker directory. Those larger runtime upgrades need
 one reviewed change through `.nvmrc`, package engines, `.python-version`, `pyproject.toml`
 and the images. ESLint and Redis majors still arrive as individual proposals because
 they can be evaluated without changing those runtime pins.
+
+### Browser test responses: finish reading before leaving a page
+
+The browser no-leak test reads each response body and its headers to check that keys
+never reach the browser. A redirect can produce a browser response that the test's
+network route cannot capture directly. Chromium may discard that body's temporary
+copy when the tour navigates to another page. The tour now waits for pending captures
+to finish before each navigation and tab change. The persona-switch browser test also
+waits before changing pages and scope, after the org page finishes loading. The final
+scan still fails if any response body cannot be read, so waiting removes a timing race
+without making a missing response acceptable.

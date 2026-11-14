@@ -129,8 +129,11 @@ command is paid-only and is not needed for a default free single-instance servic
 deployment if status shows more than one. Two briefly overlapping rollouts are safe because
 boot revocation touches only appliance keys older than 24 hours, never the new boot's keys.
 
-Each cold process boot waits for dependencies (30 s bound), migrates under a Postgres advisory lock,
-appends only missing synthetic days, starts loopback services, creates boot-ID viewer and
+Each cold process boot waits for dependencies (60 s bound, backing off to 2 s between tries,
+because scale-to-zero Postgres and Redis can be slow to wake; a timeout logs which one),
+migrates under a Postgres advisory lock, appends only missing synthetic days, raises the
+Demo Co / Support budget back to 85% use if the new days passed it (otherwise the synthetic
+traffic is refused as over budget), starts loopback services, creates boot-ID viewer and
 tenant keys through a private memory pipe, checks viewer roles, then starts console and traffic.
 Child stdout/stderr streams through the supervisor line by line with a child-name prefix,
 for example `[gateway]`. Key-shaped strings and credential-bearing Postgres/Redis URLs
